@@ -36,7 +36,42 @@ Effort: small = about a day or less; medium = a few days; large = a week or more
 |---|---|---|---|---|---|
 | 14 | Guess-first introduction; preview only for unseen zones | Yes: zone preview | Indirect (trivia) | Small-med | Small |
 | 18 | Fade zone highlight for mature zones (fading of note-name labels is built, see the algorithm doc) | Yes: highlight | Weak | Small-med | Medium |
-| 19 | Relational, relative-ear and sing-then-play modes; transfer probes | New | Indirect (piano correlational) | High for real playing, unproven | Large |
+| 19 | Relational, relative-ear and sing-then-play modes; transfer probes (relational part built: Intervals tab; ear and singing not planned) | New | Indirect (piano correlational) | High for real playing, unproven | Large |
+
+## Ideas kept for later
+
+Discussed on 2026-11-01 and kept, but not planned for now.
+
+**Ear and reading** (the app stays a fretboard trainer, not an ear-training app):
+- hear a tone, then name it or find it on the neck;
+- hear a reference note, then play an interval above it;
+- sing the note, then play it, with the pitch tracker checking both;
+- read a note from a staff or from tab and play it;
+- short 2–4 note sequences given as names;
+- play the changes of a short progression;
+- a drone or backing chord under a run, with prompts drawn from notes that fit the chord.
+
+**Feedback that sounds like music:**
+- each right answer plays its own note, so a run sounds like playing;
+- right answers build a short tune across the run, finished by a clean run;
+- light feedback when an answer beats your fast end ("fastest G yet");
+- varied wording of feedback;
+- a ghost of your previous times on the same zone, as markers to beat.
+
+**To explain further before deciding:**
+- **Odd one out:** three positions are marked, two carry the same note name (for example G on the low E string fret 3 and G on the D string fret 5) and one does not; you click the odd one. It trains octave and unison shapes without the guitar.
+- **True or false:** a position is marked with a name, right or wrong half the time; you answer yes or no quickly. Very fast checking that suits the phone; weaker than recall, so it would be a warm-up, not the main task.
+- **Blind board:** like a usual run, but the zone is not highlighted: only the note name is shown and any position of that pitch in a wider area counts. It removes the box as a cue once a zone is mastered.
+- **Derive from a landmark:** "From fret 5 on the A string (D), go up a tone": the prompt names a landmark and a step, and you play the result. It practises the counting strategy explicitly, as a bridge for positions not known by heart yet.
+- **G→B shift drill:** prompts that only cross from the G string to the B string (octave and unison shapes that shift by one fret there), so the one irregular string pair gets its own practice.
+
+**Controlling the app from the guitar** (ideas, not built):
+- a muted strum (a burst of noise with no clear pitch) starts the next run or moves on;
+- two quick muted strums stop a run;
+- a natural harmonic at the 12th fret of the low E (a very pure tone) confirms or skips;
+- low open E held for a second opens the next run, high open e repeats the prompt;
+- the volume knob: a swell from silence (onset without a pitch) as "ready".
+The pitch detector already measures loudness and pitch clarity, so a strum (loud, low clarity) and a harmonic (very high clarity) can be told apart from a played note; each would need a short calibration on the user's guitar.
 
 ## Conclusion
 

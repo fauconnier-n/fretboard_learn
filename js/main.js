@@ -7,6 +7,7 @@ import { createDetector, NoteTracker } from './pitch.js';
 import { Scheduler, newModel } from './srs.js';
 import { Fretboard } from './fretboard.js';
 import { Quiz } from './quiz.js';
+import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
 import { renderStats } from './stats.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
@@ -29,6 +30,7 @@ const DEFAULTS = {
   timeoutSec: 10,
   retry: true,
   showQueue: false,
+  beat: false,
   cueMode: 'fade',
   runTask: 'play',
   plan: '',
@@ -70,27 +72,31 @@ function saveSettings() {
   storage.rememberSettings(app.settings);
 }
 
+// kind: 'good' | 'bad' | 'golden' | 'tick' (the beat-mode metronome, which plays even with sound effects off)
 function sound(kind) {
-  if (!app.settings.sound) return;
+  if (!app.settings.sound && kind !== 'tick') return;
   const ctx = (app.sfx ||= app.audio.ctx || new AudioContext());
   const o = ctx.createOscillator();
   const g = ctx.createGain();
   o.type = 'triangle';
-  o.frequency.value = kind === 'good' ? 1320 : 150;
+  o.frequency.value = { good: 1320, golden: 1760, tick: 2400 }[kind] ?? 150;
   o.connect(g);
   g.connect(ctx.destination);
   const t = ctx.currentTime;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.12, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  const len = kind === 'tick' ? 0.03 : kind === 'golden' ? 0.35 : 0.14;
+  g.gain.exponentialRampToValueAtTime(kind === 'tick' ? 0.06 : 0.12, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
   o.start(t);
-  o.stop(t + 0.16);
+  o.stop(t + len + 0.02);
 }
 
 // ---------- board / model ----------
 
 const tuningAttempts = async () =>
-  (await storage.allAttempts()).filter((a) => a.tuning === app.settings.tuning).sort((a, b) => a.t - b.t);
+  (await storage.allAttempts()).filter((a) => a.tuning === app.settings.tuning)
+    .filter((a) => a.task !== 'interval') // the Intervals tab has its own stats, not the note model
+    .sort((a, b) => a.t - b.t);
 
 async function applyBoardSettings() {
   const s = app.settings;
@@ -113,6 +119,9 @@ async function applyBoardSettings() {
   const cfg = { strings: tuning.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats };
   app.board.configure(cfg);
   app.heat.configure(cfg);
+  app.ivBoard.configure(cfg);
+  app.intervals.leave();
+  app.intervals.reset();
   app.quiz.reset();
   app.tuner.setStrings(tuning.strings, s.flats);
   // detector range: a tone below the lowest string up to the top fret
@@ -160,6 +169,7 @@ function processFrame() {
   if (app.view === 'tuner') app.tuner.onFrame(res, rms, now);
   const ev = app.tracker.feed(now, res, rms, s);
   if (ev) app.quiz.onNote(ev);
+  if (ev && app.view === 'intervals') app.intervals.onNote(ev);
 }
 
 // Meter scale: -60 dBFS (empty) to 0 dBFS (full).
@@ -218,6 +228,8 @@ function showView(name) {
     renderTable();
   }
   if (name !== 'practice') app.quiz.leave();
+  if (name === 'intervals') app.intervals.open();
+  else app.intervals.leave();
 }
 
 async function showStats() {
@@ -253,6 +265,7 @@ function updateModeUI() {
   const count = s.runMode === 'count';
   document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === s.runMode));
   document.querySelectorAll('#taskSeg button').forEach((b) => b.classList.toggle('active', b.dataset.task === (s.runTask || 'play')));
+  $('beatBtn').classList.toggle('active', !!s.beat);
   const input = $('runLen');
   Object.assign(input, count ? { min: 1, max: 200, step: 1 } : { min: 10, max: 1200, step: 10 });
   input.value = count ? s.runCount : s.sprintSec;
@@ -568,6 +581,7 @@ async function init() {
       area: $('promptArea'), note: $('promptNote'), sub: $('promptSub'), timer: $('promptTimer'),
       zone: $('zoneLabel'), progress: $('progressLabel'), fill: $('progressFill'),
       feedback: $('feedback'), summary: $('summary'), queue: $('promptQueue'), startBtn: $('startBtn'), showMe: $('showMeBtn'), names: $('nameButtons'),
+      ring: $('accRing'), choices: $('zoneChoices'),
     },
     getSettings: () => app.settings,
     getScheduler: () => app.scheduler,
@@ -584,6 +598,25 @@ async function init() {
     onRunEnd: () => makeBackup('run'),
     sound,
   });
+  app.ivBoard = new Fretboard($('ivBoard'));
+  app.intervals = new IntervalsView({
+    board: app.ivBoard,
+    els: {
+      area: $('ivArea'), title: $('ivTitle'), sub: $('ivSub'), steps: $('ivSteps'), timer: $('ivTimer'),
+      progress: $('ivProgress'), fill: $('ivFill'), feedback: $('ivFeedback'), items: $('ivItems'), startBtn: $('ivStartBtn'),
+    },
+    getSettings: () => app.settings,
+    getStrings: () => app.strings,
+    isActive: () => app.view === 'intervals',
+    loadRows: () => storage.sql(`SELECT "interval", correct, ms FROM attempts WHERE task = 'interval' ORDER BY t`),
+    onAttempt: (a) => storage.addAttempt(a),
+    onRun: async (row) => {
+      await storage.saveRun(row);
+      if (row.ended_at) await storage.flush();
+    },
+    ensureAudio: () => { if (!app.audio.running) connectAudio(); },
+    sound,
+  });
 
   document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => showView(b.dataset.tab)));
   document.querySelectorAll('#modeSeg button').forEach((b) => (b.onclick = () => {
@@ -596,8 +629,14 @@ async function init() {
     app.settings.runTask = b.dataset.task;
     saveSettings();
     updateModeUI();
-    if (app.quiz.state === 'preview') app.quiz.run.task = b.dataset.task;
+    if (app.quiz.state === 'preview') app.quiz.prepare(); // the choice can change the zones offered
   }));
+  $('beatBtn').onclick = () => {
+    if (app.quiz.running) return;
+    app.settings.beat = !app.settings.beat;
+    saveSettings();
+    updateModeUI();
+  };
   $('startBtn').onclick = () => {
     if (!app.audio.running) connectAudio();
     app.quiz.primary();

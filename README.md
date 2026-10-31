@@ -45,7 +45,7 @@ The app also warns when it is opened at a local address other than <http://local
 ## How it works
 
 - **Zones**: 12 cells holding each of the 12 notes exactly once. These are either compact boxes over 3–4 strings or 12 frets on one string. Answers must be the exact pitch, so there is only one right spot.
-- **Runs**: 20 prompts, or a 2-minute sprint. Prompts focus on weaker cells and can repeat.
+- **Runs**: a number of prompts or a sprint; play, name, mixed or mix-ups; optional beat mode whose tempo follows your answers. Pick one of up to three offered zones. Prompts focus on weaker cells and can repeat; a prompts run ends with its hardest note, then a note you know. The board shows your progress live, with fog over locked positions.
 - **Two signals per note and position**, kept apart (see `js/srs.js`):
   - *memory*, from right/wrong only (a wrong answer or a timeout is a miss): stability, difficulty and accuracy;
   - *speed*, from the time of each right first answer: a running average of log answer time, with no buckets. While a position has few answers, its estimate leans on the same note name, then on your overall typical time.
@@ -53,6 +53,7 @@ The app also warns when it is opened at a local address other than <http://local
   Prompts favour positions you are forgetting and positions that are right but slow, or slower than your usual. The answer log keeps every time, including time to the right note and each wrong note, so *Rebuild model from log* can replay it.
 - **Note names on the board**: by default, a name label shows on the zone positions you don't know well yet and is dropped as you answer them right (Settings → Practice). Check-ups never show labels. Each answer logs the labels shown and their distance to the note asked. Details: [docs/learning-algorithm.md](docs/learning-algorithm.md).
 - **Memory model**: each position (string + fret) is an FSRS-style card. There are also per-note stats and a per-position history tagged by zone *shape* (centroid, strings, span, where the cell sits in the shape), so weaknesses carry over to similar zones.
+- **Intervals tab**: a marked root and a question to play: octave shapes first, then intervals, triads and scale degrees, each opening once the earlier ones are known (`js/intervals.js`).
 - **Curriculum**: zones are picked to match a target predicted success, by default 80%, which adapts to your results. It starts on low E / low frets and unlocks material next to what you already know. With 8 or more items due, the run is a review and no new material is offered until the backlog is down.
 
 ## Development

@@ -16,6 +16,7 @@
     <div class="brand"><img src="icons/icon.svg" alt="" width="26" height="26"> Fretboard Trainer</div>
     <nav class="tabs">
       <button data-tab="practice" class="active">Practice</button>
+      <button data-tab="intervals">Intervals</button>
       <button data-tab="tuner">Tuner</button>
       <button data-tab="stats">Stats</button>
       <button data-tab="settings">Settings</button>
@@ -40,16 +41,20 @@
     </div>
     <section id="view-practice" class="view active">
       <div class="practice-bar">
-        <div class="seg" id="taskSeg" title="Play the note shown, or name the position shown">
+        <div class="seg" id="taskSeg" title="Play the note shown, name the position shown, a mix of both, or only notes you have mixed up">
           <button data-task="play">Play the note</button>
           <button data-task="name">Name the note</button>
+          <button data-task="mixed">Mixed</button>
+          <button data-task="confusions">Mix-ups</button>
         </div>
         <div class="seg" id="modeSeg">
           <button data-mode="count">Prompts</button>
           <button data-mode="sprint">Sprint</button>
         </div>
+        <div class="seg"><button id="beatBtn" title="Beat mode: a metronome; prompts land on the beat and the tempo rises with right answers and falls after misses">♩ Beat</button></div>
         <label class="run-len"><input type="number" id="runLen" aria-label="Run length"> <span id="runLenUnit">prompts</span></label>
         <button id="startBtn" class="btn primary">New run ⏎</button>
+        <svg id="accRing" class="acc-ring hidden" viewBox="0 0 36 36" role="img"></svg>
         <div class="run-info"><span id="zoneLabel"></span><span id="progressLabel" class="muted"></span></div>
       </div>
       <div class="progress"><div id="progressFill"></div></div>
@@ -58,6 +63,7 @@
         <div class="prompt-note" id="promptNote">—</div>
         <div class="prompt-queue" id="promptQueue" aria-label="Next notes"></div>
         <div class="prompt-sub" id="promptSub">Press New run to see the next zone.</div>
+        <div class="zone-choices" id="zoneChoices"></div>
         <div class="prompt-timer" id="promptTimer"></div>
         <div class="name-buttons hidden" id="nameButtons"></div>
         <button class="btn small show-me hidden" id="showMeBtn" title="Counts as a miss">Show me (H)</button>
@@ -66,7 +72,30 @@
       <div class="board-wrap"><svg id="board" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
       <div class="feedback" id="feedback" aria-live="polite"></div>
       <div class="summary hidden" id="summary"></div>
-      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp, so Bb is Shift+A). Enter: new run, then start it. Esc stops a run.</p>
+      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp, so Bb is Shift+A). Enter: new run, then start it (1–3 picks one of the offered zones). Esc stops a run.</p>
+    </section>
+
+    <section id="view-intervals" class="view">
+      <div class="practice-bar">
+        <button id="ivStartBtn" class="btn primary">Start ⏎</button>
+        <div class="run-info"><span>Intervals</span><span id="ivProgress" class="muted"></span></div>
+      </div>
+      <div class="progress"><div id="ivFill" class="progress-fill"></div></div>
+
+      <div class="prompt-area" id="ivArea">
+        <div class="prompt-note iv-title" id="ivTitle">Intervals</div>
+        <div class="prompt-sub" id="ivSub">A root is marked on the board; play the note asked. Press Start or Enter.</div>
+        <div class="iv-steps" id="ivSteps"></div>
+        <div class="prompt-timer" id="ivTimer"></div>
+      </div>
+
+      <div class="board-wrap"><svg id="ivBoard" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
+      <div class="feedback" id="ivFeedback" aria-live="polite"></div>
+      <div class="panel iv-panel">
+        <h3>Items <span class="muted small">· easiest first; the next one opens when all open ones are known (80% of recent answers, at least 5)</span></h3>
+        <ul class="chg iv-items" id="ivItems"></ul>
+      </div>
+      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp). Playing the marked root itself is not graded. Enter: start. Esc stops.</p>
     </section>
 
     <section id="view-tuner" class="view">

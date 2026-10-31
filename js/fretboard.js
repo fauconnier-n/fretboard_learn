@@ -149,7 +149,7 @@ export class Fretboard {
     this.mark(s, f, 'reveal', label);
   }
 
-  // fn(s, f) -> null | { fill, stroke, dash, label }
+  // fn(s, f) -> null | { fill, stroke, dash, label } | { fog: true } (a position not unlocked yet)
   setHeat(fn) {
     const h = this.layers.heat;
     h.innerHTML = '';
@@ -157,6 +157,10 @@ export class Fretboard {
       for (let f = 0; f <= this.frets; f++) {
         const v = fn(s, f);
         if (!v) continue;
+        if (v.fog) {
+          el('rect', { ...this.cellRect(s, f), class: 'fb-fog' }, h);
+          continue;
+        }
         const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
         el('circle', { r: 11, class: 'fb-heat', fill: v.fill || 'none', stroke: v.stroke || 'none', 'stroke-width': v.fill && v.stroke ? 2.5 : 1.5, 'stroke-dasharray': v.dash || 'none' }, g);
         if (v.label) el('text', { y: 4, class: 'fb-heat-lbl' }, g).textContent = v.label;

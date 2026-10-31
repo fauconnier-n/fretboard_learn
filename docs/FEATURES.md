@@ -23,19 +23,28 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Runs
 - **New run** shows the zone with its natural notes; **Start run** (Enter or click) begins; **Stop run** (or Esc) ends it.
 - Run length: a number of prompts, or a sprint in seconds.
-- Two tasks: **Play the note** (you play the note named) and **Name the note** (a position is marked and you type or click its name; both spellings of a sharp/flat count).
+- Four run types: **Play the note** (you play the note named), **Name the note** (a position is marked; type its letter or click one of the 12 name buttons; both spellings of a sharp/flat count), **Mixed** (each prompt is play or name at random) and **Mix-ups** (a zone and prompts built from notes you have confused and the notes you played instead).
+- **Zone choice:** before a run, the picked zone plus up to two other, different-looking zones are offered (buttons or keys 1–3).
+- **Beat mode** (♩ Beat): a metronome click, prompts on the beat, a prompt lasts 4 beats; the tempo starts near 2.5× your usual time per prompt, rises 3% after a right answer and falls 7% after a miss. With a sprint it is a sprint whose tempo follows your results.
+- **Boss and closing note:** a prompts run of 6 or more ends with the zone's hardest note, then a note you know well (re-picked if you missed it in the run), so it ends on a success.
+- **Golden prompts:** now and then a note you have been missing, marked gold, with its own effect when right.
 - Prompts mix sharp and flat spellings.
 - **Note names on the board** (Settings → Practice): Fade (default), None, All, Naturals only, Landmark frets only.
   - Fade: a name shows on positions you don't know well yet, goes after a right answer and comes back after a miss.
   - Check-ups and re-tests never show the asked note's name. Name-the-note runs show none.
-- Next-notes queue: the next 4 prompts, shown only if the setting is on (off by default).
+- Next-notes queue: the next 4 prompts, shown only if the setting is on (off by default; play runs only).
+- **During a run:** a live ring of the first-try accuracy, a glow that builds with fast right answers in a row (a miss lets it fade), and the practice board coloured by mastery after every answer, with fog over positions not unlocked yet.
+- After a miss with the play-along setting on, the run moves on by itself after 6 s if you do not play the note.
 - Green flash on a right answer, red at the played position on a wrong one, with the kind of mistake (octave, one or two frets off).
 - **After a miss:** the answer is revealed with a structural hint (nearest landmark, octave shape, B-string shift), optionally played once ungraded, then re-tested 3–8 prompts later.
 - **Answer shown automatically** after about 2.5× your expected time for that note (4–8 s, capped by the "Longest wait" setting). **Show me** (or H) shows it at any time. Both count as a miss.
 - **Check-up prompts:** every 10th prompt is a random position of the zone, with no names shown, as an honest measure.
 - **Before a run:** welcome back after a break, number of fading notes, and your practice plan if you wrote one.
-- **Run summary:** right first time, median vs your usual time, check-up results, how often the answer's own name was showing, a dot plot of answer times on a log scale, faster-than-usual and needs-work lists, notes due tomorrow.
+- **Run summary:** right first time, median vs your usual time, check-up results, how often the answer's own name was showing, a dot plot of answer times on a log scale, faster-than-usual and needs-work lists, notes due tomorrow, three rings per note asked (known, fast, automatic), a near-miss line (one note from perfect, one short of your best on this zone and length, or a new best) and the tempo change in beat mode.
 - Keyboard and click fallback for playing without a guitar.
+
+## Intervals
+- An **Intervals** tab: a root is marked on the board and you play the note asked, from octave shapes (2 and 3 strings away) to intervals above the root, major and minor triads (three notes in order) and major-scale degrees (any octave, no root marked). Items open one by one as you know the earlier ones; a list shows each item as locked, learning (accuracy, answers, median time) or known. Runs use the Practice run length, an 8 s time-out (12 s for triads) that shows the answer, Enter to start, Esc to stop, and the same click and keyboard fallback. Answers are logged with task `interval` and an `interval` column; they do not enter the note model.
 
 ## Learning model
 - FSRS-6 memory card per item (position × spelling, plus "name" cards), with a decay you can fit to your own answers.
@@ -89,6 +98,9 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — Practice: Mixed and Mix-ups runs, zone choice, beat mode with adaptive tempo, boss and closing note, golden prompts, live progress board with fog, accuracy ring, momentum glow, per-note rings, near-miss lines, auto-advance after the play-along. New columns: `attempts.special`, `attempts.bpm`, `runs.focus`, `runs.bpm_start`, `runs.bpm_end`. The `data` folder is no longer tracked by git.
+- **2026-11-01** — Intervals tab: octave shapes, intervals, triads and scale degrees, unlocked easiest first. New `interval` column in the answers table.
 
 - **2026-10-31** — Cue-reliance estimate in the model check. This file added.
 - **2026-10-30** — Note names on the board, with per-note fading, cue levels and cue logging (labels, distances). Check-ups are always unlabelled.
