@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fretboard Trainer</title>
+  <meta name="description" content="Learn the guitar fretboard by playing: real-time pitch detection and spaced repetition.">
+  <meta name="theme-color" content="#121418">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="icons/icon.svg" alt="" width="26" height="26"> Fretboard Trainer</div>
+    <nav class="tabs">
+      <button data-tab="practice" class="active">Practice</button>
+      <button data-tab="tuner">Tuner</button>
+      <button data-tab="stats">Stats</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+    <div class="user-switch" title="Each user has its own database. Use &quot;test&quot; for trying things out.">
+      <span class="test-pill">TEST DATA</span>
+      <select id="userSelect" aria-label="User"></select>
+      <span id="dbBadge" class="db-badge"></span>
+    </div>
+  </header>
+
+  <main>
+    <div id="loading" class="loading">Loading database…</div>
+    <div id="restoreBanner" class="banner hidden">
+      <span></span>
+      <button class="btn small primary" data-restore="">Restore backup</button>
+      <button class="btn small" id="dismissRestore">Dismiss</button>
+    </div>
+    <div id="addressBanner" class="banner hidden">
+      <span></span>
+      <a class="btn small primary" href="http://localhost:8137/">Open the usual address</a>
+    </div>
+    <section id="view-practice" class="view active">
+      <div class="practice-bar">
+        <div class="seg" id="taskSeg" title="Play the note shown, or name the position shown">
+          <button data-task="play">Play the note</button>
+          <button data-task="name">Name the note</button>
+        </div>
+        <div class="seg" id="modeSeg">
+          <button data-mode="count">Prompts</button>
+          <button data-mode="sprint">Sprint</button>
+        </div>
+        <label class="run-len"><input type="number" id="runLen" aria-label="Run length"> <span id="runLenUnit">prompts</span></label>
+        <button id="startBtn" class="btn primary">New run ⏎</button>
+        <div class="run-info"><span id="zoneLabel"></span><span id="progressLabel" class="muted"></span></div>
+      </div>
+      <div class="progress"><div id="progressFill"></div></div>
+
+      <div class="prompt-area" id="promptArea">
+        <div class="prompt-note" id="promptNote">—</div>
+        <div class="prompt-queue" id="promptQueue" aria-label="Next notes"></div>
+        <div class="prompt-sub" id="promptSub">Press New run to see the next zone.</div>
+        <div class="prompt-timer" id="promptTimer"></div>
+        <div class="name-buttons hidden" id="nameButtons"></div>
+        <button class="btn small show-me hidden" id="showMeBtn" title="Counts as a miss">Show me (H)</button>
+      </div>
+
+      <div class="board-wrap"><svg id="board" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+      <div class="summary hidden" id="summary"></div>
+      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp, so Bb is Shift+A). Enter: new run, then start it. Esc stops a run.</p>
+    </section>
+
+    <section id="view-tuner" class="view">
+      <div class="tuner idle">
+        <div class="tuner-note"><span id="tNote">—</span><sub id="tOct"></sub></div>
+        <svg id="tGauge" class="tuner-gauge" viewBox="0 0 300 175"></svg>
+        <div class="tuner-readout"><span id="tCents"></span><span id="tHz">— Hz</span></div>
+        <div class="strobe" id="tStrobe"></div>
+        <div class="tuner-strings" id="tStrings"></div>
+        <p class="muted">Uses the same input, channel, gain and noise gate as the quiz. If the tuner reads your notes cleanly, the quiz will too.</p>
+      </div>
+    </section>
+
+    <section id="view-stats" class="view">
+      <div class="stat-cards" id="statCards"></div>
+      <h3>Mastery map</h3>
+      <div class="board-wrap"><svg id="heatBoard" class="fretboard heat" role="img" aria-label="Mastery heatmap"></svg></div>
+      <div class="legend">
+        <span><i style="background:hsl(0 70% 45%)"></i>weak</span>
+        <span><i style="background:hsl(60 70% 45%)"></i>getting there</span>
+        <span><i style="background:hsl(120 70% 45%)"></i>mastered</span>
+        <span><i class="dashed"></i>unlocked, not played yet</span>
+        <span><i class="ring-mastered"></i>mastered (right and fast on 2+ days)</span>
+        <span><i class="ring-fading"></i>fading: due for review</span>
+      </div>
+      <div class="stats-cols">
+        <div class="panel"><h3>Notes</h3><div id="noteBars"></div></div>
+        <div class="panel"><h3>Weakest positions</h3><ol id="weakCells"></ol></div>
+        <div class="panel"><h3>Slowest positions</h3><ol id="slowCells"></ol></div>
+        <div class="panel"><h3>Hardest unlocked zones</h3><ol id="weakZones"></ol></div>
+        <div class="panel"><h3>Recent runs</h3><ol id="recentRuns"></ol></div>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <div class="settings-grid">
+        <fieldset class="panel">
+          <legend>Audio input</legend>
+          <div class="audio-status">
+            <span id="audioLabel" class="muted">No input</span>
+            <button id="connectBtn" class="btn small">Connect input</button>
+          </div>
+          <label>Device
+            <span class="row">
+              <select id="deviceSelect" data-setting="deviceId"></select>
+              <span class="meter" title="Input level. The line marks the noise gate: notes below it are ignored.">
+                <span class="meter-fill gated" id="meterFill"></span><i class="meter-gate" id="meterGate"></i>
+              </span>
+              <output id="meterDb" class="meter-db">—</output>
+            </span>
+          </label>
+          <label>Input channel <select id="channelSelect" data-setting="channel" data-type="int"></select></label>
+          <div class="channel-levels" id="channelLevels"></div>
+          <label>Input gain <span class="row"><input type="range" min="0.25" max="16" step="0.25" data-setting="gain" data-type="float"><output></output></span></label>
+          <label>Noise gate <span class="row"><input type="range" min="0.001" max="0.1" step="0.001" data-setting="gate" data-type="float"><output></output></span></label>
+          <label>Min. pitch clarity <span class="row"><input type="range" min="0.7" max="0.98" step="0.01" data-setting="clarity" data-type="float"><output></output></span></label>
+          <label>Latency offset (ms) <input type="number" min="0" max="400" step="5" data-setting="latencyMs" data-type="int"></label>
+          <label>A4 reference (Hz) <input type="number" min="415" max="466" step="0.5" data-setting="a4" data-type="float"></label>
+          <p class="muted small">The latency offset is subtracted from every answer time to make up for detection delay.</p>
+        </fieldset>
+
+        <fieldset class="panel">
+          <legend>Fretboard</legend>
+          <label>Tuning
+            <select data-setting="tuning">
+              <option value="standard">Standard (E A D G B E)</option>
+              <option value="dropD">Drop D (D A D G B E)</option>
+              <option value="eb">Eb standard</option>
+              <option value="seven">7-string (B E A D G B E)</option>
+            </select>
+          </label>
+          <label>Frets <input type="number" min="12" max="24" step="1" data-setting="frets" data-type="int"></label>
+          <label class="check"><input type="checkbox" data-setting="leftHanded"> Left-handed view</label>
+          <p class="muted small">Sharp/flat notes are asked randomly as either name (A# or Bb), and each name is learnt separately. Progress is stored per tuning.</p>
+        </fieldset>
+
+        <fieldset class="panel">
+          <legend>Practice</legend>
+          <label>Zone shapes
+            <select data-setting="zoneTypes">
+              <option value="both">Boxes and single strings</option>
+              <option value="box">Boxes only</option>
+              <option value="string">Single strings only</option>
+            </select>
+          </label>
+          <label>Longest wait before the answer is shown (s) <input type="number" min="3" max="30" step="1" data-setting="timeoutSec" data-type="int"></label>
+          <p class="muted small">The answer is shown after about 2.5× your usual time for that note (4–8 s), or after this limit if it is shorter. Showing it counts as a miss.</p>
+          <label class="check"><input type="checkbox" data-setting="retry"> After a miss, play the note once where it is shown (not graded). It is asked again a few prompts later either way.</label>
+          <label>My practice plan <input type="text" maxlength="120" data-setting="plan" placeholder="e.g. After dinner, two short runs"></label>
+          <p class="muted small">Optional. A concrete "when, where, what" plan is shown before each run; plans like this make people more likely to follow through.</p>
+          <label>Note names on the board during a run
+            <select data-setting="cueMode">
+              <option value="fade">Fade: names only on notes I don't know well yet</option>
+              <option value="off">None</option>
+              <option value="all">All notes of the zone</option>
+              <option value="naturals">Natural notes only</option>
+              <option value="landmarks">Landmark frets only (0, 3, 5, 7, 9, 12…)</option>
+            </select>
+          </label>
+          <p class="muted small">Fade shows a name where you are still unsure, drops it once you answer that note right, and brings it back after a miss. A right answer with its own name showing counts only as Hard and its time is not used for speed. Check-up prompts (every 10th) and re-tests never show the asked note's name, and "Name the note" runs show none.</p>
+          <label class="check"><input type="checkbox" data-setting="showQueue"> Show the next notes in advance (makes recall easier, so those answer times are not used for speed)</label>
+          <label class="check"><input type="checkbox" data-setting="sound"> Sound effects</label>
+        </fieldset>
+
+        <fieldset class="panel">
+          <legend>Data</legend>
+          <p class="muted small">Everything is kept in this browser, in a DuckDB database per user, and copied to files on this computer by the local server (the <code>data</code> folder next to the app). If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it to another device.</p>
+          <p class="small" id="dbInfo"></p>
+          <div class="btn-row">
+            <button class="btn" id="exportBtn">Export JSON</button>
+            <label class="btn file">Import JSON<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+            <button class="btn" id="rebuildBtn">Rebuild model from log</button>
+            <button class="btn" id="selfTestBtn">Zone self-test</button>
+            <button class="btn danger" id="resetBtn">Reset this user's data</button>
+          </div>
+          <pre id="dataOut" class="out"></pre>
+          <h4 class="backups-head">Model check <button class="btn small" id="checkModelBtn">Check the model</button></h4>
+          <p class="muted small">Compares the predictions logged before each answer with what happened, and fits how fast you forget to your own answers.</p>
+          <div id="modelCheck"></div>
+          <h4 class="backups-head">Automatic backups <button class="btn small" id="backupNowBtn">Back up now</button></h4>
+          <p class="muted small">Made after every run and kept separately from the database (last 10, plus the largest one).</p>
+          <ul class="backup-list" id="backupList"></ul>
+        </fieldset>
+
+        <fieldset class="panel tables-panel">
+          <legend>Database tables</legend>
+          <div class="tables-bar">
+            <div class="seg" id="tableSeg">
+              <button data-table="attempts" class="active">Answers</button>
+              <button data-table="runs">Runs</button>
+            </div>
+            <span class="muted small" id="tableInfo"></span>
+            <button class="btn small" id="tableRefresh">Refresh</button>
+          </div>
+          <p class="muted small" id="tableAbout"></p>
+          <div class="table-scroll"><table class="data-table" id="tableData"></table></div>
+          <h4 class="cols-head">Columns</h4>
+          <div class="table-scroll"><table class="doc-table" id="tableDocs"></table></div>
+        </fieldset>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

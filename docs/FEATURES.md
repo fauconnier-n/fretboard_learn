@@ -1,0 +1,95 @@
+# Features
+
+Everything the app does today, grouped by area. Keep this file up to date: add a line whenever a feature is added, changed or removed, and a dated entry under [Changes](#changes). Why each learning feature works the way it does: [learning-algorithm.md](learning-algorithm.md). Ideas not built yet: [the report](../reports/Fretboard%20learning%20science%20ideas.md).
+
+## Running the app
+- Static PWA with no build step, ES modules only. It installs from Chrome or Edge and works offline (service worker, network first, cache as fallback).
+- `start.bat` starts `serve.ps1`, a small PowerShell server on <http://localhost:8137>, and opens the browser. If the server is already running, it just opens the browser.
+- The server keeps running through browser-cancelled requests and restarts its listener after any error.
+- At any other local address (another port), a banner links back to the usual one, since each address has its own, separate storage.
+- Local only, with no login.
+
+## Audio input and pitch
+- A single audio-input control, in Settings: device, input channel (for interfaces with several inputs), gain, noise gate, pitch clarity, latency offset, A4 reference.
+- An input meter with per-channel levels and a marker for the noise gate, to test the chosen input.
+- Pitch detection with the McLeod Pitch Method, plus a stabiliser so a ringing note counts once.
+- A Tuner tab: note, cents needle, frequency and the string targets of the current tuning.
+
+## Board and zones
+- Tunings: standard, Drop D, Eb, 7-string. 12–24 frets. Left-handed view.
+- SVG fretboard with inlays and fret numbers. No string names.
+- Zones of 12 cells holding each of the 12 notes once: boxes over several strings and/or 12 frets on one string. Answers must be the exact pitch.
+
+## Runs
+- **New run** shows the zone with its natural notes; **Start run** (Enter or click) begins; **Stop run** (or Esc) ends it.
+- Run length: a number of prompts, or a sprint in seconds.
+- Two tasks: **Play the note** (you play the note named) and **Name the note** (a position is marked and you type or click its name; both spellings of a sharp/flat count).
+- Prompts mix sharp and flat spellings.
+- **Note names on the board** (Settings → Practice): Fade (default), None, All, Naturals only, Landmark frets only.
+  - Fade: a name shows on positions you don't know well yet, goes after a right answer and comes back after a miss.
+  - Check-ups and re-tests never show the asked note's name. Name-the-note runs show none.
+- Next-notes queue: the next 4 prompts, shown only if the setting is on (off by default).
+- Green flash on a right answer, red at the played position on a wrong one, with the kind of mistake (octave, one or two frets off).
+- **After a miss:** the answer is revealed with a structural hint (nearest landmark, octave shape, B-string shift), optionally played once ungraded, then re-tested 3–8 prompts later.
+- **Answer shown automatically** after about 2.5× your expected time for that note (4–8 s, capped by the "Longest wait" setting). **Show me** (or H) shows it at any time. Both count as a miss.
+- **Check-up prompts:** every 10th prompt is a random position of the zone, with no names shown, as an honest measure.
+- **Before a run:** welcome back after a break, number of fading notes, and your practice plan if you wrote one.
+- **Run summary:** right first time, median vs your usual time, check-up results, how often the answer's own name was showing, a dot plot of answer times on a log scale, faster-than-usual and needs-work lists, notes due tomorrow.
+- Keyboard and click fallback for playing without a guitar.
+
+## Learning model
+- FSRS-6 memory card per item (position × spelling, plus "name" cards), with a decay you can fit to your own answers.
+- Grades 1–4 from right/wrong plus answer time compared with your expected time for that item. A first sighting is capped at Good.
+- Speed model separate from memory: a running mean and spread of log answer time for each item, the same note name, and overall. "Fast" is measured against your own fast end.
+- Answer times are not used for speed when the queue was visible or the note's own name was showing.
+- Shared factors (string, fret region, natural/sharp/flat, spelling) estimate positions you haven't played much.
+- Curriculum:
+  - low E first, then A; high e mirrors low E;
+  - octave-shape priors for new positions;
+  - landmark frets and naturals first on a new string;
+  - new zones unlock next to what you know.
+- Zone choice aims at a target success rate of 75–85%, with a separate speed pressure. Once 8 or more notes are due, the run becomes a review of known zones.
+- Within a run: weak and slow items come up more, notes you confuse are paired, re-tests come after misses, with guards against repeats.
+- Mastered = right and fast on 2 or more days. Notes are due when their memory falls below 85%.
+- Cued answers: with the asked note's own name showing, at most Hard; with other names showing, at most Good.
+- The model rebuilds from the answer log when its format changes or when answers come back from the disk copy.
+
+## Stats
+- Heatmap of the neck by mastery, with rings for mastered (white) and fading (orange, dashed) positions.
+- Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
+- Slowest positions, marked erratic or steady, and per-note figures.
+
+## Model check (Settings → Data)
+- Log loss against a constant guess, AUC, results split by time since the item was last asked, and calibration.
+- Decay fit with a button to apply it and rebuild (or go back to the default).
+- **Reliance on note names:** results by what the board showed, and a fitted odds multiplier for the asked note's own name and for nearby names.
+
+## Data and storage
+- Users: `user` for real progress, `test` for trying things (shown with a TEST DATA badge). More can be added.
+- DuckDB-WASM (core v2.0.0-dev) with one file per user in the browser's private file system (OPFS). The worker is patched so a checkpoint really reaches the disk. Data is flushed after writes, at the end of each run, and when the page is hidden or closed.
+- Tables: `kv` (settings and models), `attempts` (one row per prompt), `runs` (one row per run).
+- `attempts` logs:
+  - time to answer, time to the right note, each wrong note and when it was played;
+  - the previous prompt;
+  - predictions made before the answer;
+  - error type, check-up, re-test and queue flags;
+  - the names on the board and their distances.
+- **IndexedDB safety copy** of every write. On start, the DuckDB file is repaired from it.
+- **Disk copy** through the local server in `data\<user>\` (`attempts.jsonl`, `runs.jsonl`, `kv.json`).
+  - On start, data missing on either side is copied across, so a wiped browser refills itself.
+  - Saves wait and retry while the server is down.
+- Automatic backups after each run (newest 10 plus the largest), restore from Settings, JSON export and import, reset.
+- Settings → Database tables shows the newest rows of each table, with a description of every column.
+- Storage persistence is requested. A header badge shows saved / saved in browser only / NOT SAVED.
+
+## Docs
+- [README.md](../README.md): running, storage, how it works.
+- [learning-algorithm.md](learning-algorithm.md): the model and the reasons for each part.
+- [reports/Fretboard learning science ideas.md](../reports/Fretboard%20learning%20science%20ideas.md): research and ideas not built yet.
+
+## Changes
+Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-10-31** — Cue-reliance estimate in the model check. This file added.
+- **2026-10-30** — Note names on the board, with per-note fading, cue levels and cue logging (labels, distances). Check-ups are always unlabelled.
+- **2026-10-30** — Disk copy of all data through the local server; server no longer stops on cancelled requests; warning at other local addresses.

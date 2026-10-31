@@ -1,0 +1,13 @@
+{
+  "name": "Fretboard Trainer",
+  "short_name": "Fretboard",
+  "description": "Learn the guitar fretboard by playing, with spaced repetition.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#121418",
+  "theme_color": "#121418",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
