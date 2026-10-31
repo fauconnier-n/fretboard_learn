@@ -118,6 +118,8 @@ try {
       continue;
     }
     if (st.shot === false) continue;
+    // a full-page shot starts at the top, or the sticky header lands in the middle of it
+    if (st.full) await evaluate('window.scrollTo(0, 0)');
     await sleep(400);
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: !!st.full });
     writeFileSync(join(out, st.name + '.png'), Buffer.from(shot.data, 'base64'));

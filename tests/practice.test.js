@@ -47,19 +47,19 @@ test('note rings: empty for an unseen note, full for a known fast mastered one',
   for (const v of Object.values(r)) assert.ok(v >= 0 && v <= 1);
 });
 
-test('confusion boxes: shown after repeated neighbour mistakes, gone once answered right', async () => {
-  const { confusionPairs } = await import('../js/stats.js');
-  let t = 0;
-  // F (low E, fret 1) answered with F# (fret 2)
-  const miss = () => ({ t: t++, s: 0, f: 1, target: 41, played: 42, correct: false });
-  const right = () => ({ t: t++, s: 0, f: 1, target: 41, played: 41, correct: true });
-  assert.equal(confusionPairs([miss(), miss()], 15).length, 0, 'one or two slips do not show');
-  const three = [miss(), miss(), miss()];
-  const shown = confusionPairs(three, 15);
-  assert.equal(shown.length, 1);
-  assert.deepEqual([shown[0].s, shown[0].f, shown[0].g], [0, 1, 2]);
-  assert.equal(confusionPairs([...three, right()], 15).length, 0, 'a right answer halves it: 1.5 < 2');
-  assert.equal(confusionPairs([miss(), miss(), miss(), miss(), miss()], 15)[0].strong, true);
-  // a far wrong note is not a neighbour confusion
-  assert.equal(confusionPairs([1, 2, 3].map(() => ({ s: 0, f: 1, target: 41, played: 47, correct: false })), 15).length, 0);
+
+test('knowledge map: note names, and clouds bigger and denser with more questions', async () => {
+  const { mapCell } = await import('../js/stats.js');
+  const sch = new Scheduler(newModel(), strings, 15);
+  const cell = lowE.cells.find((c) => c.f === 5);
+  const desc = { type: 'string', sk: '0', cs: 0, cf: 5.5, span: 12 };
+  sch.record(desc, cell, 'n', true, 900, Date.now());
+  const once = mapCell(sch, sch.snapshot(), 0, 5, false);
+  for (let i = 0; i < 20; i++) sch.record(desc, cell, 'n', true, 900, Date.now());
+  const often = mapCell(sch, sch.snapshot(), 0, 5, false);
+  assert.equal(once.label, 'A');
+  assert.ok(often.opacity > once.opacity && often.cloud.w > once.cloud.w);
+  assert.ok(often.cloud.w - once.cloud.w > often.cloud.h - once.cloud.h, 'grows mostly along the string');
+  const unplayed = mapCell(sch, sch.snapshot(), 0, 1, true);
+  assert.deepEqual([unplayed.label, unplayed.faint], ['F', true]);
 });

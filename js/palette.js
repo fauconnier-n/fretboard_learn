@@ -10,7 +10,6 @@ export const PALETTE = {
   red: '#e5252f', // wrong answers, boss, test data
   blue: '#14a0c4', // information, fading, "fast"
   yellow: '#f5cb2a', // highlight: zone, cues, golden
-  orange: '#ed7a2c', // between red and yellow: confusion boxes
   ink: '#3f3c37', // text and outlines
   beige: '#f9f6ed', // secondary backgrounds, the neck
   muted: '#77716a',
@@ -29,8 +28,5 @@ function blend(stops, m) {
   return '#' + a.map((v, k) => Math.round(v + (b[k] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 
-/** Mastery 0–1 from red (weak) through yellow to green (mastered): note bars, practice board. @param {number} m */
+/** Mastery 0–1 from red (weak) through orange and yellow to green (mastered): note bars and knowledge maps. @param {number} m */
 export const masteryColor = (m) => blend([PALETTE.red, PALETTE.yellow, PALETTE.green], m);
-
-/** Mastery 0–1 from yellow (just started) to green (mastered): the clouds of the Stats map. @param {number} m */
-export const growthColor = (m) => blend([PALETTE.yellow, PALETTE.green], m);

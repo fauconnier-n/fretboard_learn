@@ -1,51 +1,33 @@
 // @ts-check
 // Stats tab: mastery heatmap, level, per-note bars, weakest positions and zones.
 
-import { spellingsOf, spellName, stringName } from './music.js';
+import { noteName, pcOf, spellingsOf, spellName, stringName } from './music.js';
 import { zoneLabel } from './zones.js';
 import { retrievability } from './srs.js';
-import { PALETTE, growthColor, masteryColor } from './palette.js';
+import { PALETTE, masteryColor } from './palette.js';
 
 const pct = (x) => Math.round(x * 100) + '%';
 const secs = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(2) + ' s');
 
-// Confusion between neighbours: the note asked was answered with a note one or two frets
-// away on the same string. Each such answer adds 1 to the pair; each right answer on the
-// asked position halves it, so the confusion fades as you get it right. A pair is shown once
-// it has at least CONF_MIN_COUNT such answers and its score is still CONF_SHOW or more, so
-// one or two slips never show. attempts: in time order, string numbers of this instrument.
-const CONF_MIN_COUNT = 3;
-const CONF_SHOW = 2;
-const CONF_FADE = 0.5;
-const CONF_STRONG = 4; // from this score the box is red, below it orange
-export function confusionPairs(attempts, frets) {
-  const pairs = new Map();
-  const byCell = new Map();
-  for (const a of attempts) {
-    if (a.s == null || a.f == null) continue;
-    const cell = a.s + ':' + a.f;
-    if (a.correct) {
-      for (const p of byCell.get(cell) || []) p.score *= CONF_FADE;
-      continue;
-    }
-    const d = a.played == null ? 0 : a.played - a.target;
-    const g = a.f + d;
-    if (!(Math.abs(d) === 1 || Math.abs(d) === 2) || g < 0 || g > frets) continue;
-    let p = pairs.get(cell + '>' + g);
-    if (!p) {
-      p = { s: a.s, f: a.f, g, target: a.target, played: a.played, score: 0, count: 0 };
-      pairs.set(cell + '>' + g, p);
-      if (!byCell.has(cell)) byCell.set(cell, []);
-      byCell.get(cell).push(p);
-    }
-    p.score += 1;
-    p.count++;
+// One position on a knowledge map (the Stats page, and the practice board between runs):
+// a soft cloud coloured by mastery, red → orange → yellow → green like the note bars, bigger
+// (mostly along the string) and denser the more often it was asked, with its note name; a
+// dashed ring and a pale name when unlocked but not played yet; nothing when still locked.
+export function mapCell(scheduler, snap, s, f, flats) {
+  const midi = scheduler.strings[s] + f;
+  const label = noteName(midi, flats);
+  const m = snap.mastery.get(s + ':' + f);
+  if (m !== undefined) {
+    const key = s + ':' + f;
+    const asked = spellingsOf(pcOf(midi)).reduce((t, sp) => t + (scheduler.model.cards[sp === 'n' ? key : key + ':' + sp]?.seen || 0), 0);
+    const t = Math.min(1, Math.log2(1 + asked) / Math.log2(41)); // 40 questions or more: full size
+    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t }, fill: masteryColor(m), opacity: 0.22 + 0.78 * t, label };
   }
-  return [...pairs.values()].filter((p) => p.count >= CONF_MIN_COUNT && p.score >= CONF_SHOW)
-    .map((p) => ({ ...p, strong: p.score >= CONF_STRONG }));
+  if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true };
+  return null;
 }
 
-export function renderStats({ els, scheduler, zones, strings, frets, flats, heat, attemptCount, confusions = [], extraCards = [] }) {
+export function renderStats({ els, scheduler, zones, strings, frets, flats, heat, attemptCount, extraCards = [] }) {
   const now = Date.now();
   const snap = scheduler.snapshot(now);
   const model = scheduler.model;
@@ -69,24 +51,9 @@ export function renderStats({ els, scheduler, zones, strings, frets, flats, heat
       const done = scheduler.positionMastered(cell, now);
       if (done) mastered++;
       if (fade) fading++;
-      // a cloud: colour = mastery (yellow → green), width along the string = how often it was
-      // asked, density = how fresh it is in memory (fading positions turn pale)
-      const asked = keys.reduce((t, k) => t + (model.cards[k]?.seen || 0), 0);
-      const size = Math.min(1, Math.log2(1 + asked) / Math.log2(31));
-      const played = keys.filter((k) => model.cards[k]);
-      const fresh = played.reduce((t, k) => t + retrievability(model.cards[k], now), 0) / played.length;
-      return { cloud: { w: 0.45 + 0.75 * size, h: 0.42 + 0.22 * size }, fill: growthColor(m), opacity: 0.3 + 0.65 * fresh };
-    }
-    if (scheduler.isReachable(s, f, snap)) {
-      reachable++;
-      return { stroke: PALETTE.steel, dash: '3 3' };
-    }
-    return null;
+    } else if (scheduler.isReachable(s, f, snap)) reachable++;
+    return mapCell(scheduler, snap, s, f, flats);
   });
-  heat.setBoxes(confusions.map((p) => ({
-    s: p.s, f1: p.f, f2: p.g, cls: p.strong ? 'strong' : '',
-    title: `Confusion: ${spellName(p.target, 's')} asked, ${spellName(p.played, 's')} played ${p.count} times`,
-  })));
 
   const cards = [
     ['Positions practised', `${seen} / ${total}`],

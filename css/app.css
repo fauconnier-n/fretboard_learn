@@ -10,7 +10,6 @@
   --red: #e5252f;
   --blue: #14a0c4;
   --yellow: #f5cb2a;
-  --orange: #ed7a2c; /* between the poster red and yellow: confusion boxes */
   --ink: #3f3c37;
   --beige: #f9f6ed;
   --neck: var(--beige); /* the fretboard: a beige neck drawn like a chord diagram */
@@ -183,11 +182,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-mark .ripple { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ripple .7s ease-out forwards; }
 .fb-mark.good .ripple { stroke: var(--green); }
 .fb-mark.bad .ripple { stroke: var(--red); }
-/* confusion between neighbouring notes: orange, red when it is strong */
-.fb-box { fill: rgba(237, 122, 44, .1); stroke: var(--orange); stroke-width: 2.5; }
-.fb-box.strong { fill: rgba(229, 37, 47, .12); stroke: var(--red); stroke-width: 3; }
-.fb-boxes { pointer-events: auto; }
-.fb-heat-lbl { font-size: 10px; text-anchor: middle; fill: var(--ink); font-weight: 700; }
+.fb-heat-lbl { font-size: 10px; text-anchor: middle; fill: var(--ink); font-weight: 800; }
+.fb-heat-lbl.faint { fill: var(--steel); font-weight: 600; }
+.summary { margin: 0 0 16px; }
 @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 @keyframes ripple { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
 @keyframes pulse { 50% { opacity: .4; } }
@@ -274,10 +271,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .legend i.lv-weak { background: var(--red); }
 .legend i.lv-mid { background: var(--yellow); }
 .legend i.lv-done { background: var(--green); }
-.legend i.cloud { width: 26px; border-radius: 50%; filter: blur(1.5px); background: linear-gradient(90deg, var(--yellow), var(--green)); }
-.legend i.cloud-small { width: 12px; background: var(--green); filter: blur(1.5px); }
-.legend i.cloud-pale { width: 20px; background: var(--green); opacity: .3; filter: blur(1.5px); }
-.legend i.box { width: 22px; height: 12px; border-radius: 5px; border: 2px solid var(--orange); background: rgba(237, 122, 44, .1); }
+.legend i.cloud { width: 34px; height: 13px; border-radius: 50%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
+.legend i.cloud-small { width: 13px; height: 11px; background: radial-gradient(var(--green) 30%, transparent 72%); opacity: .35; }
+.legend i.cloud-big { width: 24px; height: 14px; background: radial-gradient(var(--green) 40%, transparent 72%); }
 .show-me { margin-top: 6px; }
 .name-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
 .name-buttons .btn { min-width: 58px; }
