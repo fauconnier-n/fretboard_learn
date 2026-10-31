@@ -37,6 +37,9 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Run summary:** right first time, median vs your usual time, check-up results, how often the answer's own name was showing, a dot plot of answer times on a log scale, faster-than-usual and needs-work lists, notes due tomorrow.
 - Keyboard and click fallback for playing without a guitar.
 
+## Intervals
+- An **Intervals** tab: a root is marked on the board and you play the note asked, from octave shapes (2 and 3 strings away) to intervals above the root, major and minor triads (three notes in order) and major-scale degrees (any octave, no root marked). Items open one by one as you know the earlier ones; a list shows each item as locked, learning (accuracy, answers, median time) or known. Runs use the Practice run length, an 8 s time-out (12 s for triads) that shows the answer, Enter to start, Esc to stop, and the same click and keyboard fallback. Answers are logged with task `interval` and an `interval` column; they do not enter the note model.
+
 ## Learning model
 - FSRS-6 memory card per item (position × spelling, plus "name" cards), with a decay you can fit to your own answers.
 - Grades 1–4 from right/wrong plus answer time compared with your expected time for that item. A first sighting is capped at Good.
@@ -89,6 +92,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — Intervals tab: octave shapes, intervals, triads and scale degrees, unlocked easiest first. New `interval` column in the answers table.
 
 - **2026-10-31** — Cue-reliance estimate in the model check. This file added.
 - **2026-10-30** — Note names on the board, with per-note fading, cue levels and cue logging (labels, distances). Check-ups are always unlabelled.
