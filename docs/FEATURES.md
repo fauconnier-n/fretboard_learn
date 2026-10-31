@@ -108,7 +108,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
-- **2026-11-01** — New look: white page, one palette from the Born & Raised poster and the Element tee (docs/design.md), a light fretboard drawn like a chord diagram, poster-style primary buttons, coloured number cards. Yes/No buttons now hide when a True or false run ends. `tools/browser-check.mjs` drives the app headless and takes screenshots.
+- **2026-11-01** — New look: white page, the Born & Raised poster colours made a touch brighter, its beige for secondary backgrounds (docs/design.md), a beige fretboard drawn like a chord diagram, coloured number cards. `tools/button-shapes.html` compares six button shapes. Yes/No buttons now hide when a True or false run ends. `tools/browser-check.mjs` drives the app headless and takes screenshots.
 - **2026-11-01** — Guitar-only control: muted strums and open-string menus (Practice and Intervals), strum level setting. True or false runs. Mixed runs removed: a run is all guitar or all without guitar. New column `attempts.shown_name`.
 - **2026-11-01** — Practice: Mix-ups runs, zone choice, beat mode with adaptive tempo, boss and closing note, golden prompts, live progress board with fog, accuracy ring, momentum glow, per-note rings, near-miss lines, auto-advance after the play-along. New columns: `attempts.special`, `attempts.bpm`, `runs.focus`, `runs.bpm_start`, `runs.bpm_end`. The `data` folder is no longer tracked by git.
 - **2026-11-01** — Intervals tab: octave shapes, intervals, triads and scale degrees, unlocked easiest first. New `interval` column in the answers table.
