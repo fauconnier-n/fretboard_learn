@@ -127,7 +127,7 @@ export class IntervalsView {
     this.run = { id: Date.now().toString(36), total: s.runCount, results: [], prev: null, unlockedAtStart: unlockedKeys(this.stats) };
     this.run.row = {
       run_id: this.run.id, started_at: Date.now(), ended_at: null, end_reason: null,
-      tuning: s.tuning, mode: 'count', run_count: s.runCount, timeout_sec: TIMEOUT_MS / 1000, task: 'interval',
+      tuning: s.tuning, instrument: s.instrument, strings: this.getStrings().join(','), mode: 'count', run_count: s.runCount, timeout_sec: TIMEOUT_MS / 1000, task: 'interval',
       zone_type: null, zone_strings: null, zone_cs: null, zone_cf: null, zone_span: null, zone_fret_min: null, zone_fret_max: null, zone_label: null,
     };
     this.onRun?.(this.run.row);
@@ -252,7 +252,7 @@ export class IntervalsView {
     addResult(this.stats, p.key, correct, ms);
     run.results.push({ key: p.key, correct, ms });
     this.onAttempt({
-      t: Date.now(), runId: run.id, tuning: this.s.tuning, desc: NO_ZONE,
+      t: Date.now(), runId: run.id, tuning: this.s.tuning, instrument: this.s.instrument, strings: this.getStrings().join(','), desc: NO_ZONE,
       s: p.root?.s ?? null, f: p.root?.f ?? null, target: p.targets[0] ?? null, played, correct, ms: Math.round(ms), g: null, review: false,
       solveMs: correct ? Math.round(ms) : null, wrongCount: cur.wrong.length,
       wrongNotes: cur.wrong.map((w) => w.midi).join(',') || null, wrongMs: cur.wrong.map((w) => Math.round(w.ms)).join(',') || null,

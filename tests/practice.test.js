@@ -1,11 +1,11 @@
 // Scheduler helpers behind the Practice run features: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TUNINGS } from '../js/music.js';
+import { INSTRUMENTS } from '../js/instruments.js';
 import { Scheduler, newModel } from '../js/srs.js';
 import { generateZones } from '../js/zones.js';
 
-const strings = TUNINGS.standard.strings;
+const strings = INSTRUMENTS.guitar6.tunings.standard.strings;
 const zones = generateZones(strings, 15, 'both');
 const lowE = zones.find((z) => z.type === 'string' && z.strings[0] === 0 && z.cells[0].f === 0);
 

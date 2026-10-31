@@ -31,9 +31,16 @@ export class GuitarMenu {
    * @param {{ label: string, act: () => void, active?: boolean }[]} options at most one per string
    * @param {string} [strumHint] what a muted strum does here
    */
-  show(title, options, strumHint = '') {
+  show(title, options, strumHint = '', page = 0) {
     const strings = this.getStrings();
-    this.options = options.slice(0, strings.length);
+    // more options than strings (a 4-string bass): pages, the last string turning the page
+    const n = strings.length;
+    if (options.length > n) {
+      const per = n - 1;
+      const pages = Math.ceil(options.length / per);
+      const turn = { label: page + 1 < pages ? 'More…' : 'Back to the first choices', act: () => this.show(title, options, strumHint, (page + 1) % pages) };
+      this.options = [...options.slice(page * per, page * per + per), turn];
+    } else this.options = options;
     // drawn like the boards
     const order = strings.map((_, s) => s);
     if (this.getLowAtBottom()) order.reverse();
