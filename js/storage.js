@@ -92,7 +92,7 @@ export const TABLES = {
     cols: [
       ['t', 'DOUBLE', 'When the prompt was graded (first answer or time-out), in milliseconds since 1970.'],
       ['run_id', 'VARCHAR', 'The run this prompt belongs to; matches runs.run_id.'],
-      ['tuning', 'VARCHAR', "Tuning preset of the instrument ('standard', 'dropD', 'eb', 'dropA', 'dropE') or 'custom'. Before instruments existed: 'standard', 'dropD', 'eb' or 'seven' (7-string guitar), with instrument and strings empty."],
+      ['tuning', 'VARCHAR', "Tuning: 'standard' or 'drop', followed by the shift of every string in semitones when there is one ('standard-1' = Eb standard, 'drop-2' = drop C), or 'custom'. Before instruments existed: 'standard', 'dropD', 'eb' or 'seven' (7-string guitar), with instrument and strings empty."],
       ['instrument', 'VARCHAR', "Instrument: 'guitar6', 'guitar7', 'guitar8', 'guitar9', 'bass4', 'bass5' or 'bass6'. Empty on rows from before instruments (a 6-string guitar, or 7-string when tuning is 'seven')."],
       ['strings', 'VARCHAR', "Open-string notes as MIDI numbers, lowest string first, e.g. '40,45,50,55,59,64' (string_idx indexes this list). Knowledge follows a string from one instrument to another by its open note, an octave higher on a bass."],
       ['zone_type', 'VARCHAR', "Shape of the zone: 'box' (several strings) or 'string' (12 frets on one string)."],
@@ -484,21 +484,31 @@ export async function set(key, value) {
   markDirty();
 }
 
+// One answer as a row, by column name, so the values always follow ATTEMPT_COLS whatever
+// the order of TABLES (a positional list once put new columns in the wrong place).
+const attemptRow = (a) => {
+  const d = a.desc || {};
+  return {
+    t: a.t, run_id: a.runId, tuning: a.tuning, instrument: a.instrument, strings: a.strings,
+    zone_type: d.type, zone_strings: d.sk, zone_cs: d.cs, zone_cf: d.cf, zone_span: d.span, zone_fret_min: d.fretMin, zone_fret_max: d.fretMax,
+    string_idx: a.s, fret: a.f, target: a.target, played: a.played, correct: !!a.correct, ms: Math.round(a.ms), grade: a.g, review: !!a.review, spelling: a.spelling,
+    solve_ms: a.solveMs, wrong_count: a.wrongCount, wrong_notes: a.wrongNotes, wrong_ms: a.wrongMs,
+    prev_target: a.prevTarget, prev_spelling: a.prevSpelling, prev_string: a.prevS, prev_fret: a.prevF,
+    retest: a.retest, queue_shown: a.queueShown, show_me: a.showMe, fsrs_grade: a.fsrsGrade,
+    pred_p: a.predP, pred_ms: a.predMs, pred_r: a.predR, pred_s: a.predS, pred_d: a.predD,
+    interval: a.interval, task: a.task, answer_name: a.answerName, error_type: a.errorType, probe: a.probe,
+    cue_mode: a.cueMode, cue_target: a.cueTarget, cue_n: a.cueN, cue_labels: a.cueLabels, cue_dist: a.cueDist, cue_nearest: a.cueNearest,
+    special: a.special, shown_name: a.shownName, bpm: a.bpm,
+  };
+};
+// every column must have a field: a missing one would be saved empty
+{
+  const missing = ATTEMPT_COLS.filter((c) => !(c in attemptRow({})));
+  if (missing.length) console.error('attemptRow is missing columns', missing);
+}
 const attemptValues = (a) => {
-  const d = a.desc;
-  return [
-    a.t, a.runId, a.tuning, d.type, d.sk, d.cs, d.cf, d.span, d.fretMin, d.fretMax,
-    a.s, a.f, a.target, a.played ?? null, !!a.correct, Math.round(a.ms), a.g, !!a.review, a.spelling ?? null,
-    a.solveMs ?? null, a.wrongCount ?? null, a.wrongNotes ?? null, a.wrongMs ?? null,
-    a.prevTarget ?? null, a.prevSpelling ?? null, a.prevS ?? null, a.prevF ?? null,
-    a.retest ?? null, a.queueShown ?? null, a.showMe ?? null, a.fsrsGrade ?? null,
-    a.predP ?? null, a.predMs ?? null, a.predR ?? null, a.predS ?? null, a.predD ?? null,
-    a.interval ?? null,
-    a.task ?? null, a.answerName ?? null, a.errorType ?? null, a.probe ?? null,
-    a.cueMode ?? null, a.cueTarget ?? null, a.cueN ?? null, a.cueLabels ?? null, a.cueDist ?? null, a.cueNearest ?? null,
-    a.special ?? null, a.shownName ?? null, a.bpm ?? null,
-    a.instrument ?? null, a.strings ?? null,
-  ];
+  const row = attemptRow(a);
+  return ATTEMPT_COLS.map((c) => row[c] ?? null);
 };
 
 // ---------- runs ----------
