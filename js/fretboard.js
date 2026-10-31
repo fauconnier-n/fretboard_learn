@@ -67,6 +67,9 @@ export class Fretboard {
     svg.setAttribute('viewBox', `0 0 ${this.W} ${this.H}`);
     const defs = el('defs', {}, svg);
     this.mask = el('mask', { id: this.id + '-mask' }, defs);
+    // soft edges for the "cloud" marks of the mastery map
+    const blur = el('filter', { id: this.id + '-cloud', x: '-60%', y: '-120%', width: '220%', height: '340%' }, defs);
+    el('feGaussianBlur', { stdDeviation: '2.4' }, blur);
 
     const g = el('g', {}, svg);
     const xa = this.X(this.nutX);
@@ -103,6 +106,7 @@ export class Fretboard {
       dim: el('rect', { x: 0, y: 0, width: this.W, height: this.H, class: 'fb-dim', mask: `url(#${this.id}-mask)`, visibility: 'hidden' }, svg),
       zone: el('g', {}, svg),
       heat: el('g', {}, svg),
+      boxes: el('g', { class: 'fb-boxes' }, svg),
       marks: el('g', { class: 'fb-marks' }, svg),
       hits: el('g', {}, svg),
     };
@@ -208,6 +212,8 @@ export class Fretboard {
   }
 
   // fn(s, f) -> null | { fill, stroke, dash, label } | { fog: true } (a position not unlocked yet)
+  //   | { cloud: { w, h }, fill, opacity }: a soft blob w × the fret width wide and h × the
+  //     string spacing high, so it spreads mostly along the string
   setHeat(fn) {
     const h = this.layers.heat;
     h.innerHTML = '';
@@ -220,9 +226,33 @@ export class Fretboard {
           continue;
         }
         const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
+        if (v.cloud) {
+          const rx = (this.cw(f) / 2) * v.cloud.w;
+          const ry = (this.sp / 2) * v.cloud.h;
+          const c = el('g', { filter: `url(#${this.id}-cloud)`, fill: v.fill, opacity: (v.opacity ?? 1).toFixed(2), class: 'fb-cloud' }, g);
+          // three overlapping puffs make an uneven, cloud-like outline
+          el('ellipse', { rx: rx.toFixed(1), ry: ry.toFixed(1) }, c);
+          el('ellipse', { cx: (-rx * 0.45).toFixed(1), cy: (-ry * 0.25).toFixed(1), rx: (rx * 0.6).toFixed(1), ry: (ry * 0.85).toFixed(1) }, c);
+          el('ellipse', { cx: (rx * 0.45).toFixed(1), cy: (ry * 0.2).toFixed(1), rx: (rx * 0.55).toFixed(1), ry: (ry * 0.8).toFixed(1) }, c);
+          continue;
+        }
         el('circle', { r: 11, class: 'fb-heat', fill: v.fill || 'none', stroke: v.stroke || 'none', 'stroke-width': v.fill && v.stroke ? 2.5 : 1.5, 'stroke-dasharray': v.dash || 'none' }, g);
         if (v.label) el('text', { y: 4, class: 'fb-heat-lbl' }, g).textContent = v.label;
       }
+    }
+  }
+
+  // Boxes around pairs of positions on one string: [{ s, f1, f2, cls, title }]
+  setBoxes(list) {
+    const h = this.layers.boxes;
+    h.innerHTML = '';
+    for (const b of list) {
+      const a = this.cellRect(b.s, Math.min(b.f1, b.f2));
+      const z = this.cellRect(b.s, Math.max(b.f1, b.f2));
+      const x0 = Math.min(a.x, z.x);
+      const x1 = Math.max(a.x + a.width, z.x + z.width);
+      const r = el('rect', { x: x0 + 1, y: a.y + 2, width: x1 - x0 - 2, height: a.height - 4, rx: 9, class: 'fb-box ' + (b.cls || '') }, h);
+      if (b.title) el('title', {}, r).textContent = b.title;
     }
   }
 }

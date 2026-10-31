@@ -46,3 +46,20 @@ test('note rings: empty for an unseen note, full for a known fast mastered one',
   assert.equal(r.auto, 1);
   for (const v of Object.values(r)) assert.ok(v >= 0 && v <= 1);
 });
+
+test('confusion boxes: shown after repeated neighbour mistakes, gone once answered right', async () => {
+  const { confusionPairs } = await import('../js/stats.js');
+  let t = 0;
+  // F (low E, fret 1) answered with F# (fret 2)
+  const miss = () => ({ t: t++, s: 0, f: 1, target: 41, played: 42, correct: false });
+  const right = () => ({ t: t++, s: 0, f: 1, target: 41, played: 41, correct: true });
+  assert.equal(confusionPairs([miss(), miss()], 15).length, 0, 'one or two slips do not show');
+  const three = [miss(), miss(), miss()];
+  const shown = confusionPairs(three, 15);
+  assert.equal(shown.length, 1);
+  assert.deepEqual([shown[0].s, shown[0].f, shown[0].g], [0, 1, 2]);
+  assert.equal(confusionPairs([...three, right()], 15).length, 0, 'a right answer halves it: 1.5 < 2');
+  assert.equal(confusionPairs([miss(), miss(), miss(), miss(), miss()], 15)[0].strong, true);
+  // a far wrong note is not a neighbour confusion
+  assert.equal(confusionPairs([1, 2, 3].map(() => ({ s: 0, f: 1, target: 41, played: 47, correct: false })), 15).length, 0);
+});
