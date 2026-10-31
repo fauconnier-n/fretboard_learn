@@ -272,7 +272,7 @@ export class Quiz {
     run.row = {
       cue_mode: run.cueMode,
       run_id: run.id, started_at: Date.now(), ended_at: null, end_reason: null,
-      tuning: s.tuning, instrument: s.instrument, strings: this.getStrings().join(','), mode: run.mode,
+      tuning: s.tuningLabel, instrument: s.instrument, strings: this.getStrings().join(','), mode: run.mode,
       run_count: run.mode === 'count' ? s.runCount : null,
       sprint_sec: run.mode === 'sprint' ? s.sprintSec : null,
       zone_type: run.desc.type, zone_strings: run.desc.sk, zone_cs: run.desc.cs, zone_cf: run.desc.cf,
@@ -604,7 +604,7 @@ export class Quiz {
       { label: `Run type: ${type} …`, act: () => this.showMenu('type') },
       { label: s.runMode === 'count' ? `Length: ${s.runCount} prompts (switch to a ${s.sprintSec} s sprint)` : `Length: ${s.sprintSec} s sprint (switch to ${s.runCount} prompts)`, act: () => { a.toggleMode(); this.showMenu(); } },
       { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
-      { label: 'Intervals tab', act: () => a.goIntervals() },
+      { label: 'Interval practice', act: () => a.goIntervals() },
     ], 'new run');
   }
 
@@ -734,7 +734,7 @@ export class Quiz {
     this.ring();
     this.paintProgress();
     cur.log = {
-      t: Date.now(), runId: run.id, tuning: this.s.tuning, instrument: this.s.instrument, strings: this.getStrings().join(','), desc: run.desc,
+      t: Date.now(), runId: run.id, tuning: this.s.tuningLabel, instrument: this.s.instrument, strings: this.getStrings().join(','), desc: run.desc,
       s: cell.s, f: cell.f, target: cell.midi, spelling: sp, played, correct, ms: Math.round(ms), g, review: run.review,
       prevTarget: prev?.cell.midi ?? null, prevSpelling: prev?.sp ?? null, prevS: prev?.cell.s ?? null, prevF: prev?.cell.f ?? null,
       retest: cur.retest, queueShown: cur.queueShown, showMe: !!extra.showMe, fsrsGrade: G,

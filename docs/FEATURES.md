@@ -17,7 +17,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - A Tuner tab: note, cents needle, frequency and the string targets of the current tuning.
 
 ## Board and zones
-- **Instruments:** 6-, 7-, 8- and 9-string guitar, 4-, 5- and 6-string bass, with tuning presets (standard, drop tunings, Eb) or a custom tuning written lowest string first (e.g. `D2 A2 D3 G3 B3 E4`). Default: 6-string guitar in standard tuning. 12–24 frets. Left-handed view.
+- **Instruments:** 6-, 7-, 8- and 9-string guitar, 4-, 5- and 6-string bass. Tuning: a **Standard / Drop** switch (drop lowers the lowest string a tone) and a slider moving **every string by semitones** (−7 to +5: one down = Eb standard, drop with two down = drop C), or a **custom tuning** on its own page, written lowest string first (e.g. `D2 A2 D3 G3 B3 E4`). Default: 6-string guitar in standard tuning. 12–24 frets. Left-handed view.
 - **Progress follows each string** across instruments and tunings: a new or retuned string starts from scratch, strings left out keep their progress, switching back restores everything.
 - Open-string menus page with "More…" when there are more choices than strings (4-string bass).
 - SVG fretboard with inlays and fret numbers. No string names.
@@ -26,6 +26,10 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Played notes vibrate:** the string waves between the fret played and the bridge (never between the nut and the fret), with closer and faster waves for higher notes, fading in about a second. Open strings chosen in a menu vibrate too.
 - **Muted strums** make the strings give a short dead thump instead of waves.
 - Zones of 12 cells holding each of the 12 notes once: boxes over several strings and/or 12 frets on one string. Answers must be the exact pitch.
+
+## Navigation
+- Top tabs: **Practice**, Tuner, Stats, Settings. Practice holds two kinds of quiz, switched at the top: **Note position** and **Interval**; the Practice tab reopens the last one used.
+- **Settings** opens on a page of cards (Audio input, Instrument & tuning, Board display, Practice, Data & backups, Database tables), each opening its own page with a back button. **Custom tuning** is a page under Instrument & tuning. Clicking Settings again returns to the cards.
 
 ## Runs
 - **New run** shows the zone with its natural notes; **Start run** (Enter or click) begins; **Stop run** (or Esc) ends it.
@@ -79,7 +83,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - The model rebuilds from the answer log when its format changes or when answers come back from the disk copy.
 
 ## Stats
-- Heatmap of the neck by mastery, with rings for mastered (white) and fading (orange, dashed) positions.
+- **Mastery map** of the neck drawn as soft **clouds**: colour from yellow (just started) to green (mastered); width, mostly along the string, grows with how often the position was asked; density shows how fresh it is in memory (fading positions turn pale). Unlocked, unplayed positions: dashed rings.
+- **Confusion boxes:** an orange box (red when strong) around two neighbouring positions on a string when the asked note keeps being answered with the one next to it (1 or 2 frets away). It needs at least 3 such mistakes, and each right answer on the asked note halves the confusion, so a box goes away once you get it right; one or two slips never show. Hover a box for the notes and the count.
 - Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
 - Slowest positions, marked erratic or steady, and per-note figures.
 
@@ -115,6 +120,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Stats map: cloud shapes (yellow → green, size by questions asked, density by freshness) and confusion boxes for neighbouring notes. `tools/browser-check.mjs` records animated GIFs (`tools/gif.mjs`, no dependency).
+- **2026-11-01** — Settings split into pages (custom tuning one level deeper); Practice tab with Note position / Interval inside; tuning as a Standard/Drop switch plus a semitone slider; vibrant greens (option 3: `#6fd94c`, `#3cbd2b`, `#27871a`). Fix: answers were saved with misaligned columns after the instrument columns were added (rows are now built by column name, with a start-up check).
 - **2026-11-01** — Instruments: guitars with 6–9 strings and basses with 4–6, presets and custom tunings; knowledge follows each string by its open note (rebuilt from the log per instrument); answers and runs log `instrument` and `strings`; longer pitch window for low bass notes.
 - **2026-11-01** — String order setting (low E on top by default, like Rocksmith) used on every board and menu; thicker low strings; played strings vibrate from the fret to the bridge, muted strums thump; no mastery colours on the board during a run; brighter greens.
 - **2026-11-01** — New look: white page, the Born & Raised poster colours made a touch brighter, its beige for secondary backgrounds (docs/design.md), a beige fretboard drawn like a chord diagram, coloured number cards. Sticker buttons (dark outline, offset shadow; the chosen option filled yellow). Yes/No buttons now hide when a True or false run ends. `tools/browser-check.mjs` drives the app headless and takes screenshots.

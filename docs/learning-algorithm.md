@@ -71,7 +71,7 @@ Each effect adjusts both the chance of a right answer and the typical log time. 
 
 ### Instruments and tunings
 
-Settings → Fretboard: 6-, 7-, 8- or 9-string guitar, 4-, 5- or 6-string bass, each with its presets or a custom tuning (`js/instruments.js`). The default is the 6-string guitar in standard tuning.
+Settings → Instrument & tuning: 6-, 7-, 8- or 9-string guitar, 4-, 5- or 6-string bass, in standard or drop tuning, shifted by whole semitones, or a custom tuning (`js/instruments.js`). A shift retunes every string, so all of them start over (Eb standard is a different set of strings from E standard); going back to the earlier tuning restores it. The default is the 6-string guitar in standard tuning.
 
 What you learn follows each **string**, identified by its open note, an octave higher on a bass (a bass sounds an octave below a guitar but is fingered the same way: its E string is the guitar's E string). The memory model of the current instrument is **rebuilt from the whole answer log** whenever it is loaded, replaying each past answer on the string with the same identity (`mapAttempt`):
 - **a string added** (low B on a 5-string bass, or on a 7-string guitar) has no past answers, so it starts unknown, and it comes after the familiar strings in the curriculum;
