@@ -10,23 +10,27 @@ export const PALETTE = {
   red: '#e5252f', // wrong answers, boss, test data
   blue: '#14a0c4', // information, fading, "fast"
   yellow: '#f5cb2a', // highlight: zone, cues, golden
+  orange: '#ed7a2c', // between red and yellow: confusion boxes
   ink: '#3f3c37', // text and outlines
   beige: '#f9f6ed', // secondary backgrounds, the neck
   muted: '#77716a',
   steel: '#948c7e', // strings, and outlines on the neck
 };
 
-// Weak to mastered: red → yellow → green (orange appears on the way from red to yellow).
-const STOPS = [PALETTE.red, PALETTE.yellow, PALETTE.green];
-
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
-/** Mastery 0–1 as a palette colour, from red (weak) to green (mastered). @param {number} m */
-export function masteryColor(m) {
-  const x = Math.min(1, Math.max(0, m)) * (STOPS.length - 1);
-  const i = Math.min(STOPS.length - 2, Math.floor(x));
-  const a = rgb(STOPS[i]);
-  const b = rgb(STOPS[i + 1]);
+// A colour between palette stops, for m from 0 to 1.
+function blend(stops, m) {
+  const x = Math.min(1, Math.max(0, m)) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(x));
+  const a = rgb(stops[i]);
+  const b = rgb(stops[i + 1]);
   const t = x - i;
   return '#' + a.map((v, k) => Math.round(v + (b[k] - v) * t).toString(16).padStart(2, '0')).join('');
 }
+
+/** Mastery 0–1 from red (weak) through yellow to green (mastered): note bars, practice board. @param {number} m */
+export const masteryColor = (m) => blend([PALETTE.red, PALETTE.yellow, PALETTE.green], m);
+
+/** Mastery 0–1 from yellow (just started) to green (mastered): the clouds of the Stats map. @param {number} m */
+export const growthColor = (m) => blend([PALETTE.yellow, PALETTE.green], m);

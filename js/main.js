@@ -11,7 +11,7 @@ import { Fretboard } from './fretboard.js';
 import { Quiz } from './quiz.js';
 import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
-import { renderStats } from './stats.js';
+import { confusionPairs, renderStats } from './stats.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
 
 const DEFAULTS = {
@@ -345,6 +345,7 @@ async function showStats() {
     flats: app.settings.flats,
     heat: app.heat,
     attemptCount,
+    confusions: confusionPairs(await tuningAttempts(), app.settings.frets),
   });
 }
 

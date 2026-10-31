@@ -83,7 +83,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - The model rebuilds from the answer log when its format changes or when answers come back from the disk copy.
 
 ## Stats
-- Heatmap of the neck by mastery, with rings for mastered (white) and fading (orange, dashed) positions.
+- **Mastery map** of the neck drawn as soft **clouds**: colour from yellow (just started) to green (mastered); width, mostly along the string, grows with how often the position was asked; density shows how fresh it is in memory (fading positions turn pale). Unlocked, unplayed positions: dashed rings.
+- **Confusion boxes:** an orange box (red when strong) around two neighbouring positions on a string when the asked note keeps being answered with the one next to it (1 or 2 frets away). It needs at least 3 such mistakes, and each right answer on the asked note halves the confusion, so a box goes away once you get it right; one or two slips never show. Hover a box for the notes and the count.
 - Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
 - Slowest positions, marked erratic or steady, and per-note figures.
 
@@ -119,6 +120,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Stats map: cloud shapes (yellow → green, size by questions asked, density by freshness) and confusion boxes for neighbouring notes. `tools/browser-check.mjs` records animated GIFs (`tools/gif.mjs`, no dependency).
 - **2026-11-01** — Settings split into pages (custom tuning one level deeper); Practice tab with Note position / Interval inside; tuning as a Standard/Drop switch plus a semitone slider; vibrant greens (option 3: `#6fd94c`, `#3cbd2b`, `#27871a`). Fix: answers were saved with misaligned columns after the instrument columns were added (rows are now built by column name, with a start-up check).
 - **2026-11-01** — Instruments: guitars with 6–9 strings and basses with 4–6, presets and custom tunings; knowledge follows each string by its open note (rebuilt from the log per instrument); answers and runs log `instrument` and `strings`; longer pitch window for low bass notes.
 - **2026-11-01** — String order setting (low E on top by default, like Rocksmith) used on every board and menu; thicker low strings; played strings vibrate from the fret to the bridge, muted strums thump; no mastery colours on the board during a run; brighter greens.
