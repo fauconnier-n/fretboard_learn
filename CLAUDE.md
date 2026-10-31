@@ -2,6 +2,7 @@
 
 ## Git workflow (always)
 - Every change goes on a new branch created from an up-to-date `main` (`git fetch`, `git switch main`, `git pull --ff-only`, `git switch -c <type>/<short-name>`). Never commit on `main`.
+- Every pull request targets `main`, never another feature branch: stacked pull requests merged in another order leave work stranded on intermediate branches (it happened with #6–#9). Work that builds on an unmerged branch starts from that branch but still targets `main`, so either merge order is safe.
 - Commit in logical steps, then push and open a pull request against `main` with `gh pr create` (GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe`, not on PATH in Git Bash).
 - End every reply that finishes a change with the link to its pull request.
 - Personal practice data lives in `data/` (ignored); never commit it.

@@ -14,15 +14,14 @@ The values live in two places that must stay in step: the custom properties at t
 | red | `#e5252f` | `#e32834` | wrong answers, Stop, boss prompts, TEST DATA badge, tuner needle |
 | blue | `#14a0c4` | `#219bb7` | information, focus outlines, fading positions, "fast" ring |
 | yellow | `#f5cb2a` | `#eecc38` | highlight: the zone, note-name cues, the asked position, open-string letters, golden prompts, "automatic" ring |
-| orange | `#ed7a2c` | (between the poster red and yellow) | confusion boxes on the Stats map (red when strong) |
 | ink | `#3f3c37` | `#3f3c37` | text, outlines, the nut |
 | beige | `#f9f6ed` | `#f9f6ed` | secondary backgrounds and the neck |
 | muted | `#77716a` | | secondary text |
 | wire / steel / line | `#dcd3c1` / `#948c7e` / `#ebe5d6` | | frets, strings, borders |
 
-**Mastery scale** (note bars, the practice board between runs): red → yellow → green, from `masteryColor(m)`. **Stats map clouds:** yellow → green, from `growthColor(m)` (`js/palette.js`).
+**Mastery scale** (note bars and knowledge maps): red → orange → yellow → green, from `masteryColor(m)` in `js/palette.js` (orange appears on the way from red to yellow).
 
-**Stats map clouds** are three overlapping blurred ellipses per position: wider along the string than across it, wider the more the position was asked (`log2(1 + asked) / log2(31)`), and more opaque the fresher the memory (opacity 0.3 to 0.95 with retrievability).
+**Knowledge-map clouds** (Stats, and the practice board between runs; `mapCell` in `js/stats.js`): one round ellipse per position filled with a radial gradient that thins out progressively to nothing at its edge. With `t = log2(1 + questions asked) / log2(41)`: width 0.5–1.05 × half the fret width, height 0.8–1.05 × half the string spacing (so it grows mostly along the string), opacity 0.22–1. Each position carries its note name; unplayed unlocked ones a dashed ring and a pale name.
 
 ## Rules
 

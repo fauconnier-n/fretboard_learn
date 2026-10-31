@@ -10,7 +10,7 @@ import { describe, zoneLabel } from './zones.js';
 import { LANDMARKS, cueOpts, errorType, itemKey } from './srs.js';
 import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
-import { masteryColor } from './palette.js';
+import { mapCell } from './stats.js';
 
 const DAY = 86400000;
 const PROBE_EVERY = 10; // every 10th prompt is a random check-up, not picked by the model
@@ -143,19 +143,15 @@ export class Quiz {
     this.showMenu();
   }
 
-  // Practice board between and during runs: positions you have played coloured by mastery
-  // (updated after every answer), positions not unlocked yet under fog.
+  // Practice board between runs: the knowledge map (clouds and note names, as on the Stats
+  // page), positions not unlocked yet under fog.
   paintProgress() {
     const sch = this.getScheduler();
     if (!sch || !this.board.layers) return;
     // during a run the board shows only the run: no knowledge colours
     if (this.running) return this.board.setHeat(() => null);
     const snap = sch.snapshot();
-    this.board.setHeat((s, f) => {
-      const m = snap.mastery.get(s + ':' + f);
-      if (m !== undefined) return { fill: masteryColor(m) };
-      return sch.isReachable(s, f, snap) ? null : { fog: true };
-    });
+    this.board.setHeat((s, f) => mapCell(sch, snap, s, f, this.s.flats) || { fog: true });
   }
 
   // Text before a run: welcome back after a gap (neutral, no streak lost), what is due,
@@ -839,6 +835,7 @@ export class Quiz {
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
     this.showMenu();
+    this.els.summary.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   // A finished prompts run: one note from perfect, one short of your best on this zone and
