@@ -1,9 +1,9 @@
 // Drive the app in headless Edge (or Chrome) and take screenshots, without a browser window.
 //   node tools/browser-check.mjs <steps.mjs> [--origin http://localhost:8137] [--out <dir>] [--port 9333] [--url <page>]
-// --url opens that page (relative to the origin, e.g. tools/button-shapes.html) instead of the app.
-// <steps.mjs> default-exports [{ name, js, shot = true, width = 1200, height = 900 }]: each `js`
-// is the body of an async function run in the page (use `return ...` to print a result);
-// then, if shot, a PNG <out>/<name>.png is saved. The active user is set to "test" before the
+// --url opens that page (a path relative to the origin) instead of the app.
+// <steps.mjs> default-exports [{ name, js, shot = true, width = 1200, height = 900, full }]: each
+// `js` is the body of an async function run in the page (use `return ...` to print a result);
+// then, if shot, a PNG <out>/<name>.png is saved; <out>/index.html shows them all. The active user is set to "test" before the
 // app loads, so real data is never touched. The browser profile lives in the temp folder and
 // is kept between runs (the test user's data persists). Console errors are printed at the end.
 // The local server must be running (start.bat).
@@ -20,7 +20,7 @@ const opt = (name, fallback) => {
 };
 const stepsFile = args[0];
 const origin = opt('origin', 'http://localhost:8137');
-const out = resolve(opt('out', 'screenshots'));
+const out = resolve(opt('out', 'screenshots/latest'));
 const port = +opt('port', 9333);
 const page = opt('url', '');
 const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'];
@@ -101,6 +101,11 @@ try {
     writeFileSync(join(out, st.name + '.png'), Buffer.from(shot.data, 'base64'));
     console.log(st.name + ': saved ' + join(out, st.name + '.png'));
   }
+  const names = steps.filter((st) => st.shot !== false).map((st) => st.name);
+  writeFileSync(join(out, 'index.html'), `<!doctype html><meta charset="utf-8"><title>Screenshots</title>
+<style>body{font:14px system-ui;margin:20px;color:#3f3c37}figure{margin:0 0 28px}img{max-width:100%;border:1px solid #ebe5d6;border-radius:8px}figcaption{font-weight:700;margin-bottom:6px}</style>
+${names.map((n) => `<figure><figcaption>${n}</figcaption><img src="${n}.png" alt="${n}"></figure>`).join('\n')}`);
+  console.log('gallery: ' + join(out, 'index.html'));
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console errors');
 } catch (e) {
   console.log('HARNESS ERROR', e.message);
