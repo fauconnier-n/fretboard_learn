@@ -19,6 +19,10 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Board and zones
 - Tunings: standard, Drop D, Eb, 7-string. 12–24 frets. Left-handed view.
 - SVG fretboard with inlays and fret numbers. No string names.
+- **String order:** low E on top by default, like Rocksmith; Settings → Board can put it at the bottom, like tab. The same order is used on every board (Practice, Intervals, Stats) and in the open-string menus.
+- Strings get thinner from low E (3.4 px) to high e (0.9 px).
+- **Played notes vibrate:** the string waves between the fret played and the bridge (never between the nut and the fret), with closer and faster waves for higher notes, fading in about a second. Open strings chosen in a menu vibrate too.
+- **Muted strums** make the strings give a short dead thump instead of waves.
 - Zones of 12 cells holding each of the 12 notes once: boxes over several strings and/or 12 frets on one string. Answers must be the exact pitch.
 
 ## Runs
@@ -41,7 +45,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
   - Fade: a name shows on positions you don't know well yet, goes after a right answer and comes back after a miss.
   - Check-ups and re-tests never show the asked note's name. Name-the-note runs show none.
 - Next-notes queue: the next 4 prompts, shown only if the setting is on (off by default; play runs only).
-- **During a run:** a live ring of the first-try accuracy, a glow that builds with fast right answers in a row (a miss lets it fade), and the practice board coloured by mastery after every answer, with fog over positions not unlocked yet.
+- **During a run:** a live ring of the first-try accuracy, a glow that builds with fast right answers in a row (a miss lets it fade), and a clean board showing only the run (no mastery colours).
+- **Between runs** the practice board shows each played position coloured by mastery, with fog over positions not unlocked yet.
 - After a miss with the play-along setting on, the run moves on by itself after 6 s if you do not play the note.
 - Green flash on a right answer, red at the played position on a wrong one, with the kind of mistake (octave, one or two frets off).
 - **After a miss:** the answer is revealed with a structural hint (nearest landmark, octave shape, B-string shift), optionally played once ungraded, then re-tested 3–8 prompts later.
@@ -108,6 +113,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — String order setting (low E on top by default, like Rocksmith) used on every board and menu; thicker low strings; played strings vibrate from the fret to the bridge, muted strums thump; no mastery colours on the board during a run; brighter greens.
 - **2026-11-01** — New look: white page, the Born & Raised poster colours made a touch brighter, its beige for secondary backgrounds (docs/design.md), a beige fretboard drawn like a chord diagram, coloured number cards. Sticker buttons (dark outline, offset shadow; the chosen option filled yellow). Yes/No buttons now hide when a True or false run ends. `tools/browser-check.mjs` drives the app headless and takes screenshots.
 - **2026-11-01** — Guitar-only control: muted strums and open-string menus (Practice and Intervals), strum level setting. True or false runs. Mixed runs removed: a run is all guitar or all without guitar. New column `attempts.shown_name`.
 - **2026-11-01** — Practice: Mix-ups runs, zone choice, beat mode with adaptive tempo, boss and closing note, golden prompts, live progress board with fog, accuracy ring, momentum glow, per-note rings, near-miss lines, auto-advance after the play-along. New columns: `attempts.special`, `attempts.bpm`, `runs.focus`, `runs.bpm_start`, `runs.bpm_end`. The `data` folder is no longer tracked by git.

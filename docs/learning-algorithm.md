@@ -164,7 +164,7 @@ A metronome clicks (it plays even with sound effects off). A prompt appears on a
 
 - **Accuracy ring:** first-try accuracy so far.
 - **Momentum glow:** right answers at or under your expected time for that note, in a row, build a glow (full at 6); a miss resets it, a slow right answer keeps it. Nothing is kept between runs.
-- **Progress board:** the practice board shows each played position coloured by mastery (red to green), updated after every answer, and fog over positions not reachable yet (`isReachable`), so mastering material visibly lifts the fog next to it.
+- **Progress board:** between runs, the practice board shows each played position coloured by mastery (red to green) and fog over positions not reachable yet (`isReachable`), so mastering material visibly lifts the fog next to it. During a run the colours are hidden, so the board shows only what the run asks and they cannot hint at answers.
 - **Note rings in the summary:** outer *known* = retrievability × accuracy against 0.6, middle *fast* = your usual time ÷ the note's expected time, inner *automatic* = full only when mastered (right and fast on two days).
 - **Near-miss line:** after a finished prompts run, "one note away from a perfect run", "one note short of your best here" (best right first answers per zone and run length, kept in the model), or "new best here".
 

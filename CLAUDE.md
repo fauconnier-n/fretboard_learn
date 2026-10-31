@@ -12,6 +12,7 @@ Node is at `C:\Program Files\nodejs` (prepend it to PATH): `npm test`, `npm run 
 ## Screenshots of every visible change
 - Test UI changes in headless Edge: `node tools/browser-check.mjs tools/tour.mjs --out screenshots/<name>` (the server must be running; it uses the `test` user; write other step files like `tools/tour.mjs` for specific states). It also writes `index.html`, a gallery of the shots.
 - Show the screenshots of the screens that changed in the reply, not in commits or pull requests. The chat does not display embedded images (`![](...)` shows "[Image]"), so keep them in the git-ignored `screenshots/` folder and put **markdown links** to the PNG files in the reply, with paths relative to the repo (e.g. `[Run summary](screenshots/x/4-practice-summary.png)`): they open in the app's file pane. Also open the gallery in the user's browser (`Start-Process screenshots/<name>/index.html`).
+- Include plenty of phone screenshots, held **sideways (landscape, 844×390)**; `tools/tour.mjs` has them (`m*` steps, `mobile: true`).
 
 ## Subagents
 Use subagents in parallel when it clearly speeds things up or the pieces are independent (separate files or areas, research, reviews): preferably just a few, never more than about a dozen. Work that touches the same files stays in one place.
