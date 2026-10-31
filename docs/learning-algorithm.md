@@ -63,11 +63,23 @@ Each effect adjusts both the chance of a right answer and the typical log time. 
 
 ## 6. Curriculum: where new material comes from
 
-- **Order:** low E first, then A, then the others. **High e mirrors low E** (same notes, same frets): its starting estimate and reachability use what you know on low E.
+- **Order:** low E first, then A, D, G, B; any other string (a low B, a high C, a retuned string) after those. **High e mirrors low E** (same notes, same frets), and in general a string tuned to the same note name as an easier one starts from what you know there.
 - **Octave shapes:** a never-played position's prior includes the same note on other strings within 4 frets, the shapes guitarists use to jump between strings, which cross the B string with a one-fret shift.
 - **Landmarks and naturals first:** inside a zone, new positions on landmark frets (open, 3, 5, 7, 9, 12…) come up more. On a string you have never played, accidentals come up less at first.
 - *Why:* this is the consensus of guitar teachers (JustinGuitar, Desi Serna), not tested in studies: learn the naturals on strings 6 and 5 anchored to the dots, then reach other strings through octave shapes. A blocked start followed by quick mixing also fits motor-learning results: interleaving helps less for novices (Brady 2004).
 - **Unlocking:** a zone is a candidate when at least half its positions are reachable: played, a starter position, next to a known one, or mirrored from a known string.
+
+### Instruments and tunings
+
+Settings → Fretboard: 6-, 7-, 8- or 9-string guitar, 4-, 5- or 6-string bass, each with its presets or a custom tuning (`js/instruments.js`). The default is the 6-string guitar in standard tuning.
+
+What you learn follows each **string**, identified by its open note, an octave higher on a bass (a bass sounds an octave below a guitar but is fingered the same way: its E string is the guitar's E string). The memory model of the current instrument is **rebuilt from the whole answer log** whenever it is loaded, replaying each past answer on the string with the same identity (`mapAttempt`):
+- **a string added** (low B on a 5-string bass, or on a 7-string guitar) has no past answers, so it starts unknown, and it comes after the familiar strings in the curriculum;
+- **strings left out** (guitar to 4-string bass) are skipped; their answers stay in the log;
+- **a retuned string** (standard to drop D) is a new string: only it starts over;
+- **going back** to an earlier instrument or tuning rebuilds it exactly as it was, plus anything learnt meanwhile on the strings they share.
+
+Every answer logs its instrument and open strings (`attempts.instrument`, `attempts.strings`); rows from before instruments are read from their tuning name. The model check and the Stats accuracy cards use the answers given on exactly the current strings. Zone shapes from another instrument are moved to the current string numbering when replayed.
 
 ## 7. Choosing a zone: due reviews first
 
