@@ -145,11 +145,16 @@ Every prompt logs the labels that were on the board and their distance to the as
 
 ### Run types, offers and roles of prompts
 
-- **Mixed** runs pick play or name at random for each prompt. Name prompts never show labels. *Why:* mixing the two directions of the same knowledge is interleaving, which helps telling notes apart.
+- A run is either all on the guitar (Play the note, Mix-ups) or all without it (Name the note, True or false), so you never have to put the guitar down in the middle of a run.
+- **True or false** shows the marked position with a name: its real name half the time, otherwise a name you have confused it with (60% when there is one) or a name a semitone or tone away, so a "no" has to be earned. It trains the same position → name card as Name the note, but it is recognition, not recall, and a coin flip gets half of them right: a right answer counts at most as **Hard**, its time is not used for speed, and the model check leaves these answers out. The name shown is logged (`attempts.shown_name`).
 - **Mix-ups** runs choose an unlocked zone holding at least two cells involved in a mix-up (`confusionCells`: notes you played wrong there and the notes you played instead), and prompts outside that set get 3% of their usual weight. Without recorded mix-ups it is a usual run, and the zone label says so.
 - **Zone offers:** `pickZone` also returns the two best-scored zones that do not look like the pick (shape similarity ≤ 0.8). *Why:* a little choice raises ownership and effort (self-controlled practice), while every offer still sits near your target success rate.
 - **Boss and closing note:** in a prompts run of 6 or more, the last two slots are the zone's lowest-chance known note (the boss) and its best-known note (the closing note), queued together so a re-test can never push them out. If the closing note was missed during the run it is replaced by the best-known note not missed. Both are logged (`attempts.special`). *Why:* the end of an experience colours how it is remembered (peak-end effect), so the run ends on a success after its hardest moment.
 - **Golden prompts:** an ordinary prompt has a 7% chance of becoming a note of the zone you have lapsed on and still know poorly (chance < 0.7), at most one per 12 prompts (two in a sprint). *Why:* surprise and variety, aimed at notes that need it.
+
+### Driving the app with the guitar
+
+A **muted strum** is the "go" signal (`js/strum.js`): a sharp rise to more than 4× the noise gate (adjustable), with no clear pitch during the next 140 ms and already below half its peak by then (a played note keeps ringing with a pitch). Two strums less than 0.7 s apart, both during a run, are a double strum. Choices use the **open strings** (`js/guitarMenu.js`): each option sits on one string, low E for the usual next step, so the order is: strum (new run) → choose a zone on E/A/D if you want → strum (start) → play → double strum (stop) or wait for the summary → strum (next run). During a run open strings are answers, not menu choices, so the menu only shows between runs.
 
 ### Beat mode
 

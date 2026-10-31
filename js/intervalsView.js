@@ -6,6 +6,7 @@
 
 import { ITEM, ITEMS, accuracy, addResult, buildStats, isReference, isRight, itemState, makePrompt, medianMs, pickItem, unlockedKeys } from './intervals.js';
 import { midiLabel, pcOf } from './music.js';
+import { GuitarMenu } from './guitarMenu.js';
 
 const TIMEOUT_MS = 8000;
 const TRIAD_TIMEOUT_MS = 12000; // three notes to find
@@ -38,7 +39,24 @@ export class IntervalsView {
     this.muteUntil = 0;
     this.board.onCellClick = (s, f) => this.simulate(this.getStrings()[s] + f);
     this.els.startBtn.onclick = () => this.primary();
+    this.goPractice = o.goPractice;
+    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats);
     window.addEventListener('keydown', (e) => this.onKey(e));
+  }
+
+  // Between runs: the next step on the open strings (low E, or a muted strum, starts a run).
+  showMenu() {
+    if (this.running) return this.menu.hide();
+    this.menu.show('Next', [
+      { label: 'Start a run', act: () => this.primary() },
+      { label: 'Back to Practice', act: () => this.goPractice?.() },
+    ], 'start a run');
+  }
+
+  // A muted strum: starts a run between runs; during a run a double strum stops it.
+  onStrum(double) {
+    if (!this.running) return this.primary();
+    if (double) this.end('stopped');
   }
 
   get s() {
@@ -83,6 +101,7 @@ export class IntervalsView {
     e.feedback.className = 'feedback';
     this.state = 'idle';
     this.updateButton();
+    this.showMenu();
   }
 
   updateButton() {
@@ -114,6 +133,7 @@ export class IntervalsView {
     this.onRun?.(this.run.row);
     this.state = 'feedback';
     this.updateButton();
+    this.menu.hide();
     this.next();
   }
 
@@ -167,6 +187,10 @@ export class IntervalsView {
 
   // ev: { midi, t } with t in performance.now() time
   onNote(ev) {
+    if (!this.running) {
+      this.menu.onNote(ev.midi);
+      return;
+    }
     const cur = this.cur;
     if (this.state !== 'await' || !cur || ev.t < cur.shownAt || ev.t < this.muteUntil) return;
     const { p } = cur;
@@ -285,6 +309,7 @@ export class IntervalsView {
     e.fill.style.width = '100%';
     this.updateButton();
     if (reason === 'left') this.reset();
+    else this.showMenu();
   }
 
   renderItems() {
@@ -322,6 +347,7 @@ export class IntervalsView {
       return;
     }
     if (e.key === 'Escape' && this.running) return this.end('stopped');
+    if (!this.running && /^[1-6]$/.test(e.key)) return this.menu.pick(+e.key - 1);
     const base = KEY_PC[e.key.toUpperCase()];
     if (e.key.length === 1 && base !== undefined && this.state === 'await') this.simulatePc((base + (e.shiftKey ? 1 : 0)) % 12);
   }

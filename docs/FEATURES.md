@@ -13,6 +13,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - A single audio-input control, in Settings: device, input channel (for interfaces with several inputs), gain, noise gate, pitch clarity, latency offset, A4 reference.
 - An input meter with per-channel levels and a marker for the noise gate, to test the chosen input.
 - Pitch detection with the McLeod Pitch Method, plus a stabiliser so a ringing note counts once.
+- Muted-strum detection: a short burst well above the noise gate with no clear pitch. Its level is set in Settings → Audio input, next to a live "strum heard" check.
 - A Tuner tab: note, cents needle, frequency and the string targets of the current tuning.
 
 ## Board and zones
@@ -23,8 +24,15 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Runs
 - **New run** shows the zone with its natural notes; **Start run** (Enter or click) begins; **Stop run** (or Esc) ends it.
 - Run length: a number of prompts, or a sprint in seconds.
-- Four run types: **Play the note** (you play the note named), **Name the note** (a position is marked; type its letter or click one of the 12 name buttons; both spellings of a sharp/flat count), **Mixed** (each prompt is play or name at random) and **Mix-ups** (a zone and prompts built from notes you have confused and the notes you played instead).
-- **Zone choice:** before a run, the picked zone plus up to two other, different-looking zones are offered (buttons or keys 1–3).
+- Run types, each either all guitar or all without guitar:
+  - guitar: **Play the note** (you play the note named) and **Mix-ups** (a zone and prompts built from notes you have confused and the notes you played instead);
+  - no guitar: **Name the note** (a position is marked; type its letter or click one of the 12 name buttons; both spellings of a sharp/flat count) and **True or false** (a position is marked with a name, right half the time; answer Yes or No with the buttons, Y/N or the arrow keys).
+- **Zone choice:** before a run, the picked zone plus up to two other, different-looking zones are offered on the open-string menu.
+- **Guitar-only control:**
+  - a **muted strum** (strings damped by the fretting hand) takes the next step: new run, then start it; during a run it skips the wait after a miss, and two quick muted strums stop the run;
+  - choices are made by playing an **open string**: the menu is drawn as the neck at the nut, with the string's letter left of each option. Between runs: E new run, A run type, D length (prompts / sprint), G beat mode, B Intervals tab; the run-type menu has the 4 types and Back; before a run, the offered zones;
+  - the same rows can be clicked, or picked with keys 1–6 (1 = low E);
+  - the Intervals tab has its own menu (E start a run, A back to Practice) and the same strums.
 - **Beat mode** (♩ Beat): a metronome click, prompts on the beat, a prompt lasts 4 beats; the tempo starts near 2.5× your usual time per prompt, rises 3% after a right answer and falls 7% after a miss. With a sprint it is a sprint whose tempo follows your results.
 - **Boss and closing note:** a prompts run of 6 or more ends with the zone's hardest note, then a note you know well (re-picked if you missed it in the run), so it ends on a success.
 - **Golden prompts:** now and then a note you have been missing, marked gold, with its own effect when right.
@@ -99,7 +107,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
-- **2026-11-01** — Practice: Mixed and Mix-ups runs, zone choice, beat mode with adaptive tempo, boss and closing note, golden prompts, live progress board with fog, accuracy ring, momentum glow, per-note rings, near-miss lines, auto-advance after the play-along. New columns: `attempts.special`, `attempts.bpm`, `runs.focus`, `runs.bpm_start`, `runs.bpm_end`. The `data` folder is no longer tracked by git.
+- **2026-11-01** — Guitar-only control: muted strums and open-string menus (Practice and Intervals), strum level setting. True or false runs. Mixed runs removed: a run is all guitar or all without guitar. New column `attempts.shown_name`.
+- **2026-11-01** — Practice: Mix-ups runs, zone choice, beat mode with adaptive tempo, boss and closing note, golden prompts, live progress board with fog, accuracy ring, momentum glow, per-note rings, near-miss lines, auto-advance after the play-along. New columns: `attempts.special`, `attempts.bpm`, `runs.focus`, `runs.bpm_start`, `runs.bpm_end`. The `data` folder is no longer tracked by git.
 - **2026-11-01** — Intervals tab: octave shapes, intervals, triads and scale degrees, unlocked easiest first. New `interval` column in the answers table.
 
 - **2026-10-31** — Cue-reliance estimate in the model check. This file added.
