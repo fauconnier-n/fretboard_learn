@@ -143,6 +143,28 @@ Every prompt logs the labels that were on the board and their distance to the as
 
 *Why:* fewer cues in practice gives better retention (Carpenter & DeLosh 2006), and the method of vanishing cues (Glisky, Schacter & Tulving 1986) removed cues step by step until the learner produced the item alone. Support that helps beginners hurts people who already know the material (expertise reversal; Kalyuga), so the fading follows the model's estimate for each note, not a fixed schedule, which is the adaptive fading that did better than fixed fading (Salden et al. 2010). Applying it to fretboard labels is an inference: no study tested it. The distance does not change what the model schedules; it is used in the **cue-reliance estimate** (section 10).
 
+### Run types, offers and roles of prompts
+
+- **Mixed** runs pick play or name at random for each prompt. Name prompts never show labels. *Why:* mixing the two directions of the same knowledge is interleaving, which helps telling notes apart.
+- **Mix-ups** runs choose an unlocked zone holding at least two cells involved in a mix-up (`confusionCells`: notes you played wrong there and the notes you played instead), and prompts outside that set get 3% of their usual weight. Without recorded mix-ups it is a usual run, and the zone label says so.
+- **Zone offers:** `pickZone` also returns the two best-scored zones that do not look like the pick (shape similarity ≤ 0.8). *Why:* a little choice raises ownership and effort (self-controlled practice), while every offer still sits near your target success rate.
+- **Boss and closing note:** in a prompts run of 6 or more, the last two slots are the zone's lowest-chance known note (the boss) and its best-known note (the closing note), queued together so a re-test can never push them out. If the closing note was missed during the run it is replaced by the best-known note not missed. Both are logged (`attempts.special`). *Why:* the end of an experience colours how it is remembered (peak-end effect), so the run ends on a success after its hardest moment.
+- **Golden prompts:** an ordinary prompt has a 7% chance of becoming a note of the zone you have lapsed on and still know poorly (chance < 0.7), at most one per 12 prompts (two in a sprint). *Why:* surprise and variety, aimed at notes that need it.
+
+### Beat mode
+
+A metronome clicks (it plays even with sound effects off). A prompt appears on a beat and lasts 4 beats, then the answer is shown. Starting tempo: 4 beats ≈ 2.5× your usual time (50–160 bpm). After a right first answer the tempo rises 3%, after a miss it falls 7% (40–220 bpm), so it settles where you are right most of the time. Logged in `attempts.bpm` and `runs.bpm_start` / `bpm_end`. In beat mode there is no ungraded play-along after a miss, so the beat is not broken. Answer times are still measured from when the prompt appears and feed the speed model as usual.
+
+### Feedback during and after a run
+
+- **Accuracy ring:** first-try accuracy so far.
+- **Momentum glow:** right answers at or under your expected time for that note, in a row, build a glow (full at 6); a miss resets it, a slow right answer keeps it. Nothing is kept between runs.
+- **Progress board:** the practice board shows each played position coloured by mastery (red to green), updated after every answer, and fog over positions not reachable yet (`isReachable`), so mastering material visibly lifts the fog next to it.
+- **Note rings in the summary:** outer *known* = retrievability × accuracy against 0.6, middle *fast* = your usual time ÷ the note's expected time, inner *automatic* = full only when mastered (right and fast on two days).
+- **Near-miss line:** after a finished prompts run, "one note away from a perfect run", "one note short of your best here" (best right first answers per zone and run length, kept in the model), or "new best here".
+
+*Why:* these show competence (progress you can see) without points or badges, which can lower intrinsic motivation. Not tested on this app: check next-day accuracy before and after if in doubt.
+
 ## 9. Mastery, fading and practice habits
 
 - **Mastered** = right with a Good or Easy grade on at least two different days, and still strong (combined score ≥ 0.7). Mastered positions get a white ring on the Stats map.
