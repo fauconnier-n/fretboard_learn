@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Button shapes</title>
+<link rel="stylesheet" href="../css/app.css">
+<style>
+  body { padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .card h2 { margin: 0 0 2px; font-size: 18px; font-weight: 900; }
+  .card p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+  .line { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+
+  /* 2 · pill */
+  .v-pill .btn, .v-pill .seg, .v-pill .seg button { border-radius: 999px; }
+  .v-pill .btn.primary { padding-inline: 20px; }
+  /* 3 · sticker: the poster's thick outline and an offset shadow */
+  .v-sticker .btn { border: 2px solid var(--ink); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); }
+  .v-sticker .btn.primary { border-width: 3px; box-shadow: 4px 4px 0 var(--ink); }
+  .v-sticker .btn.primary.danger { border-color: var(--ink); box-shadow: 4px 4px 0 var(--ink); color: #fff; background: var(--red); }
+  .v-sticker .seg { border: 2px solid var(--ink); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); }
+  .v-sticker .seg button { border-radius: 10px; }
+  .v-sticker .seg button.active { background: var(--yellow); box-shadow: none; }
+  /* 4 · soft: colour only, no outline */
+  .v-soft .btn { border: 0; background: var(--panel2); border-radius: 12px; box-shadow: none; }
+  .v-soft .btn.primary { background: var(--green); color: #fff; box-shadow: 0 4px 12px rgba(82, 179, 71, .35); }
+  .v-soft .btn.primary.danger { background: var(--red); color: #fff; box-shadow: 0 4px 12px rgba(229, 37, 47, .3); }
+  .v-soft .seg { border: 0; border-radius: 12px; }
+  /* 5 · ticket: a concert ticket, notched on both sides */
+  .v-ticket .btn { border-radius: 4px; border: 0; background: var(--panel2); box-shadow: none; padding-inline: 18px;
+    -webkit-mask: radial-gradient(circle 6px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 6px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle 6px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 6px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat; }
+  .v-ticket .btn.primary { background: var(--green-light); border: 0; box-shadow: none; }
+  .v-ticket .btn.primary.danger { background: var(--red); color: #fff; }
+  .v-ticket .seg { border-radius: 4px; }
+  /* 6 · leaf: the poster's leaves, two round corners and two sharp ones */
+  .v-leaf .btn { border-radius: 18px 4px 18px 4px; border: 2px solid var(--ink); }
+  .v-leaf .btn.primary { box-shadow: 0 2px 0 var(--ink); }
+  .v-leaf .seg { border-radius: 16px 4px 16px 4px; }
+  .v-leaf .seg button { border-radius: 13px 3px 13px 3px; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <script>
+    const V = [
+      ['', '1 · Block (now)', 'Rounded corners, dark outline, hard shadow under the main button.'],
+      ['v-pill', '2 · Pill', 'Fully round ends, like badges and tags.'],
+      ['v-sticker', '3 · Sticker', 'Thick dark outline and an offset shadow on every button, like the poster lettering.'],
+      ['v-soft', '4 · Soft', 'No outline: colour fills and a soft coloured glow.'],
+      ['v-ticket', '5 · Ticket', 'A concert ticket, notched on both sides.'],
+      ['v-leaf', '6 · Leaf', 'Two round corners and two sharp ones, like the poster leaves.'],
+    ];
+    document.write(V.map(([cls, title, about]) => `
+      <section class="card ${cls}">
+        <h2>${title}</h2><p>${about}</p>
+        <div class="line"><button class="btn primary">New run ⏎</button><button class="btn primary danger">Stop run</button><button class="btn">Export JSON</button><button class="btn small">Show me (H)</button></div>
+        <div class="line"><div class="seg"><button class="active">Play the note</button><button>Mix-ups</button><button>Name the note</button></div>
+          <div class="seg"><button class="active">Prompts</button><button>Sprint</button></div></div>
+        <div class="line name-buttons" style="justify-content:flex-start">${['C', 'C#/Db', 'D', 'D#/Eb', 'E', 'F'].map((n) => `<button class="btn small">${n}</button>`).join('')}</div>
+      </section>`).join(''));
+  </script>
+</div>
+</body>
+</html>

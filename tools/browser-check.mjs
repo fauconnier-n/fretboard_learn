@@ -1,5 +1,6 @@
 // Drive the app in headless Edge (or Chrome) and take screenshots, without a browser window.
-//   node tools/browser-check.mjs <steps.mjs> [--origin http://localhost:8137] [--out <dir>] [--port 9333]
+//   node tools/browser-check.mjs <steps.mjs> [--origin http://localhost:8137] [--out <dir>] [--port 9333] [--url <page>]
+// --url opens that page (relative to the origin, e.g. tools/button-shapes.html) instead of the app.
 // <steps.mjs> default-exports [{ name, js, shot = true, width = 1200, height = 900 }]: each `js`
 // is the body of an async function run in the page (use `return ...` to print a result);
 // then, if shot, a PNG <out>/<name>.png is saved. The active user is set to "test" before the
@@ -21,6 +22,7 @@ const stepsFile = args[0];
 const origin = opt('origin', 'http://localhost:8137');
 const out = resolve(opt('out', 'screenshots'));
 const port = +opt('port', 9333);
+const page = opt('url', '');
 const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'];
 const exe = BROWSERS.find(existsSync);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -77,9 +79,9 @@ try {
   await send('Page.navigate', { url: origin + '/manifest.webmanifest' });
   await sleep(1200);
   await evaluate(`localStorage.setItem('ft:activeUser', JSON.stringify('test')); localStorage.setItem('ft:users', JSON.stringify(['user','test']))`);
-  await send('Page.navigate', { url: origin + '/' });
+  await send('Page.navigate', { url: origin + '/' + page });
   // wait until the database is open and the board is drawn
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 80 && !page; i++) {
     if (await evaluate(`!!(window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length)`)) break;
     await sleep(250);
   }
