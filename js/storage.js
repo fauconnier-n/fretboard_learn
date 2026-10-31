@@ -136,6 +136,8 @@ export const TABLES = {
       ['cue_labels', 'VARCHAR', "Every label on the board while this prompt was asked, as 'name@string:fret' separated by ';', string 0 = lowest, e.g. 'E@0:0;G@0:3'. With the tuning in this row any distance can be recomputed from it."],
       ['cue_dist', 'VARCHAR', "Distance from the asked position to each label in cue_labels, same order, separated by ';'. In fret widths, a step to the next string counting 2 (so labels along the same string are closer): sqrt(Δfret² + (2·Δstring)²). 0 is the asked position's own label."],
       ['cue_nearest', 'DOUBLE', "Distance (same measure as cue_dist) from the asked position to the nearest label other than its own. Empty if there was none."],
+      ['special', 'VARCHAR', "A prompt chosen for a role, not by the usual weights: 'boss' (second to last in a prompts run: the note of the zone the model thinks hardest), 'finale' (last: the best-known note, so the run ends on a success) or 'golden' (a rare prompt on a note you have been missing). Empty for ordinary prompts."],
+      ['bpm', 'DOUBLE', 'Tempo of the metronome in beat mode when this prompt was shown, in beats per minute. Empty outside beat mode.'],
     ],
   },
   runs: {
@@ -166,9 +168,12 @@ export const TABLES = {
       ['prompts', 'INTEGER', 'Prompts answered (graded) in the run.'],
       ['correct', 'INTEGER', 'Prompts answered right on the first try.'],
       ['median_ms', 'INTEGER', 'Median time of the right first answers, in ms.'],
-      ['task', 'VARCHAR', "What the run asked: 'play' or 'name'."],
+      ['task', 'VARCHAR', "What the run asked: 'play', 'name', or 'mixed' (each prompt is play or name at random; attempts.task says which)."],
       ['due_at_start', 'INTEGER', 'Number of items fading (due for review) when the run was picked.'],
       ['cue_mode', 'VARCHAR', "Setting for note-name labels during the run: 'off', 'fade', 'all', 'naturals' or 'landmarks' (see attempts.cue_mode)."],
+      ['focus', 'VARCHAR', "'confusions' for a mix-ups run (only notes you have mixed up and the notes you played instead), empty otherwise."],
+      ['bpm_start', 'DOUBLE', 'Beat mode: tempo at the start of the run, in beats per minute. Empty outside beat mode.'],
+      ['bpm_end', 'DOUBLE', 'Beat mode: tempo at the end of the run (it rises after right answers and falls after misses).'],
     ],
   },
 };
@@ -484,6 +489,7 @@ const attemptValues = (a) => {
     a.predP ?? null, a.predMs ?? null, a.predR ?? null, a.predS ?? null, a.predD ?? null,
     a.task ?? null, a.answerName ?? null, a.errorType ?? null, a.probe ?? null,
     a.cueMode ?? null, a.cueTarget ?? null, a.cueN ?? null, a.cueLabels ?? null, a.cueDist ?? null, a.cueNearest ?? null,
+    a.special ?? null, a.bpm ?? null,
   ];
 };
 
@@ -613,6 +619,7 @@ function toAttempt(r) {
     predP: r.pred_p, predMs: r.pred_ms, predR: r.pred_r, predS: r.pred_s, predD: r.pred_d,
     task: r.task, answerName: r.answer_name, errorType: r.error_type, probe: r.probe,
     cueMode: r.cue_mode, cueTarget: r.cue_target, cueN: r.cue_n, cueLabels: r.cue_labels, cueDist: r.cue_dist, cueNearest: r.cue_nearest,
+    special: r.special, bpm: r.bpm,
   };
 }
 

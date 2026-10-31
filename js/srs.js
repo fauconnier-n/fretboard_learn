@@ -76,6 +76,7 @@ export function newModel() {
     meta: {
       target: 0.8, speedPush: 1, runsDone: 0, recent: [], last: null,
       time: newTime(), floor: DEFAULT_FLOOR_MS, fx: { time: {}, acc: {}, g: { v: logit(0.7), n: 0 } },
+      best: {}, // most right first answers per "zone label|run length", for the near-miss line
     },
   };
 }
@@ -535,15 +536,22 @@ export class Scheduler {
   // Due reviews come first when they pile up: then only zones without unseen positions are
   // candidates, scored by how many due items they hold. Otherwise zones aim at the target
   // success rate, with a bonus for due items they contain.
-  pickZone(zones, now = Date.now()) {
+  // focus 'confusions': only zones holding notes you have mixed up (none recorded: a normal
+  // pick, with focus null). Also returns up to 2 other good, different-looking zones to offer.
+  pickZone(zones, now = Date.now(), focus = null) {
     if (!zones.length) return null;
     const snap = this.snapshot(now);
     const meta = this.model.meta;
     const due = new Set(this.dueKeys(now).map((k) => k.split(':').slice(0, 2).join(':')));
     const dueIn = (z) => z.cells.filter((c) => due.has(c.key)).length;
-    const review = due.size >= BACKLOG_GATE;
+    let review = due.size >= BACKLOG_GATE;
 
     let pool = zones.filter((z) => this.isUnlocked(z, snap));
+    const mixed = focus === 'confusions' ? pool.filter((z) => this.confusionCells(z).size >= 2) : [];
+    if (mixed.length) {
+      pool = mixed;
+      review = false;
+    } else focus = null;
     if (review) {
       const seen = pool.filter((z) => z.cells.every((c) => this.hasCard(c)) && dueIn(z) > 0);
       if (seen.length) pool = seen;
@@ -551,16 +559,64 @@ export class Scheduler {
     if (!pool.length) pool = [...zones].sort((a, b) => this.zoneDifficulty(a) - this.zoneDifficulty(b)).slice(0, 3);
     const scored = pool.map((z) => {
       const P = this.zonePredicted(z, snap, now);
-      let lg = review
-        ? 0.6 * dueIn(z) - 0.5 * ((P - meta.target) / 0.12) ** 2
-        : -0.5 * ((P - meta.target) / 0.06) ** 2 - 1.5 * this.zoneDifficulty(z) + 0.15 * dueIn(z);
+      let lg = focus
+        ? 0.5 * this.confusionCells(z).size - 0.5 * ((P - meta.target) / 0.12) ** 2
+        : review
+          ? 0.6 * dueIn(z) - 0.5 * ((P - meta.target) / 0.12) ** 2
+          : -0.5 * ((P - meta.target) / 0.06) ** 2 - 1.5 * this.zoneDifficulty(z) + 0.15 * dueIn(z);
       if (meta.last && similarity(describe(z), meta.last) > 0.8) lg -= 2.5;
       lg += Math.log(0.75 + 0.5 * Math.random());
       return { z, P, lg };
     });
     const max = Math.max(...scored.map((x) => x.lg));
     const pick = scored[sample(scored.map((x) => Math.exp(x.lg - max)))];
-    return { zone: pick.z, review, predicted: pick.P, due: due.size };
+    const asPick = (x) => ({ zone: x.z, review, predicted: x.P, due: due.size, focus });
+    const alternatives = [];
+    for (const x of [...scored].sort((a, b) => b.lg - a.lg)) {
+      if (alternatives.length === 2) break;
+      const looks = [pick, ...alternatives].some((y) => similarity(describe(x.z), describe(y.z ?? y.zone)) > 0.8);
+      if (x !== pick && !looks) alternatives.push(asPick(x));
+    }
+    return { ...asPick(pick), alternatives };
+  }
+
+  // Cells of a zone involved in a mix-up: notes you played wrong there, and the notes you
+  // played instead of them (or instead of which they were played).
+  confusionCells(zone) {
+    const out = new Set();
+    for (const c of zone.cells) {
+      const others = this.confusedWith(c);
+      if (!others.size) continue;
+      out.add(c.key);
+      for (const pc of others) if (zone.byPc[pc]) out.add(zone.byPc[pc].key);
+    }
+    return out;
+  }
+
+  // Recall chance and lapses of every cell of a zone, to pick the boss (hardest), the closing
+  // note (best known) and golden prompts (notes you have been missing).
+  zoneChances(zone, task = 'play', now = Date.now()) {
+    const snap = this.snapshot(now);
+    const desc = describe(zone);
+    return zone.cells.map((cell) => ({
+      cell,
+      p: task === 'name' ? this.pItem(cell, 'r', desc, snap, now) : this.pCell(cell, desc, snap, now),
+      seen: this.hasCard(cell),
+      lapses: (task === 'name' ? ['r'] : spellingsOf(cell.pc)).reduce((t, sp) => t + (this.model.cards[itemKey(cell.key, sp)]?.lapses || 0), 0),
+    }));
+  }
+
+  // How far an item is towards known (memory), fast (your usual time or better) and
+  // automatic (mastered: right and fast on two days), each 0–1, for the rings in the summary.
+  noteRings(key, now = Date.now()) {
+    const c = this.model.cards[key];
+    if (!c) return { known: 0, fast: 0, auto: 0 };
+    return {
+      known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6),
+      fast: Math.min(1, Math.exp(this.globalMu()) / this.expectedMs(key, now)),
+      // not mastered yet never shows a full ring
+      auto: this.isMastered(key, now) ? 1 : Math.min(0.95, 0.5 * Math.min(1, (c.days?.length || 0) / 2) + 0.5 * Math.min(1, this.itemMastery(key, now) / 0.7)),
+    };
   }
 
   // ---------- choosing a prompt ----------
@@ -605,6 +661,8 @@ export class Scheduler {
         if (!startedStrings.has(String(c.s)) && isAccidental(c.pc)) w *= 0.4;
       }
       if ((run.counts[c.key] || 0) >= cap) w *= 0.05;
+      // a mix-ups run asks almost only the notes involved in mix-ups
+      if (run.mixups?.size && !run.mixups.has(c.key)) w *= 0.03;
       return w * recency;
     });
     const cell = zone.cells[sample(ws)];

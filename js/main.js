@@ -29,6 +29,7 @@ const DEFAULTS = {
   timeoutSec: 10,
   retry: true,
   showQueue: false,
+  beat: false,
   cueMode: 'fade',
   runTask: 'play',
   plan: '',
@@ -70,21 +71,23 @@ function saveSettings() {
   storage.rememberSettings(app.settings);
 }
 
+// kind: 'good' | 'bad' | 'golden' | 'tick' (the beat-mode metronome, which plays even with sound effects off)
 function sound(kind) {
-  if (!app.settings.sound) return;
+  if (!app.settings.sound && kind !== 'tick') return;
   const ctx = (app.sfx ||= app.audio.ctx || new AudioContext());
   const o = ctx.createOscillator();
   const g = ctx.createGain();
   o.type = 'triangle';
-  o.frequency.value = kind === 'good' ? 1320 : 150;
+  o.frequency.value = { good: 1320, golden: 1760, tick: 2400 }[kind] ?? 150;
   o.connect(g);
   g.connect(ctx.destination);
   const t = ctx.currentTime;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.12, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  const len = kind === 'tick' ? 0.03 : kind === 'golden' ? 0.35 : 0.14;
+  g.gain.exponentialRampToValueAtTime(kind === 'tick' ? 0.06 : 0.12, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
   o.start(t);
-  o.stop(t + 0.16);
+  o.stop(t + len + 0.02);
 }
 
 // ---------- board / model ----------
@@ -253,6 +256,7 @@ function updateModeUI() {
   const count = s.runMode === 'count';
   document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === s.runMode));
   document.querySelectorAll('#taskSeg button').forEach((b) => b.classList.toggle('active', b.dataset.task === (s.runTask || 'play')));
+  $('beatBtn').classList.toggle('active', !!s.beat);
   const input = $('runLen');
   Object.assign(input, count ? { min: 1, max: 200, step: 1 } : { min: 10, max: 1200, step: 10 });
   input.value = count ? s.runCount : s.sprintSec;
@@ -568,6 +572,7 @@ async function init() {
       area: $('promptArea'), note: $('promptNote'), sub: $('promptSub'), timer: $('promptTimer'),
       zone: $('zoneLabel'), progress: $('progressLabel'), fill: $('progressFill'),
       feedback: $('feedback'), summary: $('summary'), queue: $('promptQueue'), startBtn: $('startBtn'), showMe: $('showMeBtn'), names: $('nameButtons'),
+      ring: $('accRing'), choices: $('zoneChoices'),
     },
     getSettings: () => app.settings,
     getScheduler: () => app.scheduler,
@@ -596,8 +601,14 @@ async function init() {
     app.settings.runTask = b.dataset.task;
     saveSettings();
     updateModeUI();
-    if (app.quiz.state === 'preview') app.quiz.run.task = b.dataset.task;
+    if (app.quiz.state === 'preview') app.quiz.prepare(); // the choice can change the zones offered
   }));
+  $('beatBtn').onclick = () => {
+    if (app.quiz.running) return;
+    app.settings.beat = !app.settings.beat;
+    saveSettings();
+    updateModeUI();
+  };
   $('startBtn').onclick = () => {
     if (!app.audio.running) connectAudio();
     app.quiz.primary();

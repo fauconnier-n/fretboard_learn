@@ -33,7 +33,19 @@ const REVEAL_MAX = 8000;
 const QUEUE_AHEAD = 4; // upcoming prompts picked in advance (shown only if the setting is on)
 const RETEST_MIN = 3; // a missed note comes back after 3–8 other prompts
 const RETEST_MAX = 8;
+const PLAYALONG_MS = 6000; // after a miss, the ungraded play-along is skipped after this long
+const SPECIAL_MIN_RUN = 6; // prompts runs at least this long get a boss and a closing note
+const GOLDEN_RATE = 0.07; // chance that an ordinary prompt becomes a golden one
+// beat mode: a prompt lasts BEATS beats; the tempo rises after a right answer, falls after a miss
+const BEATS = 4;
+const BPM_UP = 1.03;
+const BPM_DOWN = 0.93;
+const BPM_MIN = 40;
+const BPM_MAX = 220;
+const SPECIAL_TEXT = { boss: 'Boss note: the hardest one in this zone', finale: 'Last one', golden: '★ Golden note: one you have been missing' };
 
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const spellFor = (cell, task) => (task === 'name' ? 'r' : isAccidental(cell.pc) ? (Math.random() < 0.5 ? 's' : 'f') : 'n');
 const median = (xs) => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -105,8 +117,23 @@ export class Quiz {
     e.fill.style.width = '0%';
     e.feedback.textContent = '';
     e.summary.classList.add('hidden');
+    e.choices.innerHTML = '';
     this.state = 'idle';
     this.updateButton();
+    this.paintProgress();
+  }
+
+  // Practice board between and during runs: positions you have played coloured by mastery
+  // (updated after every answer), positions not unlocked yet under fog.
+  paintProgress() {
+    const sch = this.getScheduler();
+    if (!sch) return;
+    const snap = sch.snapshot();
+    this.board.setHeat((s, f) => {
+      const m = snap.mastery.get(s + ':' + f);
+      if (m !== undefined) return { fill: `hsl(${Math.round(m * 120)} 70% 45%)` };
+      return sch.isReachable(s, f, snap) ? null : { fog: true };
+    });
   }
 
   // Text before a run: welcome back after a gap (neutral, no streak lost), what is due,
@@ -131,17 +158,26 @@ export class Quiz {
       this.run = null;
     }
     this.clearTimers();
+    clearTimeout(this.beatTimer);
     cancelAnimationFrame(this.raf);
   }
 
-  // Pick the zone and show it, with its natural notes as a reminder.
-  prepare() {
+  // Pick the zone and show it, with its natural notes as a reminder, plus up to two other
+  // zones to choose from (buttons, or keys 1–3). `chosen` is one of those offers.
+  prepare(chosen = null) {
     this.leave();
     const sch = this.getScheduler();
-    const pick = sch.pickZone(this.getZones(), Date.now());
-    if (!pick) return;
-    const { zone } = pick;
+    if (!sch) return; // the board is still loading
     const s = this.s;
+    const focus = s.runTask === 'confusions' ? 'confusions' : null;
+    if (!chosen) {
+      const pick = sch.pickZone(this.getZones(), Date.now(), focus);
+      if (!pick) return;
+      this.offers = [pick, ...pick.alternatives];
+      chosen = pick;
+    }
+    const pick = chosen;
+    const { zone } = pick;
     this.run = {
       id: Date.now().toString(36),
       zone,
@@ -149,7 +185,9 @@ export class Quiz {
       review: pick.review,
       predicted: pick.predicted,
       due: pick.due,
-      task: s.runTask === 'name' ? 'name' : 'play',
+      task: s.runTask === 'name' ? 'name' : s.runTask === 'mixed' ? 'mixed' : 'play',
+      focus: pick.focus,
+      mixups: pick.focus ? sch.confusionCells(zone) : null,
       label: zoneLabel(zone, this.getStrings(), s.flats),
       asked: [],
       counts: {},
@@ -163,7 +201,14 @@ export class Quiz {
     this.board.clearMarks();
     for (const c of zone.cells) if (!isAccidental(c.pc)) this.board.mark(c.s, c.f, 'hint', spellName(c.midi, 'n'));
     const e = this.els;
-    e.zone.textContent = this.run.label + (pick.review ? ' · review of fading notes' : '');
+    e.zone.textContent = this.run.label + (pick.review ? ' · review of fading notes' : '') +
+      (pick.focus ? ' · your mix-ups' : focus ? ' · no mix-ups recorded yet, a usual run' : '');
+    e.choices.innerHTML = this.offers.length > 1 ? 'Or pick: ' + this.offers.map((o, i) =>
+      `<button class="btn small${o === pick ? ' active' : ''}" data-offer="${i}">${i + 1} · ${zoneLabel(o.zone, this.getStrings(), s.flats)}</button>`).join('') : '';
+    e.choices.onclick = (ev) => {
+      const b = ev.target.closest('[data-offer]');
+      if (b) this.prepare(this.offers[+b.dataset.offer]);
+    };
     e.names.classList.add('hidden');
     e.summary.classList.add('hidden');
     e.feedback.textContent = '';
@@ -176,6 +221,7 @@ export class Quiz {
     e.queue.innerHTML = '';
     e.progress.textContent = s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`;
     e.fill.style.width = '0%';
+    this.paintProgress();
     this.updateButton();
   }
 
@@ -192,6 +238,11 @@ export class Quiz {
       endsAt: s.runMode === 'sprint' ? now + s.sprintSec * 1000 : 0,
       usualMs: Math.exp(sch.globalMu()), // your typical answer time before this run
       cueMode: run.task === 'name' ? 'off' : s.cueMode || 'off',
+      streak: 0, // fast right answers in a row, for the glow
+      goldenLeft: s.runMode === 'count' ? Math.max(1, Math.floor(s.runCount / 12)) : 2,
+      beat: !!s.beat,
+      // beat mode starts with a prompt lasting about 2.5× your usual time
+      bpm: clamp(Math.round((60000 * BEATS) / (2.5 * Math.exp(sch.globalMu()))), 50, 160),
       // each item's expected time before the run, to say afterwards what got faster
       beforeMs: new Map(run.zone.cells.flatMap((c) => ['n', 's', 'f', 'r'].map((sp) => {
         const key = itemKey(c.key, sp);
@@ -210,13 +261,58 @@ export class Quiz {
       zone_span: run.desc.span, zone_fret_min: run.desc.fretMin, zone_fret_max: run.desc.fretMax, zone_label: run.label,
       review: !!run.review, predicted: run.predicted, target: sch.model.meta.target,
       retry: !!s.retry, timeout_sec: s.timeoutSec, task: run.task, due_at_start: run.due ?? null,
+      focus: run.focus, bpm_start: run.beat ? run.bpm : null,
     };
     this.onRun?.(run.row);
     this.board.clearMarks();
+    this.els.choices.innerHTML = '';
+    this.els.area.style.setProperty('--glow', '0');
     this.state = 'feedback';
     this.updateButton();
+    this.ring();
     this.tick();
+    if (run.beat) this.startBeat();
     this.next();
+  }
+
+  // Beat mode: a click on every beat; prompts appear on a beat.
+  startBeat() {
+    const run = this.run;
+    run.beatAt = performance.now();
+    const beat = () => {
+      if (this.run !== run || !this.running) return;
+      this.sound?.('tick');
+      run.beatAt += 60000 / run.bpm;
+      this.beatTimer = setTimeout(beat, Math.max(0, run.beatAt - performance.now()));
+    };
+    beat();
+  }
+
+  // Wait at least `ms`, then until the next beat in beat mode.
+  advance(ms) {
+    this.state = 'feedback';
+    this.clearTimers();
+    const run = this.run;
+    let wait = ms;
+    if (run?.beat) {
+      const now = performance.now();
+      let t = run.beatAt;
+      while (t - now < ms) t += 60000 / run.bpm;
+      wait = t - now;
+    }
+    this.later(() => this.next(), wait);
+  }
+
+  // Live first-try accuracy ring next to the run progress.
+  ring() {
+    const res = this.run?.results || [];
+    const acc = res.length ? res.filter((r) => r.correct).length / res.length : 0;
+    const C = 2 * Math.PI * 15;
+    this.els.ring.innerHTML = `<circle cx="18" cy="18" r="15" class="ring-bg"/>` +
+      `<circle cx="18" cy="18" r="15" class="ring-fg" stroke-dasharray="${(acc * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 18 18)"/>` +
+      `<text x="18" y="22" class="ring-txt">${res.length ? Math.round(acc * 100) : '–'}</text>`;
+    this.els.ring.classList.toggle('hidden', !this.running);
+    this.els.ring.setAttribute('aria-label', res.length ? `${Math.round(acc * 100)}% right first time` : 'No answers yet');
   }
 
   // Keep the next prompts picked in advance, so they can be shown.
@@ -226,13 +322,36 @@ export class Quiz {
     const left = run.total - run.results.length;
     while (run.queue.length < Math.min(QUEUE_AHEAD + 1, left)) {
       const n = run.results.length + run.queue.length + 1; // prompt number in the run
+      const task = run.task === 'mixed' ? (Math.random() < 0.5 ? 'name' : 'play') : run.task;
       let p;
-      if (n % PROBE_EVERY === 0) {
+      // a prompts run closes with its boss (hardest note) then a note you know, so it ends on a
+      // success; both are queued together so a re-test can't take the closing slot
+      if (run.total >= SPECIAL_MIN_RUN && left - run.queue.length === 2) {
+        const ranked = sch.zoneChances(run.zone, task).filter((x) => x.cell.key !== (run.queue.at(-1)?.cell.key ?? run.asked.at(-1))).sort((a, b) => a.p - b.p);
+        const known = ranked.filter((x) => x.seen);
+        const boss = known[0] || ranked[0];
+        const finale = [...known].reverse().find((x) => x !== boss) || ranked.at(-1);
+        for (const [x, special] of [[boss, 'boss'], [finale, 'finale']]) {
+          run.asked.push(x.cell.key);
+          run.counts[x.cell.key] = (run.counts[x.cell.key] || 0) + 1;
+          run.queue.push({ cell: x.cell, sp: spellFor(x.cell, task), task, special });
+        }
+        continue;
+      } else if (n % PROBE_EVERY === 0) {
         // check-up: any position of the zone, so its success rate is not shaped by the model
         const cell = run.zone.cells[Math.floor(Math.random() * run.zone.cells.length)];
-        const sp = run.task === 'name' ? 'r' : isAccidental(cell.pc) ? (Math.random() < 0.5 ? 's' : 'f') : 'n';
-        p = { cell, sp, probe: true };
-      } else p = sch.pickPrompt(run.zone, run, run.task);
+        p = { cell, sp: spellFor(cell, task), probe: true };
+      } else {
+        // golden: now and then, a note you have been missing, with a special effect when right
+        const missed = run.goldenLeft > 0 && Math.random() < GOLDEN_RATE
+          ? sch.zoneChances(run.zone, task).filter((x) => x.lapses > 0 && x.p < 0.7 && x.cell.key !== run.asked.at(-1)).sort((a, b) => a.p - b.p)[0]
+          : null;
+        if (missed) {
+          run.goldenLeft--;
+          p = { cell: missed.cell, sp: spellFor(missed.cell, task), special: 'golden' };
+        } else p = sch.pickPrompt(run.zone, run, task);
+      }
+      p.task = task;
       run.asked.push(p.cell.key);
       run.counts[p.cell.key] = (run.counts[p.cell.key] || 0) + 1;
       run.queue.push(p);
@@ -248,29 +367,40 @@ export class Quiz {
     if (run.results.length >= run.total) return this.end('completed');
     if (run.endsAt && performance.now() >= run.endsAt) return this.end('time_up');
     this.fillQueue();
-    const { cell, sp, retest, probe } = run.queue.shift();
+    let { cell, sp, retest, probe, task, special } = run.queue.shift();
+    if (special === 'finale' && run.failed.has(cell.key)) {
+      // missed during this run: close on the best-known note you have not missed instead
+      const x = this.getScheduler().zoneChances(run.zone, task).filter((y) => !run.failed.has(y.cell.key) && y.cell.key !== run.asked.at(-1)).sort((a, b) => b.p - a.p)[0];
+      if (x) {
+        cell = x.cell;
+        sp = spellFor(cell, task);
+      }
+    }
     const s = this.s;
-    const naming = run.task === 'name';
+    const naming = task === 'name';
     const expected = this.getScheduler().expectedMs(itemKey(cell.key, sp));
-    const giveUpAfter = Math.min(s.timeoutSec * 1000, Math.min(REVEAL_MAX, Math.max(REVEAL_MIN, REVEAL_FACTOR * expected)));
+    const reveal = run.beat ? (BEATS * 60000) / run.bpm : Math.min(REVEAL_MAX, Math.max(REVEAL_MIN, REVEAL_FACTOR * expected));
+    const giveUpAfter = Math.min(s.timeoutSec * 1000, reveal);
     this.cur = {
-      cell, sp, retest: !!retest, probe: !!probe, queueShown: !!s.showQueue && !naming, shownAt: performance.now(),
+      cell, sp, task, special: special || null, retest: !!retest, probe: !!probe, queueShown: !!s.showQueue && run.task === 'play', shownAt: performance.now(),
+      expected, bpm: run.beat ? run.bpm : null,
       attempts: 0, graded: false, revealed: false, wrong: [], solvedMs: null, log: null, prev: run.prev,
     };
     run.prev = { cell, sp };
-    this.showCues(cell, !!retest, !!probe);
+    // name prompts never show labels: they would give the answer away
+    this.showCues(cell, !!retest, !!probe || naming);
     this.state = 'await';
     const e = this.els;
     e.note.textContent = naming ? '?' : spellName(cell.midi, sp);
-    e.note.classList.remove('pop');
+    e.note.className = 'prompt-note' + (special ? ' ' + special : '');
     void e.note.offsetWidth;
     e.note.classList.add('pop');
     if (naming) this.board.mark(cell.s, cell.f, 'ask', '?');
     e.names.classList.toggle('hidden', !naming);
-    e.sub.textContent = retest ? 'Again — you missed this one a moment ago'
+    e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again — you missed this one a moment ago'
       : naming ? 'Name the marked note: type its letter (Shift = sharp) or click it below'
-        : 'Play it inside the zone';
-    e.queue.innerHTML = s.showQueue && !naming ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
+        : 'Play it inside the zone');
+    e.queue.innerHTML = s.showQueue && run.task === 'play' ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
       `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
     e.showMe.classList.remove('hidden');
     if (Number.isFinite(run.total)) e.progress.textContent = `${run.results.length + 1} / ${run.total}`;
@@ -306,20 +436,21 @@ export class Quiz {
   // re-test a few prompts later, then either wait for one ungraded play-along or move on.
   missed() {
     const cur = this.cur;
-    const naming = this.run.task === 'name';
+    const naming = cur.task === 'name';
     this.els.showMe.classList.add('hidden');
     this.reveal();
     this.scheduleRetest(cur);
     const hint = this.getScheduler().positionMastered(cur.cell) ? '' : this.structuralHint(cur.cell);
-    if (this.s.retry) {
+    // beat mode keeps the beat going: no waiting for a play-along
+    if (this.s.retry && !this.run.beat) {
       this.els.sub.textContent = (hint ? hint + ' ' : '') +
         (naming ? 'Type or click its name once (not graded).' : 'Play it once where it is shown (not graded).') +
         ' It comes back in a few prompts.';
+      this.clearTimers();
+      this.later(() => this.cur === cur && this.state === 'await' && this.advance(0), PLAYALONG_MS);
     } else {
       if (hint) this.els.sub.textContent = hint;
-      this.state = 'feedback';
-      this.clearTimers();
-      this.later(() => this.next(), REVEAL_DELAY);
+      this.advance(REVEAL_DELAY);
     }
   }
 
@@ -362,21 +493,19 @@ export class Quiz {
   // "Name the note": a pitch class from a key press or a button.
   answerName(pc, label) {
     const cur = this.cur;
-    if (this.state !== 'await' || !cur || this.run.task !== 'name') return;
+    if (this.state !== 'await' || !cur || cur.task !== 'name') return;
     const ms = Math.max(0, performance.now() - cur.shownAt);
     const cell = cur.cell;
     if (pc === cell.pc) {
       if (!cur.graded) this.grade(true, ms, cell.midi, { answerName: label });
       cur.solvedMs = ms;
       this.closePrompt();
-      this.clearTimers();
-      this.state = 'feedback';
       this.els.showMe.classList.add('hidden');
       this.dropCue(cell);
-      this.board.flash(cell.s, cell.f, 'good', NAME_LABELS[cell.pc].split('/')[0]);
-      this.feedback('good', cur.revealed ? `✓ That's it — ${NAME_LABELS[cell.pc]}. It comes back in a few prompts.` : `✓ ${NAME_LABELS[cell.pc]} · ${(ms / 1000).toFixed(2)} s`);
-      this.sound?.('good');
-      this.later(() => this.next(), cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
+      this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', NAME_LABELS[cell.pc].split('/')[0]);
+      this.feedback('good', cur.revealed ? `✓ That's it — ${NAME_LABELS[cell.pc]}. It comes back in a few prompts.` : this.goodText(NAME_LABELS[cell.pc], ms));
+      this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
+      this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
       return;
     }
     // as a pitch, the wrong name is the nearest note with that name
@@ -394,13 +523,18 @@ export class Quiz {
   scheduleRetest(cur) {
     const run = this.run;
     const q = run.queue;
-    const at = Math.min(q.length, RETEST_MIN - 1 + Math.floor(Math.random() * (RETEST_MAX - RETEST_MIN + 1)));
-    q.splice(at, 0, { cell: cur.cell, sp: cur.sp, retest: true });
-    run.asked.push(cur.cell.key);
-    // a count run keeps its length: drop a planned (non re-test) prompt if needed
+    // the boss and the closing note stay last
+    const firstRole = q.findIndex((x) => x.special === 'boss' || x.special === 'finale');
+    const end = firstRole < 0 ? q.length : firstRole;
+    const droppable = (x) => !x.retest && x.special !== 'boss' && x.special !== 'finale';
     const left = run.total - run.results.length;
+    // a count run keeps its length: no room for a re-test if nothing planned can be dropped
+    if (q.length >= left && !q.some(droppable)) return;
+    const at = Math.min(end, RETEST_MIN - 1 + Math.floor(Math.random() * (RETEST_MAX - RETEST_MIN + 1)));
+    q.splice(at, 0, { cell: cur.cell, sp: cur.sp, task: cur.task, retest: true });
+    run.asked.push(cur.cell.key);
     while (q.length > left) {
-      const i = q.map((x) => !x.retest).lastIndexOf(true);
+      const i = q.map(droppable).lastIndexOf(true);
       if (i < 0) break;
       q.splice(i, 1);
     }
@@ -426,7 +560,7 @@ export class Quiz {
   // ev: { midi, t } with t in performance.now() time
   onNote(ev) {
     const cur = this.cur;
-    if (this.state !== 'await' || !cur || this.run.task === 'name') return;
+    if (this.state !== 'await' || !cur || cur.task === 'name') return;
     if (ev.t < cur.shownAt || ev.t < this.muteUntil) return;
     const s = this.s;
     const cell = cur.cell;
@@ -436,15 +570,13 @@ export class Quiz {
       if (!cur.graded) this.grade(true, ms, ev.midi);
       cur.solvedMs = ms;
       this.closePrompt();
-      this.clearTimers();
-      this.state = 'feedback';
       this.els.showMe.classList.add('hidden');
       this.dropCue(cell);
-      this.board.flash(cell.s, cell.f, 'good', spellName(cell.midi, cur.sp));
-      this.feedback('good', cur.revealed ? `✓ That's it — ${midiLabel(cell.midi, flats)}. It comes back in a few prompts.` : `✓ ${spellName(cell.midi, cur.sp)} · ${(ms / 1000).toFixed(2)} s`);
-      this.sound?.('good');
+      this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', spellName(cell.midi, cur.sp));
+      this.feedback('good', cur.revealed ? `✓ That's it — ${midiLabel(cell.midi, flats)}. It comes back in a few prompts.` : this.goodText(spellName(cell.midi, cur.sp), ms));
+      this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
       this.muteUntil = performance.now() + 250;
-      this.later(() => this.next(), cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
+      this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
       return;
     }
     cur.attempts++;
@@ -467,7 +599,7 @@ export class Quiz {
     if (!cur || cur.revealed) return;
     cur.revealed = true;
     this.dropCue(cur.cell);
-    this.board.reveal(cur.cell.s, cur.cell.f, this.run.task === 'name' ? NAME_LABELS[cur.cell.pc].split('/')[0] : midiLabel(cur.cell.midi, cur.sp === 'f'));
+    this.board.reveal(cur.cell.s, cur.cell.f, cur.task === 'name' ? NAME_LABELS[cur.cell.pc].split('/')[0] : midiLabel(cur.cell.midi, cur.sp === 'f'));
   }
 
   grade(correct, ms, played, extra = {}) {
@@ -481,20 +613,36 @@ export class Quiz {
     cur.graded = true;
     if (!correct) run.failed.add(cell.key);
     // fade: the label goes once the note is answered right, and comes back after a miss
-    if (run.cueMode === 'fade' && !cur.probe) run.labelled[correct ? 'delete' : 'add'](cell.key);
+    if (run.cueMode === 'fade' && !cur.probe && cur.task === 'play') run.labelled[correct ? 'delete' : 'add'](cell.key);
     run.cued = (run.cued || 0) + (cue.cueTarget ? 1 : 0);
-    run.results.push({ key: itemKey(cell.key, sp), cell, sp, correct, ms, g, probe: cur.probe });
+    run.results.push({ key: itemKey(cell.key, sp), cell, sp, correct, ms, g, probe: cur.probe, special: cur.special });
+    // momentum: fast right answers in a row build a glow; a miss lets it fade, a slow right answer keeps it
+    if (!correct) run.streak = 0;
+    else if (ms <= cur.expected) run.streak++;
+    this.els.area.style.setProperty('--glow', String(Math.min(run.streak, 6) / 6));
+    if (run.beat) run.bpm = clamp(run.bpm * (correct ? BPM_UP : BPM_DOWN), BPM_MIN, BPM_MAX);
+    this.ring();
+    this.paintProgress();
     cur.log = {
       t: Date.now(), runId: run.id, tuning: this.s.tuning, desc: run.desc,
       s: cell.s, f: cell.f, target: cell.midi, spelling: sp, played, correct, ms: Math.round(ms), g, review: run.review,
       prevTarget: prev?.cell.midi ?? null, prevSpelling: prev?.sp ?? null, prevS: prev?.cell.s ?? null, prevF: prev?.cell.f ?? null,
       retest: cur.retest, queueShown: cur.queueShown, showMe: !!extra.showMe, fsrsGrade: G,
       predP: pred.p, predMs: pred.ms, predR: pred.R, predS: pred.S, predD: pred.D,
-      task: run.task, answerName: extra.answerName ?? null, probe: cur.probe,
+      task: cur.task, answerName: extra.answerName ?? null, probe: cur.probe,
       errorType: correct ? null : errorType(cell.midi, played),
-      cueMode: run.cueMode, ...cue,
+      cueMode: cur.task === 'name' ? 'off' : run.cueMode, ...cue,
+      special: cur.special, bpm: cur.bpm,
     };
     this.onSave();
+  }
+
+  // Feedback line for a right first answer: the role of the prompt and the momentum.
+  goodText(name, ms) {
+    const { cur, run } = this;
+    const head = cur.special === 'golden' ? '★ Golden! ' : cur.special === 'boss' ? 'Boss beaten! ' : '';
+    const chain = run.streak >= 3 ? ` · ${run.streak} fast in a row` : '';
+    return `${head}✓ ${name} · ${(ms / 1000).toFixed(2)} s${chain}${run.beat ? ` · ${Math.round(run.bpm)} bpm` : ''}`;
   }
 
   // Log the current prompt once it is over: solved, moved on, or the run ended.
@@ -540,10 +688,13 @@ export class Quiz {
     const run = this.run;
     if (!run || !this.running) return;
     this.clearTimers();
+    clearTimeout(this.beatTimer);
     cancelAnimationFrame(this.raf);
     this.closePrompt();
     this.state = 'done';
     this.cur = null;
+    this.ring();
+    this.els.area.style.setProperty('--glow', '0');
     const res = run.results;
     const ok = res.filter((r) => r.correct);
     const acc = res.length ? ok.length / res.length : 0;
@@ -552,8 +703,9 @@ export class Quiz {
     if (reason === 'completed' || reason === 'time_up') {
       this.getScheduler().endRun({ acc, medianMs: med ?? 99999, desc: run.desc, review: run.review });
     }
+    if (reason === 'completed') run.nearMiss = this.nearMiss(run, ok.length);
     this.onSave();
-    this.onRun?.({ ...run.row, ended_at: Date.now(), end_reason: reason, prompts: res.length, correct: ok.length, median_ms: med });
+    this.onRun?.({ ...run.row, ended_at: Date.now(), end_reason: reason, prompts: res.length, correct: ok.length, median_ms: med, bpm_end: run.beat ? run.bpm : null });
     if (res.length) this.onRunEnd?.();
     this.board.clearMarks();
     const e = this.els;
@@ -572,6 +724,31 @@ export class Quiz {
     e.sub.textContent = 'Press New run or Enter to keep going';
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
+  }
+
+  // A finished prompts run: one note from perfect, one short of your best on this zone and
+  // length, or a new best. Remembers the best in the model.
+  nearMiss(run, ok) {
+    const best = (this.getScheduler().model.meta.best ||= {});
+    const key = `${run.label}|${run.total}`;
+    const prev = best[key];
+    best[key] = Math.max(prev ?? 0, ok);
+    const out = [];
+    if (run.total - ok === 1) out.push('One note away from a perfect run.');
+    else if (prev != null && ok === prev - 1) out.push(`One note short of your best here (${prev} of ${run.total}).`);
+    if (prev != null && ok > prev) out.push(`New best here: ${ok} of ${run.total}.`);
+    return out.join(' ');
+  }
+
+  // Three rings for one note: known (memory), fast (vs your usual), automatic (mastered).
+  rings(key) {
+    const v = this.getScheduler().noteRings(key);
+    const arc = (r, f, cls) => {
+      const C = 2 * Math.PI * r;
+      return `<circle cx="14" cy="14" r="${r}" class="nr-bg"/><circle cx="14" cy="14" r="${r}" class="${cls}" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 14 14)"/>`;
+    };
+    const pc = (x) => Math.round(x * 100) + '%';
+    return `<svg class="note-rings" viewBox="0 0 28 28" role="img" aria-label="known ${pc(v.known)}, fast ${pc(v.fast)}, automatic ${pc(v.auto)}"><title>known ${pc(v.known)} · fast ${pc(v.fast)} · automatic ${pc(v.auto)}</title>${arc(12, v.known, 'nr-known')}${arc(8.5, v.fast, 'nr-fast')}${arc(5, v.auto, 'nr-auto')}</svg>`;
   }
 
   renderSummary(run, acc, med) {
@@ -619,8 +796,12 @@ export class Quiz {
         <div><b>${fmt(med)}</b><span>median time · your usual ${fmt(run.usualMs)}</span></div>
         ${probes.length ? `<div><b>${probes.filter((r) => r.correct).length} / ${probes.length}</b><span>check-up prompts right${run.cueMode !== 'off' ? ' (no names shown)' : ''}</span></div>` : ''}
       </div>
+      ${run.nearMiss ? `<p class="near-miss">${run.nearMiss}</p>` : ''}
+      ${run.beat ? `<p class="muted small">Beat mode: ${Math.round(run.row.bpm_start)} → ${Math.round(run.bpm)} bpm.</p>` : ''}
       ${run.cued ? `<p class="muted small">The asked note's own name was on the board for ${run.cued} of ${run.results.length} prompts. Those count at most as Hard and their times are not used for speed.</p>` : ''}
       ${tomorrow}
+      <h4>Notes this run <span class="muted">· rings: outer known, middle fast, inner automatic</span></h4>
+      <ul class="ring-list">${rows.map((r) => `<li>${this.rings(r.key)}<b>${r.sp === 'r' ? NAME_LABELS[r.cell.pc] : spellName(r.cell.midi, r.sp)}</b></li>`).join('')}</ul>
       <h4>Answer times <span class="muted">· each dot is one prompt, first answer</span></h4>
       ${this.timePlot(run)}
       <div class="sum-lists">
@@ -668,12 +849,14 @@ export class Quiz {
       return;
     }
     if (e.key === 'Escape' && this.running) return this.end('stopped');
+    // keys 1–3 pick one of the offered zones before the run
+    if (this.state === 'preview' && this.offers?.[+e.key - 1]) return this.prepare(this.offers[+e.key - 1]);
     if (e.key.length !== 1 || !this.run || !this.running) return;
     if (e.key.toLowerCase() === 'h') return this.giveUp('show');
     const idx = 'CDEFGAB'.indexOf(e.key.toUpperCase());
     if (idx < 0) return;
     const pc = ([0, 2, 4, 5, 7, 9, 11][idx] + (e.shiftKey ? 1 : 0)) % 12;
-    if (this.run.task === 'name') return this.answerName(pc, 'CDEFGAB'[idx] + (e.shiftKey ? '#' : ''));
+    if (this.cur?.task === 'name') return this.answerName(pc, 'CDEFGAB'[idx] + (e.shiftKey ? '#' : ''));
     const cell = this.run.zone.byPc[pc];
     if (cell) this.simulate(cell.midi);
   }
