@@ -83,8 +83,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - The model rebuilds from the answer log when its format changes or when answers come back from the disk copy.
 
 ## Stats
-- **Mastery map** of the neck drawn as soft **clouds**: colour from yellow (just started) to green (mastered); width, mostly along the string, grows with how often the position was asked; density shows how fresh it is in memory (fading positions turn pale). Unlocked, unplayed positions: dashed rings.
-- **Confusion boxes:** an orange box (red when strong) around two neighbouring positions on a string when the asked note keeps being answered with the one next to it (1 or 2 frets away). It needs at least 3 such mistakes, and each right answer on the asked note halves the confusion, so a box goes away once you get it right; one or two slips never show. Hover a box for the notes and the count.
+- **Knowledge map** of the neck (Stats page, and the practice board between runs): each played position is a soft, round **cloud** whose colour goes red (weak) → orange → yellow → green (mastered), like the note bars below it, and which is **bigger and denser the more often it was asked** (growing mostly along the string), fading out gradually at its edge. **Every position shows its note name**; unlocked positions not played yet have a dashed ring and a pale name.
 - Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
 - Slowest positions, marked erratic or steady, and per-note figures.
 
@@ -120,6 +119,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Confusion boxes removed. Knowledge-map clouds: red → orange → yellow → green like the note bars, rounder, soft progressive edges, size and density by questions asked; note names on the Stats map and on the practice board after a run. A finished run shows its results first. (#10 restored #6–#9, which had been merged into their stacked branches instead of main.)
 - **2026-11-01** — Stats map: cloud shapes (yellow → green, size by questions asked, density by freshness) and confusion boxes for neighbouring notes. `tools/browser-check.mjs` records animated GIFs (`tools/gif.mjs`, no dependency).
 - **2026-11-01** — Settings split into pages (custom tuning one level deeper); Practice tab with Note position / Interval inside; tuning as a Standard/Drop switch plus a semitone slider; vibrant greens (option 3: `#6fd94c`, `#3cbd2b`, `#27871a`). Fix: answers were saved with misaligned columns after the instrument columns were added (rows are now built by column name, with a start-up check).
 - **2026-11-01** — Instruments: guitars with 6–9 strings and basses with 4–6, presets and custom tunings; knowledge follows each string by its open note (rebuilt from the log per instrument); answers and runs log `instrument` and `strings`; longer pitch window for low bass notes.
