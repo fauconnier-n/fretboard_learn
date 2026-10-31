@@ -92,7 +92,9 @@ export const TABLES = {
     cols: [
       ['t', 'DOUBLE', 'When the prompt was graded (first answer or time-out), in milliseconds since 1970.'],
       ['run_id', 'VARCHAR', 'The run this prompt belongs to; matches runs.run_id.'],
-      ['tuning', 'VARCHAR', "Tuning in use: 'standard', 'dropD', 'eb' or 'seven'."],
+      ['tuning', 'VARCHAR', "Tuning preset of the instrument ('standard', 'dropD', 'eb', 'dropA', 'dropE') or 'custom'. Before instruments existed: 'standard', 'dropD', 'eb' or 'seven' (7-string guitar), with instrument and strings empty."],
+      ['instrument', 'VARCHAR', "Instrument: 'guitar6', 'guitar7', 'guitar8', 'guitar9', 'bass4', 'bass5' or 'bass6'. Empty on rows from before instruments (a 6-string guitar, or 7-string when tuning is 'seven')."],
+      ['strings', 'VARCHAR', "Open-string notes as MIDI numbers, lowest string first, e.g. '40,45,50,55,59,64' (string_idx indexes this list). Knowledge follows a string from one instrument to another by its open note, an octave higher on a bass."],
       ['zone_type', 'VARCHAR', "Shape of the zone: 'box' (several strings) or 'string' (12 frets on one string)."],
       ['zone_strings', 'VARCHAR', "Strings of the zone, 0 = lowest string, e.g. '0,1,2'."],
       ['zone_cs', 'DOUBLE', 'Centre of the zone across the strings (average string number).'],
@@ -100,7 +102,7 @@ export const TABLES = {
       ['zone_span', 'INTEGER', 'Number of frets the zone covers.'],
       ['zone_fret_min', 'INTEGER', 'Lowest fret in the zone.'],
       ['zone_fret_max', 'INTEGER', 'Highest fret in the zone.'],
-      ['string_idx', 'INTEGER', 'String of the asked position, 0 = lowest string.'],
+      ['string_idx', 'INTEGER', 'String of the asked position, 0 = lowest string of the instrument (see strings).'],
       ['fret', 'INTEGER', 'Fret of the asked position, 0 = open string.'],
       ['target', 'INTEGER', 'Note asked, as a MIDI number (40 = low E, 60 = middle C).'],
       ['played', 'INTEGER', 'First note you played, as a MIDI number. Empty on a time-out.'],
@@ -150,7 +152,9 @@ export const TABLES = {
       ['started_at', 'DOUBLE', 'When Start run was pressed, in milliseconds since 1970.'],
       ['ended_at', 'DOUBLE', 'When the run ended. Empty while it is running.'],
       ['end_reason', 'VARCHAR', "How it ended: 'completed' (all prompts done), 'time_up' (sprint over), 'stopped' (Stop run or Esc), 'left' (another tab or a board setting changed), 'closed' (page closed mid-run)."],
-      ['tuning', 'VARCHAR', 'Tuning in use.'],
+      ['tuning', 'VARCHAR', 'Tuning in use (see attempts.tuning).'],
+      ['instrument', 'VARCHAR', 'Instrument (see attempts.instrument).'],
+      ['strings', 'VARCHAR', 'Open-string notes, lowest first (see attempts.strings).'],
       ['mode', 'VARCHAR', "Type of run: 'count' (a number of prompts) or 'sprint' (a time limit)."],
       ['run_count', 'INTEGER', 'Number of prompts asked for (count runs).'],
       ['sprint_sec', 'INTEGER', 'Sprint length in seconds (sprint runs).'],
@@ -493,6 +497,7 @@ const attemptValues = (a) => {
     a.task ?? null, a.answerName ?? null, a.errorType ?? null, a.probe ?? null,
     a.cueMode ?? null, a.cueTarget ?? null, a.cueN ?? null, a.cueLabels ?? null, a.cueDist ?? null, a.cueNearest ?? null,
     a.special ?? null, a.shownName ?? null, a.bpm ?? null,
+    a.instrument ?? null, a.strings ?? null,
   ];
 };
 
@@ -624,6 +629,7 @@ function toAttempt(r) {
     task: r.task, answerName: r.answer_name, errorType: r.error_type, probe: r.probe,
     cueMode: r.cue_mode, cueTarget: r.cue_target, cueN: r.cue_n, cueLabels: r.cue_labels, cueDist: r.cue_dist, cueNearest: r.cue_nearest,
     special: r.special, shownName: r.shown_name, bpm: r.bpm,
+    instrument: r.instrument, strings: r.strings,
   };
 }
 

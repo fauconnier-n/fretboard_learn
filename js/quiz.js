@@ -272,7 +272,7 @@ export class Quiz {
     run.row = {
       cue_mode: run.cueMode,
       run_id: run.id, started_at: Date.now(), ended_at: null, end_reason: null,
-      tuning: s.tuning, mode: run.mode,
+      tuning: s.tuning, instrument: s.instrument, strings: this.getStrings().join(','), mode: run.mode,
       run_count: run.mode === 'count' ? s.runCount : null,
       sprint_sec: run.mode === 'sprint' ? s.sprintSec : null,
       zone_type: run.desc.type, zone_strings: run.desc.sk, zone_cs: run.desc.cs, zone_cf: run.desc.cf,
@@ -734,7 +734,7 @@ export class Quiz {
     this.ring();
     this.paintProgress();
     cur.log = {
-      t: Date.now(), runId: run.id, tuning: this.s.tuning, desc: run.desc,
+      t: Date.now(), runId: run.id, tuning: this.s.tuning, instrument: this.s.instrument, strings: this.getStrings().join(','), desc: run.desc,
       s: cell.s, f: cell.f, target: cell.midi, spelling: sp, played, correct, ms: Math.round(ms), g, review: run.review,
       prevTarget: prev?.cell.midi ?? null, prevSpelling: prev?.sp ?? null, prevS: prev?.cell.s ?? null, prevF: prev?.cell.f ?? null,
       retest: cur.retest, queueShown: cur.queueShown, showMe: !!extra.showMe, fsrsGrade: G,

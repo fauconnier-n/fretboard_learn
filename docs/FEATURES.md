@@ -17,7 +17,9 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - A Tuner tab: note, cents needle, frequency and the string targets of the current tuning.
 
 ## Board and zones
-- Tunings: standard, Drop D, Eb, 7-string. 12–24 frets. Left-handed view.
+- **Instruments:** 6-, 7-, 8- and 9-string guitar, 4-, 5- and 6-string bass, with tuning presets (standard, drop tunings, Eb) or a custom tuning written lowest string first (e.g. `D2 A2 D3 G3 B3 E4`). Default: 6-string guitar in standard tuning. 12–24 frets. Left-handed view.
+- **Progress follows each string** across instruments and tunings: a new or retuned string starts from scratch, strings left out keep their progress, switching back restores everything.
+- Open-string menus page with "More…" when there are more choices than strings (4-string bass).
 - SVG fretboard with inlays and fret numbers. No string names.
 - **String order:** low E on top by default, like Rocksmith; Settings → Board can put it at the bottom, like tab. The same order is used on every board (Practice, Intervals, Stats) and in the open-string menus.
 - Strings get thinner from low E (3.4 px) to high e (0.9 px).
@@ -113,6 +115,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Instruments: guitars with 6–9 strings and basses with 4–6, presets and custom tunings; knowledge follows each string by its open note (rebuilt from the log per instrument); answers and runs log `instrument` and `strings`; longer pitch window for low bass notes.
 - **2026-11-01** — String order setting (low E on top by default, like Rocksmith) used on every board and menu; thicker low strings; played strings vibrate from the fret to the bridge, muted strums thump; no mastery colours on the board during a run; brighter greens.
 - **2026-11-01** — New look: white page, the Born & Raised poster colours made a touch brighter, its beige for secondary backgrounds (docs/design.md), a beige fretboard drawn like a chord diagram, coloured number cards. Sticker buttons (dark outline, offset shadow; the chosen option filled yellow). Yes/No buttons now hide when a True or false run ends. `tools/browser-check.mjs` drives the app headless and takes screenshots.
 - **2026-11-01** — Guitar-only control: muted strums and open-string menus (Practice and Intervals), strum level setting. True or false runs. Mixed runs removed: a run is all guitar or all without guitar. New column `attempts.shown_name`.

@@ -55,7 +55,11 @@ const BACKLOG_GATE = 8; // with this many due items, no zone with unseen positio
 const TARGET_MIN = 0.75; // band for the target success rate
 const TARGET_MAX = 0.85;
 // lowest string first: low E, A, D, G, B, high e (high e is lowered below as it repeats low E)
-const STRING_DIFF = [0, 0.25, 0.45, 0.6, 0.75, 0.85, 0.9, 0.95];
+// Easiest strings first, by string key (open note in guitar range, see instruments.js):
+// low E, A, D, G, B. Any other string (an extra low or high one, or a retuned one) comes after.
+const STRING_DIFF = { 40: 0, 45: 0.25, 50: 0.45, 55: 0.6, 59: 0.75 };
+const OTHER_STRING_DIFF = 0.85;
+const stringDiff = (key) => STRING_DIFF[key] ?? OTHER_STRING_DIFF;
 const MARKERS = [3, 5, 7, 9, 15, 17, 19, 21];
 export const LANDMARKS = [0, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 
@@ -167,10 +171,12 @@ export function errorType(target, played) {
 const U = (n) => 1 / (1 + 0.06 * n);
 
 export class Scheduler {
-  constructor(model, strings, frets) {
+  // keys: the string keys of the instrument (instruments.js), by default the open notes
+  constructor(model, strings, frets, keys = strings) {
     this.model = model;
     this.strings = strings;
     this.frets = frets;
+    this.keys = keys;
     this.diffCache = new Map();
     this.migrate();
     setDecay(model.meta.decay || DEFAULT_DECAY);
@@ -365,10 +371,10 @@ export class Scheduler {
     const key = s + ':' + f;
     let d = this.diffCache.get(key);
     if (d !== undefined) return d;
-    const st = this.strings;
-    let sd = STRING_DIFF[Math.min(s, STRING_DIFF.length - 1)];
-    // a string tuned like a lower one (high e vs low E) reuses what was learnt there
-    for (let t = 0; t < s - 1; t++) if (pcOf(st[t]) === pcOf(st[s])) sd = Math.min(sd, STRING_DIFF[t] + 0.15);
+    const k = this.keys;
+    let sd = stringDiff(k[s]);
+    // a string tuned like an easier one (high e vs low E) reuses what was learnt there
+    for (let t = 0; t < k.length; t++) if (t !== s && pcOf(k[t]) === pcOf(k[s])) sd = Math.min(sd, stringDiff(k[t]) + 0.15);
     const fd = f <= 5 ? 0.03 * f : f <= 9 ? 0.25 : f <= 12 ? 0.4 : 0.5;
     const bonus = f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0;
     d = clamp(0.55 * sd + 0.45 * fd - bonus, 0, 1);

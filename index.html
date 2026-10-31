@@ -165,18 +165,21 @@
 
         <fieldset class="panel">
           <legend>Fretboard</legend>
-          <label>Tuning
-            <select data-setting="tuning">
-              <option value="standard">Standard (E A D G B E)</option>
-              <option value="dropD">Drop D (D A D G B E)</option>
-              <option value="eb">Eb standard</option>
-              <option value="seven">7-string (B E A D G B E)</option>
-            </select>
+          <label>Instrument
+            <select id="instrumentSelect" data-setting="instrument"></select>
           </label>
+          <label>Tuning
+            <select id="tuningSelect" data-setting="tuning"></select>
+          </label>
+          <label id="customTuningRow" class="hidden">Custom tuning, lowest string first
+            <input type="text" id="customTuning" data-setting="customTuning" placeholder="e.g. D2 A2 D3 G3 B3 E4" spellcheck="false">
+          </label>
+          <p class="small bad-text" id="tuningError"></p>
+          <p class="muted small">What you learn follows each string by its open note: a new or retuned string starts from scratch, strings you leave out keep their progress, and switching back brings everything back.</p>
           <label>Frets <input type="number" min="12" max="24" step="1" data-setting="frets" data-type="int"></label>
           <label class="check"><input type="checkbox" data-setting="leftHanded"> Left-handed view</label>
           <label class="check"><input type="checkbox" data-setting="lowAtBottom"> Low E string at the bottom, like tab (off: low E on top, like Rocksmith). Used on every board and menu.</label>
-          <p class="muted small">Sharp/flat notes are asked randomly as either name (A# or Bb), and each name is learnt separately. Progress is stored per tuning.</p>
+          <p class="muted small">Sharp/flat notes are asked randomly as either name (A# or Bb), and each name is learnt separately. Progress follows each string: see the note under Tuning.</p>
         </fieldset>
 
         <fieldset class="panel">

@@ -1,13 +1,13 @@
 // Intervals tab logic: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TUNINGS } from '../js/music.js';
+import { INSTRUMENTS } from '../js/instruments.js';
 import {
   GROUPS, ITEM, ITEMS, KNOWN_MIN, accuracy, addResult, buildStats, isKnown, isReference, isRight,
   itemState, makePrompt, pickItem, rootsFor, spellAbove, unlockedKeys,
 } from '../js/intervals.js';
 
-const std = TUNINGS.standard.strings;
+const std = INSTRUMENTS.guitar6.tunings.standard.strings;
 const at = (roots, s, f) => roots.find((r) => r.s === s && r.f === f);
 const knowAll = (stats, keys) => keys.forEach((k) => { for (let i = 0; i < KNOWN_MIN; i++) addResult(stats, k, true, 1000); });
 
@@ -35,7 +35,7 @@ test('roots only where the octave-shape target exists', () => {
   assert.ok(at(up, 3, 9));
   assert.ok(rootsFor(ITEM.oct2_down, std, 12).every((r) => r.s >= 2));
   assert.ok(rootsFor(ITEM.oct3_up, std, 12).every((r) => r.s <= 2));
-  const seven = rootsFor(ITEM.oct3_down, TUNINGS.seven.strings, 15);
+  const seven = rootsFor(ITEM.oct3_down, INSTRUMENTS.guitar7.tunings.standard.strings, 15);
   assert.ok(seven.length && seven.every((r) => r.s >= 3));
 });
 
