@@ -1,3 +1,4 @@
+// @ts-check
 // Disk copy: every answer, run and setting is also saved in files on disk by the local
 // server (serve.ps1), under data/<user>/. Everything in the browser (the DuckDB file, the
 // IndexedDB safety copy, the backups) goes together on "clear site data", and is separate

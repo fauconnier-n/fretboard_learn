@@ -1,3 +1,4 @@
+// @ts-check
 // Note names, pitch maths and tunings. Strings are indexed from the lowest (0).
 
 export const SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

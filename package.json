@@ -1,0 +1,17 @@
+{
+  "name": "fretboard-trainer",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling only. The app itself has no build step: serve the folder as is.",
+  "scripts": {
+    "test": "node --test tests/",
+    "lint": "eslint .",
+    "typecheck": "tsc -p jsconfig.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.13.0",
+    "typescript": "^7.0.2"
+  }
+}

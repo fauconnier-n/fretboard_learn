@@ -1,3 +1,4 @@
+// @ts-check
 // Zone generator. A zone is a set of 12 fretboard cells holding each pitch class
 // exactly once, so every quiz prompt has a single correct position.
 

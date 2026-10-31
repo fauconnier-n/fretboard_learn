@@ -1,3 +1,4 @@
+// @ts-check
 // Persistence on DuckDB-WASM. One database file per user in the browser's private
 // file system (OPFS): opfs://fretboard-<user>.duckdb
 //   kv(key, value)   settings and SRS models, as JSON text

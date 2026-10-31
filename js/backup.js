@@ -1,3 +1,4 @@
+// @ts-check
 // Automatic backups: full exports of a user's data, kept in IndexedDB, which is
 // a separate store from the DuckDB files in OPFS, so a damaged database file
 // does not take its backups with it.

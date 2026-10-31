@@ -1,3 +1,4 @@
+// @ts-check
 // Stats tab: mastery heatmap, level, per-note bars, weakest positions and zones.
 
 import { spellingsOf, spellName, stringName } from './music.js';
