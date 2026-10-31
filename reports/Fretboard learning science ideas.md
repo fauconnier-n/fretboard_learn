@@ -60,14 +60,11 @@ Discussed on 2026-11-01 and kept, but not planned for now.
 
 **To explain further before deciding:**
 - **Odd one out:** three positions are marked, two carry the same note name (for example G on the low E string fret 3 and G on the D string fret 5) and one does not; you click the odd one. It trains octave and unison shapes without the guitar.
-- **True or false:** a position is marked with a name, right or wrong half the time; you answer yes or no quickly. Very fast checking that suits the phone; weaker than recall, so it would be a warm-up, not the main task.
 - **Blind board:** like a usual run, but the zone is not highlighted: only the note name is shown and any position of that pitch in a wider area counts. It removes the box as a cue once a zone is mastered.
 - **Derive from a landmark:** "From fret 5 on the A string (D), go up a tone": the prompt names a landmark and a step, and you play the result. It practises the counting strategy explicitly, as a bridge for positions not known by heart yet.
 - **G→B shift drill:** prompts that only cross from the G string to the B string (octave and unison shapes that shift by one fret there), so the one irregular string pair gets its own practice.
 
-**Controlling the app from the guitar** (ideas, not built):
-- a muted strum (a burst of noise with no clear pitch) starts the next run or moves on;
-- two quick muted strums stop a run;
+**Controlling the app from the guitar:** muted strums and open-string menus are built (2026-11-01). Ideas not built:
 - a natural harmonic at the 12th fret of the low E (a very pure tone) confirms or skips;
 - low open E held for a second opens the next run, high open e repeats the prompt;
 - the volume knob: a swell from silence (onset without a pitch) as "ready".

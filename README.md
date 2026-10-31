@@ -45,7 +45,7 @@ The app also warns when it is opened at a local address other than <http://local
 ## How it works
 
 - **Zones**: 12 cells holding each of the 12 notes exactly once. These are either compact boxes over 3–4 strings or 12 frets on one string. Answers must be the exact pitch, so there is only one right spot.
-- **Runs**: a number of prompts or a sprint; play, name, mixed or mix-ups; optional beat mode whose tempo follows your answers. Pick one of up to three offered zones. Prompts focus on weaker cells and can repeat; a prompts run ends with its hardest note, then a note you know. The board shows your progress live, with fog over locked positions.
+- **Runs**: a number of prompts or a sprint; on the guitar (play the note, mix-ups) or without it (name the note, true or false); optional beat mode whose tempo follows your answers. Pick one of up to three offered zones. The whole flow can be driven from the guitar: a muted strum takes the next step, two stop a run, and choices sit on the open strings. Prompts focus on weaker cells and can repeat; a prompts run ends with its hardest note, then a note you know. The board shows your progress live, with fog over locked positions.
 - **Two signals per note and position**, kept apart (see `js/srs.js`):
   - *memory*, from right/wrong only (a wrong answer or a timeout is a miss): stability, difficulty and accuracy;
   - *speed*, from the time of each right first answer: a running average of log answer time, with no buckets. While a position has few answers, its estimate leans on the same note name, then on your overall typical time.
