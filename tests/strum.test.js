@@ -39,3 +39,11 @@ test('true-or-false answers count as recognition: at most Hard, no speed', () =>
   assert.deepEqual(cueOpts({ task: 'truefalse' }), { speed: false, maxG: 2 });
   assert.deepEqual(cueOpts({ task: 'name' }), { speed: true, maxG: 4 });
 });
+
+test('mastery colours run from the palette red to the palette green', async () => {
+  const { PALETTE, masteryColor } = await import('../js/palette.js');
+  assert.equal(masteryColor(0), PALETTE.red);
+  assert.equal(masteryColor(1), PALETTE.green);
+  assert.equal(masteryColor(0.5), PALETTE.yellow);
+  assert.match(masteryColor(0.25), /^#[0-9a-f]{6}$/);
+});

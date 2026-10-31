@@ -4,6 +4,7 @@
 import { spellingsOf, spellName, stringName } from './music.js';
 import { zoneLabel } from './zones.js';
 import { retrievability } from './srs.js';
+import { PALETTE, masteryColor } from './palette.js';
 
 const pct = (x) => Math.round(x * 100) + '%';
 const secs = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(2) + ' s');
@@ -33,13 +34,13 @@ export function renderStats({ els, scheduler, zones, strings, frets, flats, heat
       if (done) mastered++;
       if (fade) fading++;
       return {
-        fill: `hsl(${Math.round(m * 120)} 70% 45%)`,
-        ...(fade ? { stroke: '#f5a524', dash: '3 2' } : done ? { stroke: '#ffffff' } : {}),
+        fill: masteryColor(m),
+        ...(fade ? { stroke: PALETTE.blue, dash: '3 2' } : done ? { stroke: PALETTE.ink } : {}),
       };
     }
     if (scheduler.isReachable(s, f, snap)) {
       reachable++;
-      return { stroke: '#8b93a1', dash: '3 3' };
+      return { stroke: PALETTE.steel, dash: '3 3' };
     }
     return null;
   });
@@ -64,7 +65,7 @@ export function renderStats({ els, scheduler, zones, strings, frets, flats, heat
     const n = model.notes[name];
     const acc = n ? n.acc : 0;
     return `<div class="nbar"><b>${name}</b>
-      <div class="ntrack"><div class="nfill" style="width:${n ? acc * 100 : 0}%;background:hsl(${Math.round(acc * 120)} 65% 45%)"></div></div>
+      <div class="ntrack"><div class="nfill" style="width:${n ? acc * 100 : 0}%;background:${masteryColor(acc)}"></div></div>
       <span>${n ? pct(acc) : '—'}</span><span class="muted">${n?.time?.n ? secs(Math.exp(n.time.mu)) : ''}</span></div>`;
   }).join('');
 

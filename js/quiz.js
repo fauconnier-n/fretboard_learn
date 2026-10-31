@@ -10,6 +10,7 @@ import { describe, zoneLabel } from './zones.js';
 import { LANDMARKS, cueOpts, errorType, itemKey } from './srs.js';
 import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
+import { masteryColor } from './palette.js';
 
 const DAY = 86400000;
 const PROBE_EVERY = 10; // every 10th prompt is a random check-up, not picked by the model
@@ -127,6 +128,7 @@ export class Quiz {
     e.note.textContent = '—';
     e.sub.textContent = this.idleText();
     e.names.classList.add('hidden');
+    e.tf.classList.add('hidden');
     e.zone.textContent = '';
     e.progress.textContent = '';
     e.timer.textContent = '';
@@ -134,7 +136,6 @@ export class Quiz {
     e.fill.style.width = '0%';
     e.feedback.textContent = '';
     e.summary.classList.add('hidden');
-    e.tf.classList.add('hidden');
     this.state = 'idle';
     this.updateButton();
     this.paintProgress();
@@ -149,7 +150,7 @@ export class Quiz {
     const snap = sch.snapshot();
     this.board.setHeat((s, f) => {
       const m = snap.mastery.get(s + ':' + f);
-      if (m !== undefined) return { fill: `hsl(${Math.round(m * 120)} 70% 45%)` };
+      if (m !== undefined) return { fill: masteryColor(m) };
       return sch.isReachable(s, f, snap) ? null : { fog: true };
     });
   }
@@ -222,6 +223,7 @@ export class Quiz {
     e.zone.textContent = this.run.label + (pick.review ? ' · review of fading notes' : '') +
       (pick.focus ? ' · your mix-ups' : focus ? ' · no mix-ups recorded yet, a usual run' : '');
     e.names.classList.add('hidden');
+    e.tf.classList.add('hidden');
     e.summary.classList.add('hidden');
     e.feedback.textContent = '';
     e.feedback.className = 'feedback';
@@ -812,6 +814,7 @@ export class Quiz {
     e.queue.innerHTML = '';
     e.showMe.classList.add('hidden');
     e.names.classList.add('hidden');
+    e.tf.classList.add('hidden');
     this.updateButton();
     if (!showSummary) {
       this.state = 'idle';
