@@ -27,5 +27,5 @@ The values live in two places that must stay in step: the custom properties at t
 - **Number cards** carry a colour stripe on the left, cycling green, blue, yellow, red.
 - **The fretboard** is a beige neck on a white card, drawn like a chord diagram (dark nut, light frets, grey strings). Outside the zone it fades into the page with a white veil; positions not unlocked yet sit under a stronger white "fog".
 - **Open-string menus** use the same neck: the dark nut on the left, a yellow disc with the string letter, then the option.
-- **Buttons:** see `tools/button-shapes.html` for the shapes on offer.
+- **Buttons are stickers**, like the poster lettering: a dark outline and an offset shadow down and to the right, 2 px (main buttons: 2.5 px outline and 3 px shadow; set by `--outline`, `--lift`, `--outline-main`, `--lift-main`). Main buttons are title green, red for Stop. An option group is one sticker with the chosen option filled yellow; open-string menu options are small stickers. Pressing pushes the sticker down by a pixel.
 - Type: the system font, very heavy (900) for big numbers and the prompt.
