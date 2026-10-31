@@ -189,6 +189,26 @@ select error_type, count(*) from attempts where error_type is not null group by 
 select avg(correct::int) as retest_success, count(*) as n from attempts where retest;
 ```
 
+## Intervals
+
+The Intervals tab is a separate part of the app (`js/intervals.js`, `js/intervalsView.js`). It does not use FSRS or the note model: interval answers are logged with `task = 'interval'` and left out of the model rebuild and the model check.
+
+### What is asked, easiest first
+
+1. **Octave shapes, 2 strings away** (up and down): the root is marked and named; play the same note an octave higher two strings up (+2 frets, +3 where the shape crosses the G→B major third), or lower two strings down. These come first because octave shapes are the guitarist's main way to move a note between strings, and every later item leans on them.
+2. **Octave, 3 strings away** (up and down): the other common shape (−3 frets, −2 across the B string).
+3. **An interval above the marked root**, in this order: perfect 5th, perfect 4th, major 3rd, minor 3rd, major 6th, minor 6th, major 2nd, minor 7th, major 7th, minor 2nd, tritone. The 5th and 4th match shapes players already use (power chord, same fret on the next string). The thirds come next because they build triads, the sixths are inverted thirds, the seconds and sevenths sit one step from the root or its octave, and the tritone comes last as the one interval no common shape gives away.
+4. **Triads near the root**: major, then minor. Play root, 3rd and 5th in that order; each right note is ticked off, and any wrong note is a miss.
+5. **Scale degrees**: "the 5th of C" for degrees 5, 4, 3, 6, 2, 7 of the major scale (most used first), with no position marked: any octave anywhere counts.
+
+The pitch detector hears the pitch, not the string, so grading checks the exact pitch (root ±12 for octaves, root + interval for the rest; pitch class for degrees). The prompt names the target string and the reveal shows the expected position. Roots are picked anywhere on the neck where the answer fits: the target string exists and the target fret is on the neck for octaves, and every note is within 4 frets of the root for intervals and triads. Playing the marked root itself is ignored (players often sound it first), as is the triad note just played ringing again.
+
+### Unlocking and picking
+
+Items open in groups: the two octave-shape directions together, then one item at a time. The next group opens once every open item has been **known** at least once: at least 5 answers and a recent accuracy of 80% or more. Recent accuracy weighs the newest answer 1, the one before 0.8, then 0.64 and so on (last 20 answers), so a few early misses stop counting once you have it. Once known, an item stays past the gate, so a bad day does not lock later items again. 80% matches the target success rate used in Practice.
+
+Each prompt picks an open item at random, weighted towards new items (fewer than 5 answers, weight 4) and weak ones (weight 1 + 4 × (1 − accuracy)), never the same item twice in a row when there is a choice, and never the same root twice in a row. Per-item stats (answers, recent accuracy, median time of right answers) are rebuilt from the answer log when the tab opens and updated after each answer.
+
 ## Changing the model
 
 The model is rebuilt from the answer log when its version changes (`MODEL_VERSION` in `js/srs.js`), so changes apply to all past answers. Settings → Data → "Rebuild model from log" does the same on demand. A rebuild keeps the target rate, the fitted decay and the run history, and replays confusions from the logged wrong notes.
