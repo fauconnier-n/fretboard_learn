@@ -1,3 +1,4 @@
+// @ts-check
 // Tuner tab: note, cents needle, Hz, strobe bar and string targets.
 
 import { freqToMidi, midiToFreq, midiLabel, noteName, octaveOf, stringName } from './music.js';

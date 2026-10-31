@@ -1,3 +1,4 @@
+// @ts-check
 // Audio input: device + channel selection, gain, and an analyser to read samples from.
 
 export class AudioInput {

@@ -1,3 +1,4 @@
+// @ts-check
 // Monophonic pitch detection: McLeod Pitch Method (NSDF + key maxima), and a
 // tracker that turns per-frame pitches into discrete "note played" events.
 

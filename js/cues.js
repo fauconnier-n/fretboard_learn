@@ -1,3 +1,4 @@
+// @ts-check
 // Note-name labels shown on the zone during a run (the "cue"), and how far they are from
 // the note asked. In "fade" mode a label shows only on positions you do not know well yet,
 // and it is dropped during the run once you answer that note right. Every prompt logs the
