@@ -13,7 +13,7 @@ export default [
     languageOptions: { sourceType: 'script', globals: globals.serviceworker },
   },
   {
-    files: ['tests/**/*.js', 'eslint.config.js'],
+    files: ['tests/**/*.js', 'tools/**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
   {
