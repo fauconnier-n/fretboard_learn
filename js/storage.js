@@ -126,6 +126,7 @@ export const TABLES = {
       ['pred_r', 'DOUBLE', 'Memory retrievability R (0–1) just before this answer. Empty for a first sighting.'],
       ['pred_s', 'DOUBLE', 'Memory stability S in days just before this answer (time for R to fall to 90%).'],
       ['pred_d', 'DOUBLE', 'Memory difficulty D (1 easy – 10 hard) just before this answer.'],
+      ['interval', 'VARCHAR', "In 'interval' prompts (Intervals tab): the item asked, e.g. 'oct2_up' (octave 2 strings up), 'P5_up' (perfect 5th above), 'triad_maj', 'deg5' (5th of the scale). string_idx/fret are then the marked root and target the first expected note."],
       ['task', 'VARCHAR', "What was asked: 'play' (note name shown, you play it) or 'name' (position shown, you name it)."],
       ['answer_name', 'VARCHAR', "In 'name' prompts: the note name you gave, e.g. 'Bb'."],
       ['error_type', 'VARCHAR', "Kind of wrong first answer: 'octave' (right name, wrong octave), 'semitone_sharp' / 'semitone_flat' (one fret off), 'tone_sharp' / 'tone_flat' (two frets off), 'other'. Empty if right or nothing played."],
@@ -482,6 +483,7 @@ const attemptValues = (a) => {
     a.prevTarget ?? null, a.prevSpelling ?? null, a.prevS ?? null, a.prevF ?? null,
     a.retest ?? null, a.queueShown ?? null, a.showMe ?? null, a.fsrsGrade ?? null,
     a.predP ?? null, a.predMs ?? null, a.predR ?? null, a.predS ?? null, a.predD ?? null,
+    a.interval ?? null,
     a.task ?? null, a.answerName ?? null, a.errorType ?? null, a.probe ?? null,
     a.cueMode ?? null, a.cueTarget ?? null, a.cueN ?? null, a.cueLabels ?? null, a.cueDist ?? null, a.cueNearest ?? null,
   ];
@@ -611,6 +613,7 @@ function toAttempt(r) {
     prevTarget: r.prev_target, prevSpelling: r.prev_spelling, prevS: r.prev_string, prevF: r.prev_fret,
     retest: r.retest, queueShown: r.queue_shown, showMe: r.show_me, fsrsGrade: r.fsrs_grade,
     predP: r.pred_p, predMs: r.pred_ms, predR: r.pred_r, predS: r.pred_s, predD: r.pred_d,
+    interval: r.interval,
     task: r.task, answerName: r.answer_name, errorType: r.error_type, probe: r.probe,
     cueMode: r.cue_mode, cueTarget: r.cue_target, cueN: r.cue_n, cueLabels: r.cue_labels, cueDist: r.cue_dist, cueNearest: r.cue_nearest,
   };

@@ -7,6 +7,7 @@ import { createDetector, NoteTracker } from './pitch.js';
 import { Scheduler, newModel } from './srs.js';
 import { Fretboard } from './fretboard.js';
 import { Quiz } from './quiz.js';
+import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
 import { renderStats } from './stats.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
@@ -90,7 +91,9 @@ function sound(kind) {
 // ---------- board / model ----------
 
 const tuningAttempts = async () =>
-  (await storage.allAttempts()).filter((a) => a.tuning === app.settings.tuning).sort((a, b) => a.t - b.t);
+  (await storage.allAttempts()).filter((a) => a.tuning === app.settings.tuning)
+    .filter((a) => a.task !== 'interval') // the Intervals tab has its own stats, not the note model
+    .sort((a, b) => a.t - b.t);
 
 async function applyBoardSettings() {
   const s = app.settings;
@@ -113,6 +116,9 @@ async function applyBoardSettings() {
   const cfg = { strings: tuning.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats };
   app.board.configure(cfg);
   app.heat.configure(cfg);
+  app.ivBoard.configure(cfg);
+  app.intervals.leave();
+  app.intervals.reset();
   app.quiz.reset();
   app.tuner.setStrings(tuning.strings, s.flats);
   // detector range: a tone below the lowest string up to the top fret
@@ -160,6 +166,7 @@ function processFrame() {
   if (app.view === 'tuner') app.tuner.onFrame(res, rms, now);
   const ev = app.tracker.feed(now, res, rms, s);
   if (ev) app.quiz.onNote(ev);
+  if (ev && app.view === 'intervals') app.intervals.onNote(ev);
 }
 
 // Meter scale: -60 dBFS (empty) to 0 dBFS (full).
@@ -218,6 +225,8 @@ function showView(name) {
     renderTable();
   }
   if (name !== 'practice') app.quiz.leave();
+  if (name === 'intervals') app.intervals.open();
+  else app.intervals.leave();
 }
 
 async function showStats() {
@@ -582,6 +591,25 @@ async function init() {
     },
     onSave: saveModel,
     onRunEnd: () => makeBackup('run'),
+    sound,
+  });
+  app.ivBoard = new Fretboard($('ivBoard'));
+  app.intervals = new IntervalsView({
+    board: app.ivBoard,
+    els: {
+      area: $('ivArea'), title: $('ivTitle'), sub: $('ivSub'), steps: $('ivSteps'), timer: $('ivTimer'),
+      progress: $('ivProgress'), fill: $('ivFill'), feedback: $('ivFeedback'), items: $('ivItems'), startBtn: $('ivStartBtn'),
+    },
+    getSettings: () => app.settings,
+    getStrings: () => app.strings,
+    isActive: () => app.view === 'intervals',
+    loadRows: () => storage.sql(`SELECT "interval", correct, ms FROM attempts WHERE task = 'interval' ORDER BY t`),
+    onAttempt: (a) => storage.addAttempt(a),
+    onRun: async (row) => {
+      await storage.saveRun(row);
+      if (row.ended_at) await storage.flush();
+    },
+    ensureAudio: () => { if (!app.audio.running) connectAudio(); },
     sound,
   });
 

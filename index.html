@@ -16,6 +16,7 @@
     <div class="brand"><img src="icons/icon.svg" alt="" width="26" height="26"> Fretboard Trainer</div>
     <nav class="tabs">
       <button data-tab="practice" class="active">Practice</button>
+      <button data-tab="intervals">Intervals</button>
       <button data-tab="tuner">Tuner</button>
       <button data-tab="stats">Stats</button>
       <button data-tab="settings">Settings</button>
@@ -67,6 +68,29 @@
       <div class="feedback" id="feedback" aria-live="polite"></div>
       <div class="summary hidden" id="summary"></div>
       <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp, so Bb is Shift+A). Enter: new run, then start it. Esc stops a run.</p>
+    </section>
+
+    <section id="view-intervals" class="view">
+      <div class="practice-bar">
+        <button id="ivStartBtn" class="btn primary">Start ⏎</button>
+        <div class="run-info"><span>Intervals</span><span id="ivProgress" class="muted"></span></div>
+      </div>
+      <div class="progress"><div id="ivFill" class="progress-fill"></div></div>
+
+      <div class="prompt-area" id="ivArea">
+        <div class="prompt-note iv-title" id="ivTitle">Intervals</div>
+        <div class="prompt-sub" id="ivSub">A root is marked on the board; play the note asked. Press Start or Enter.</div>
+        <div class="iv-steps" id="ivSteps"></div>
+        <div class="prompt-timer" id="ivTimer"></div>
+      </div>
+
+      <div class="board-wrap"><svg id="ivBoard" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
+      <div class="feedback" id="ivFeedback" aria-live="polite"></div>
+      <div class="panel iv-panel">
+        <h3>Items <span class="muted small">· easiest first; the next one opens when all open ones are known (80% of recent answers, at least 5)</span></h3>
+        <ul class="chg iv-items" id="ivItems"></ul>
+      </div>
+      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp). Playing the marked root itself is not graded. Enter: start. Esc stops.</p>
     </section>
 
     <section id="view-tuner" class="view">

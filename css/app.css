@@ -267,3 +267,16 @@ fieldset label.btn.file { cursor: pointer; margin-top: 0; flex-direction: row; c
   .sum-lists { grid-template-columns: 1fr; }
   .fretboard { min-width: 640px; }
 }
+
+/* Intervals tab */
+#ivFill { height: 100%; width: 0; background: var(--accent); transition: width 120ms linear; }
+.iv-title { font-size: 44px; letter-spacing: 0; }
+.iv-steps { display: flex; justify-content: center; gap: 8px; min-height: 1.6em; margin-top: 6px; }
+.iv-steps span { border: 1px solid var(--line); border-radius: 12px; padding: 1px 10px; color: var(--muted); font-size: 14px; }
+.iv-steps span.done { border-color: var(--good); color: var(--good); font-weight: 700; }
+.iv-panel { margin-top: 12px; }
+.iv-items { columns: 2 280px; column-gap: 24px; }
+.iv-items li { break-inside: avoid; }
+.iv-items li.iv-locked { opacity: .45; }
+.iv-items li.iv-known span:first-child { color: var(--good); }
+@media (max-width: 720px) { .iv-title { font-size: 32px; } }
