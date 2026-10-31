@@ -8,9 +8,9 @@ The values live in two places that must stay in step: the custom properties at t
 
 | Name | Value | Poster sample | Used for |
 |---|---|---|---|
-| green-light | `#86d96f` | `#81c771` title | primary buttons, selected tabs and options |
-| green | `#5cc24e` | `#5bab46` | right answers on the board, progress, "known" ring |
-| green-ink | `#2f8228` | (darker green) | green text on white: feedback, near-miss line, checkboxes and sliders |
+| green-light | `#6fd94c` | `#81c771` title | primary buttons, selected tabs and options |
+| green | `#3cbd2b` | `#5bab46` | right answers on the board, progress, "known" ring |
+| green-ink | `#27871a` | (darker green) | green text on white: feedback, near-miss line, checkboxes and sliders |
 | red | `#e5252f` | `#e32834` | wrong answers, Stop, boss prompts, TEST DATA badge, tuner needle |
 | blue | `#14a0c4` | `#219bb7` | information, focus outlines, fading positions, "fast" ring |
 | yellow | `#f5cb2a` | `#eecc38` | highlight: the zone, note-name cues, the asked position, open-string letters, golden prompts, "automatic" ring |
