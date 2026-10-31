@@ -3,3 +3,5 @@ node_modules/
 data/
 # agent worktrees
 .claude/worktrees/
+# screenshots taken while testing (linked from replies, never committed)
+screenshots/
