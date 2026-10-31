@@ -17,5 +17,13 @@ export default [
   { name: '7-tuner', js: `${wait} ${key} key('Escape'); await wait(300); ${tab('tuner')}` },
   { name: '8-stats', full: true, js: `${tab('stats')}` },
   { name: '9-settings', full: true, js: `${tab('settings')}` },
-  { name: '10-practice-phone', width: 390, height: 844, js: `${tab('practice')}` },
+  // phones held sideways (landscape), the usual way to see the whole neck
+  { name: 'm1-phone-idle', width: 844, height: 390, mobile: true, js: `${tab('practice')}` },
+  { name: 'm2-phone-preview', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} key('Enter'); await wait(600);` },
+  // a right answer: the string vibrates from the fret to the bridge (caught mid-wave)
+  { name: 'm3-phone-run-vibrating', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} ${answer} key('Enter'); await wait(500); play(document.getElementById('promptNote').textContent);` },
+  { name: 'm4-phone-summary', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} ${answer} for (let i = 0; i < 40 && document.getElementById('startBtn').textContent.includes('Stop'); i++) { const t = document.getElementById('promptNote').textContent; if (/Again|Play it/.test(document.getElementById('promptSub').textContent)) play(t); await wait(1300); } await wait(800);` },
+  { name: 'm5-phone-intervals', width: 844, height: 390, mobile: true, full: true, js: `${tab('intervals')}` },
+  { name: 'm6-phone-stats', width: 844, height: 390, mobile: true, full: true, js: `${tab('stats')}` },
+  { name: 'm7-phone-portrait', width: 390, height: 844, mobile: true, js: `${tab('practice')}` },
 ];

@@ -24,6 +24,7 @@ const DEFAULTS = {
   tuning: 'standard',
   frets: 15,
   leftHanded: false,
+  lowAtBottom: false, // low E on top by default (like Rocksmith); true draws it at the bottom (like tab)
   zoneTypes: 'both',
   runMode: 'count',
   runCount: 20,
@@ -38,7 +39,7 @@ const DEFAULTS = {
   plan: '',
   sound: true,
 };
-const BOARD_KEYS = ['tuning', 'frets', 'leftHanded', 'zoneTypes'];
+const BOARD_KEYS = ['tuning', 'frets', 'leftHanded', 'lowAtBottom', 'zoneTypes'];
 const FRAME = 3072;
 const POLL_MS = 25;
 
@@ -120,7 +121,7 @@ async function applyBoardSettings() {
     app.scheduler.rebuild(await tuningAttempts());
     await storage.set(app.modelKey, app.model);
   }
-  const cfg = { strings: tuning.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats };
+  const cfg = { strings: tuning.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats, lowAtBottom: s.lowAtBottom };
   app.board.configure(cfg);
   app.heat.configure(cfg);
   app.ivBoard.configure(cfg);
@@ -184,8 +185,13 @@ function onStrum(now) {
   const double = running && app.lastStrum.running && now - app.lastStrum.t < DOUBLE_MS;
   app.lastStrum = double ? { t: -Infinity, running } : { t: now, running };
   $('strumSeen').textContent = `Muted strum heard${double ? ' (double)' : ''} at ${new Date().toLocaleTimeString()}`;
-  if (app.view === 'practice') app.quiz.onStrum(double);
-  else if (app.view === 'intervals') app.intervals.onStrum(double);
+  if (app.view === 'practice') {
+    app.board.strum();
+    app.quiz.onStrum(double);
+  } else if (app.view === 'intervals') {
+    app.ivBoard.strum();
+    app.intervals.onStrum(double);
+  }
 }
 
 // Meter scale: -60 dBFS (empty) to 0 dBFS (full).

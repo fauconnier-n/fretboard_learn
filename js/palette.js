@@ -4,8 +4,8 @@
 // Raised poster, a touch brighter, on a white page, with its beige for secondary
 // backgrounds. See docs/design.md.
 export const PALETTE = {
-  greenLight: '#7acc67', // the title green: primary actions
-  green: '#52b347', // right answers, progress
+  greenLight: '#86d96f', // the title green: primary actions
+  green: '#5cc24e', // right answers, progress
   greenInk: '#2f8228', // green text on white
   red: '#e5252f', // wrong answers, boss, test data
   blue: '#14a0c4', // information, fading, "fast"

@@ -40,7 +40,7 @@ export class IntervalsView {
     this.board.onCellClick = (s, f) => this.simulate(this.getStrings()[s] + f);
     this.els.startBtn.onclick = () => this.primary();
     this.goPractice = o.goPractice;
-    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats);
+    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats, () => !!this.s.lowAtBottom);
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
@@ -188,6 +188,8 @@ export class IntervalsView {
   // ev: { midi, t } with t in performance.now() time
   onNote(ev) {
     if (!this.running) {
+      const open = this.getStrings().indexOf(ev.midi);
+      if (this.menu.visible && open >= 0) this.board.vibrate(open, 0, ev.freq || 440 * 2 ** ((ev.midi - 69) / 12));
       this.menu.onNote(ev.midi);
       return;
     }
@@ -198,6 +200,7 @@ export class IntervalsView {
     this.muteUntil = performance.now() + MUTE_MS;
     if (isRight(p, ev.midi, cur.step)) {
       const pos = p.type === 'degree' ? this.where(ev.midi, p.cells) : p.cells[cur.step];
+      if (pos) this.board.vibrate(pos.s, pos.f, ev.freq || 440 * 2 ** ((ev.midi - 69) / 12));
       if (pos) this.board.flash(pos.s, pos.f, 'good', p.names[p.type === 'triad' ? cur.step : 0]);
       cur.step++;
       this.renderSteps();
@@ -218,6 +221,7 @@ export class IntervalsView {
     if (isReference(p, ev.midi, cur.step)) return;
     cur.wrong.push({ midi: ev.midi, ms });
     const pos = this.where(ev.midi, p.cells);
+    if (pos) this.board.vibrate(pos.s, pos.f, ev.freq || 440 * 2 ** ((ev.midi - 69) / 12));
     if (pos) this.board.flash(pos.s, pos.f, 'bad', midiLabel(ev.midi, this.s.flats).replace(/\d+$/, ''));
     this.sound?.('bad');
     this.miss(ms, ev.midi, `✗ You played ${midiLabel(ev.midi, this.s.flats)}`);

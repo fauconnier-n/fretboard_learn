@@ -18,8 +18,9 @@ export class Fretboard {
     this.id = 'fb' + uid++;
   }
 
-  configure({ strings, frets, leftHanded, flats }) {
-    Object.assign(this, { strings, frets, left: !!leftHanded, flats: !!flats });
+  // lowAtBottom: low E drawn at the bottom, as in tab; by default it is on top, as in Rocksmith
+  configure({ strings, frets, leftHanded, flats, lowAtBottom }) {
+    Object.assign(this, { strings, frets, left: !!leftHanded, flats: !!flats, lowAtBottom: !!lowAtBottom });
     this.layout();
     this.render();
   }
@@ -53,7 +54,7 @@ export class Fretboard {
     return f === 0 ? this.openW * 0.6 : this.wire[f] - this.wire[f - 1];
   }
   cy(s) {
-    return this.top + (this.strings.length - 1 - s) * this.sp;
+    return this.top + (this.lowAtBottom ? this.strings.length - 1 - s : s) * this.sp;
   }
   cellRect(s, f) {
     return { x: this.cx(f) - this.cw(f) / 2, y: this.cy(s) - this.sp / 2, width: this.cw(f), height: this.sp };
@@ -84,10 +85,15 @@ export class Fretboard {
       el('line', { x1: x, x2: x, y1: this.boardTop, y2: this.boardBot, class: 'fb-fret' }, g);
     }
     el('rect', { x: this.left ? this.W - this.nutX : this.nutX - 6, y: this.boardTop, width: 6, height: this.boardBot - this.boardTop, class: 'fb-nut' }, g);
+    // strings: the lowest thickest; vibrations are drawn in their own layer just above them
+    this.strG = el('g', { class: 'fb-strings' }, g);
+    this.strLines = [];
     for (let s = 0; s < n; s++) {
       const y = this.cy(s);
-      el('line', { x1: this.X(20), x2: xb, y1: y, y2: y, class: 'fb-string', 'stroke-width': (1 + (n - 1 - s) * 0.35).toFixed(2) }, g);
+      this.strLines.push(el('line', { x1: this.X(20), x2: xb, y1: y, y2: y, class: 'fb-string', 'stroke-width': (0.9 + (n - 1 - s) * 0.5).toFixed(2) }, this.strG));
     }
+    this.vibeLayer = el('g', { class: 'fb-vibes' }, g);
+    this.vibes = new Map();
     for (let f = 0; f <= this.frets; f++) {
       const marked = f === 0 || f === 12 || f === 24 || INLAYS.includes(f);
       el('text', { x: this.cx(f), y: this.boardBot + 16, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
@@ -147,6 +153,58 @@ export class Fretboard {
 
   reveal(s, f, label) {
     this.mark(s, f, 'reveal', label);
+  }
+
+  // A played note: string s vibrates between fret f and the bridge end, never between the nut
+  // and the fret. Higher notes give closer and faster waves. Real string rates (80–1300 Hz)
+  // cannot be drawn at 60 frames a second, so the motion is slowed to 2–12 cycles a second,
+  // keeping the order from low to high notes.
+  vibrate(s, f, freq) {
+    const line = this.strLines?.[s];
+    if (!line) return;
+    this.stopVibe(s);
+    const x0 = this.X(f === 0 ? this.nutX : this.wire[Math.min(f, this.frets)]);
+    const x1 = this.X(this.wire[this.frets]);
+    const y = this.cy(s);
+    line.setAttribute('x2', String(x0)); // the part between the nut and the fret stays still
+    const path = el('path', { class: 'fb-vibe', 'stroke-width': line.getAttribute('stroke-width') }, this.vibeLayer);
+    const cycles = Math.min(14, Math.max(1, freq / 60)); // waves along the vibrating part
+    const speed = Math.min(12, 2 + freq / 80); // cycles a second on screen
+    const start = performance.now();
+    const v = { path, raf: 0, line, x1 };
+    const frame = (now) => {
+      const t = (now - start) / 1000;
+      const a = 3.2 * Math.exp(-t / 0.9);
+      if (a < 0.15) return this.stopVibe(s);
+      let d = '';
+      for (let i = 0; i <= 64; i++) {
+        const u = i / 64;
+        const yy = y + a * Math.sin(Math.PI * u) * Math.sin(2 * Math.PI * (cycles * u - speed * t));
+        d += (i ? 'L' : 'M') + (x0 + (x1 - x0) * u).toFixed(1) + ' ' + yy.toFixed(2);
+      }
+      path.setAttribute('d', d);
+      v.raf = requestAnimationFrame(frame);
+    };
+    this.vibes.set(s, v);
+    v.raf = requestAnimationFrame(frame);
+  }
+
+  stopVibe(s) {
+    const v = this.vibes?.get(s);
+    if (!v) return;
+    cancelAnimationFrame(v.raf);
+    v.path.remove();
+    v.line.setAttribute('x2', String(v.x1));
+    this.vibes.delete(s);
+  }
+
+  // A muted strum: no ringing waves, the strings give a short dead thump instead.
+  strum() {
+    if (!this.strG) return;
+    for (const s of [...this.vibes.keys()]) this.stopVibe(s);
+    this.strG.classList.remove('thump');
+    void this.strG.getBoundingClientRect();
+    this.strG.classList.add('thump');
   }
 
   // fn(s, f) -> null | { fill, stroke, dash, label } | { fog: true } (a position not unlocked yet)

@@ -4,8 +4,8 @@
    raw palette colour only for its fixed meaning. */
 :root {
   color-scheme: light;
-  --green-light: #7acc67; /* the title green */
-  --green: #52b347;
+  --green-light: #86d96f; /* the title green */
+  --green: #5cc24e;
   --green-ink: #2f8228; /* green text on white */
   --red: #e5252f;
   --blue: #14a0c4;
@@ -143,7 +143,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .prompt-area.flash-good { animation: glowGood .6s ease-out; }
 .prompt-area.flash-bad { animation: glowBad .6s ease-out; }
 @keyframes notePop { from { transform: scale(.8); opacity: .3; } to { transform: scale(1); opacity: 1; } }
-@keyframes glowGood { from { background-color: rgba(82, 179, 71, .28); } to { background-color: transparent; } }
+@keyframes glowGood { from { background-color: rgba(92, 194, 78, .28); } to { background-color: transparent; } }
 @keyframes glowBad { from { background-color: rgba(229, 37, 47, .2); } to { background-color: transparent; } }
 
 .feedback { text-align: center; font-weight: 700; min-height: 1.5em; margin-top: 8px; }
@@ -159,6 +159,10 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-fret { stroke: var(--fret); stroke-width: 2.5; }
 .fb-nut { fill: var(--ink); }
 .fb-string { stroke: var(--string); opacity: .9; }
+.fb-vibe { fill: none; stroke: var(--string); stroke-linecap: round; }
+/* muted strum: a dead thump, the strings jolt once and darken for a moment */
+.fb-strings.thump .fb-string { animation: thump .24s ease-out; }
+@keyframes thump { 0% { transform: translateY(0); } 20% { transform: translateY(2px); stroke: var(--ink); } 45% { transform: translateY(-1px); } 100% { transform: translateY(0); } }
 .fb-strlabel { fill: var(--muted); font-size: 12px; font-weight: 700; text-anchor: middle; }
 .fb-num { fill: var(--steel); font-size: 11px; text-anchor: middle; }
 .fb-num.marked { fill: var(--ink); font-weight: 800; }
@@ -173,7 +177,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-mark.good .dot { fill: var(--green); stroke: #fff; filter: drop-shadow(0 0 6px var(--green)); }
 .fb-mark.bad .dot { fill: var(--red); stroke: #fff; filter: drop-shadow(0 0 6px var(--red)); }
 .fb-mark.bad .lbl { fill: #fff; }
-.fb-mark.reveal .dot { fill: rgba(82, 179, 71, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s ease-in-out infinite; }
+.fb-mark.reveal .dot { fill: rgba(92, 194, 78, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s ease-in-out infinite; }
 .fb-mark.reveal .lbl { fill: var(--green); }
 .fb-mark .ripple { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ripple .7s ease-out forwards; }
 .fb-mark.good .ripple { stroke: var(--green); }
@@ -317,7 +321,7 @@ fieldset label.btn.file { cursor: pointer; margin-top: 0; flex-direction: row; c
 .fb-fog { fill: #ffffff; opacity: .78; }
 
 /* momentum: a green glow that builds with fast right answers in a row */
-.prompt-area { --glow: 0; box-shadow: 0 0 calc(var(--glow) * 28px) calc(var(--glow) * 4px) rgba(82, 179, 71, calc(var(--glow) * .55)); transition: box-shadow .8s ease; }
+.prompt-area { --glow: 0; box-shadow: 0 0 calc(var(--glow) * 28px) calc(var(--glow) * 4px) rgba(92, 194, 78, calc(var(--glow) * .55)); transition: box-shadow .8s ease; }
 
 /* special prompts */
 .prompt-note.golden { color: var(--yellow); text-shadow: 0 2px 0 var(--ink); }

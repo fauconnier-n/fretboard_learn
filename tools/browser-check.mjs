@@ -1,7 +1,7 @@
 // Drive the app in headless Edge (or Chrome) and take screenshots, without a browser window.
 //   node tools/browser-check.mjs <steps.mjs> [--origin http://localhost:8137] [--out <dir>] [--port 9333] [--url <page>]
 // --url opens that page (a path relative to the origin) instead of the app.
-// <steps.mjs> default-exports [{ name, js, shot = true, width = 1200, height = 900, full }]: each
+// <steps.mjs> default-exports [{ name, js, shot = true, width = 1200, height = 900, full, mobile }]: each
 // `js` is the body of an async function run in the page (use `return ...` to print a result);
 // then, if shot, a PNG <out>/<name>.png is saved; <out>/index.html shows them all. The active user is set to "test" before the
 // app loads, so real data is never touched. The browser profile lives in the temp folder and
@@ -74,7 +74,7 @@ try {
   };
   await send('Runtime.enable');
   await send('Page.enable');
-  const size = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 600 });
+  const size = (w, h, mobile = w < 600) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile });
   await size(1200, 900);
   await send('Page.navigate', { url: origin + '/manifest.webmanifest' });
   await sleep(1200);
@@ -95,7 +95,7 @@ try {
       console.log(st.name + ': SCRIPT ERROR ' + e.message);
     }
     if (st.shot === false) continue;
-    await size(st.width || 1200, st.height || 900);
+    await size(st.width || 1200, st.height || 900, st.mobile);
     await sleep(400);
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: !!st.full });
     writeFileSync(join(out, st.name + '.png'), Buffer.from(shot.data, 'base64'));
