@@ -62,7 +62,10 @@ export const LANDMARKS = [0, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 // How an answer logged with note-name labels on the board counts in the model. A right
 // answer with its own label showing is at most Hard and says nothing about speed; one with
 // other labels showing is at most Good.
-export const cueOpts = (a) => ({ speed: !a.queueShown && !a.cueTarget, maxG: a.cueTarget ? 2 : a.cueN > 0 ? 3 : 4 });
+// A true-or-false answer is recognition, not recall: a right one counts at most as Hard and
+// its time (a yes/no click) is not used for speed.
+export const cueOpts = (a) => (a.task === 'truefalse' ? { speed: false, maxG: 2 }
+  : { speed: !a.queueShown && !a.cueTarget, maxG: a.cueTarget ? 2 : a.cueN > 0 ? 3 : 4 });
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const gauss = (x, mu, sd) => Math.exp(-0.5 * ((x - mu) / sd) ** 2);
@@ -797,7 +800,7 @@ export class Scheduler {
       const pc = pcOf(a.target);
       const cell = { s: a.s, f: a.f, midi: a.target, pc, key: a.s + ':' + a.f };
       // answers logged before spellings existed were all shown as sharps
-      const sp = a.task === 'name' ? 'r' : a.spelling || (isAccidental(pc) ? 's' : 'n');
+      const sp = a.task === 'name' || a.task === 'truefalse' ? 'r' : a.spelling || (isAccidental(pc) ? 's' : 'n');
       this.record(a.desc, cell, sp, a.correct, a.ms, a.t, cueOpts(a));
       if (!a.correct && sp !== 'r') this.recordConfusion(cell, sp, a.played);
       runs.add(a.runId);
@@ -814,9 +817,9 @@ export class Scheduler {
     for (const a of attempts) {
       const pc = pcOf(a.target);
       const cell = { s: a.s, f: a.f, midi: a.target, pc, key: a.s + ':' + a.f };
-      const sp = a.task === 'name' ? 'r' : a.spelling || (isAccidental(pc) ? 's' : 'n');
+      const sp = a.task === 'name' || a.task === 'truefalse' ? 'r' : a.spelling || (isAccidental(pc) ? 's' : 'n');
       const c = sch.model.cards[itemKey(cell.key, sp)];
-      if (c && !a.cueTarget && a.t - c.last > 3600000) out.push({ p: clamp(cardP(c, a.t), 0.01, 0.99), y: a.correct ? 1 : 0 });
+      if (c && !a.cueTarget && a.task !== 'truefalse' && a.t - c.last > 3600000) out.push({ p: clamp(cardP(c, a.t), 0.01, 0.99), y: a.correct ? 1 : 0 });
       sch.record(a.desc, cell, sp, a.correct, a.ms, a.t, cueOpts(a));
     }
     return out;

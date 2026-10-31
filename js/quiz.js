@@ -9,6 +9,7 @@ import { isAccidental, midiLabel, noteName, pcOf, positionsOf, spellName, string
 import { describe, zoneLabel } from './zones.js';
 import { LANDMARKS, cueOpts, errorType, itemKey } from './srs.js';
 import { describeCues, initialCues, labelOf } from './cues.js';
+import { GuitarMenu } from './guitarMenu.js';
 
 const DAY = 86400000;
 const PROBE_EVERY = 10; // every 10th prompt is a random check-up, not picked by the model
@@ -45,7 +46,17 @@ const BPM_MAX = 220;
 const SPECIAL_TEXT = { boss: 'Boss note: the hardest one in this zone', finale: 'Last one', golden: '★ Golden note: one you have been missing' };
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
-const spellFor = (cell, task) => (task === 'name' ? 'r' : isAccidental(cell.pc) ? (Math.random() < 0.5 ? 's' : 'f') : 'n');
+// runs without the guitar: name the marked position, or say whether the name shown is right
+const noGuitar = (task) => task === 'name' || task === 'truefalse';
+const itemTask = (task) => (noGuitar(task) ? 'name' : 'play'); // both no-guitar tasks train the position → name card
+const spellFor = (cell, task) => (noGuitar(task) ? 'r' : isAccidental(cell.pc) ? (Math.random() < 0.5 ? 's' : 'f') : 'n');
+// run types: [value, label]; the guitar ones first
+export const RUN_TYPES = [
+  ['play', 'Play the note (guitar)'],
+  ['confusions', 'Mix-ups (guitar)'],
+  ['name', 'Name the note (buttons)'],
+  ['truefalse', 'True or false (buttons)'],
+];
 const median = (xs) => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -70,6 +81,12 @@ export class Quiz {
       const b = e.target.closest('[data-pc]');
       if (b) this.answerName(+b.dataset.pc, b.textContent);
     };
+    this.els.tf.onclick = (e) => {
+      const b = e.target.closest('[data-tf]');
+      if (b) this.answerTF(b.dataset.tf === 'yes');
+    };
+    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats);
+    this.menuSub = null;
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
@@ -117,10 +134,11 @@ export class Quiz {
     e.fill.style.width = '0%';
     e.feedback.textContent = '';
     e.summary.classList.add('hidden');
-    e.choices.innerHTML = '';
+    e.tf.classList.add('hidden');
     this.state = 'idle';
     this.updateButton();
     this.paintProgress();
+    this.showMenu();
   }
 
   // Practice board between and during runs: positions you have played coloured by mastery
@@ -163,7 +181,7 @@ export class Quiz {
   }
 
   // Pick the zone and show it, with its natural notes as a reminder, plus up to two other
-  // zones to choose from (buttons, or keys 1–3). `chosen` is one of those offers.
+  // zones to choose from on the open-string menu. `chosen` is one of those offers.
   prepare(chosen = null) {
     this.leave();
     const sch = this.getScheduler();
@@ -185,7 +203,7 @@ export class Quiz {
       review: pick.review,
       predicted: pick.predicted,
       due: pick.due,
-      task: s.runTask === 'name' ? 'name' : s.runTask === 'mixed' ? 'mixed' : 'play',
+      task: noGuitar(s.runTask) ? s.runTask : 'play',
       focus: pick.focus,
       mixups: pick.focus ? sch.confusionCells(zone) : null,
       label: zoneLabel(zone, this.getStrings(), s.flats),
@@ -203,19 +221,13 @@ export class Quiz {
     const e = this.els;
     e.zone.textContent = this.run.label + (pick.review ? ' · review of fading notes' : '') +
       (pick.focus ? ' · your mix-ups' : focus ? ' · no mix-ups recorded yet, a usual run' : '');
-    e.choices.innerHTML = this.offers.length > 1 ? 'Or pick: ' + this.offers.map((o, i) =>
-      `<button class="btn small${o === pick ? ' active' : ''}" data-offer="${i}">${i + 1} · ${zoneLabel(o.zone, this.getStrings(), s.flats)}</button>`).join('') : '';
-    e.choices.onclick = (ev) => {
-      const b = ev.target.closest('[data-offer]');
-      if (b) this.prepare(this.offers[+b.dataset.offer]);
-    };
     e.names.classList.add('hidden');
     e.summary.classList.add('hidden');
     e.feedback.textContent = '';
     e.feedback.className = 'feedback';
     e.note.textContent = 'Ready?';
     e.sub.textContent = 'This is the zone. The natural notes are shown as a reminder' +
-      (s.runTask === 'name' || s.cueMode === 'off' ? '; they hide when the run starts.' : '; during the run, names show according to your Note names setting.') +
+      (noGuitar(s.runTask) || s.cueMode === 'off' ? '; they hide when the run starts.' : '; during the run, names show according to your Note names setting.') +
       ' Press Start run or Enter.';
     e.timer.textContent = '';
     e.queue.innerHTML = '';
@@ -223,6 +235,7 @@ export class Quiz {
     e.fill.style.width = '0%';
     this.paintProgress();
     this.updateButton();
+    this.showMenu();
   }
 
   begin() {
@@ -237,7 +250,7 @@ export class Quiz {
       startedAt: now,
       endsAt: s.runMode === 'sprint' ? now + s.sprintSec * 1000 : 0,
       usualMs: Math.exp(sch.globalMu()), // your typical answer time before this run
-      cueMode: run.task === 'name' ? 'off' : s.cueMode || 'off',
+      cueMode: noGuitar(run.task) ? 'off' : s.cueMode || 'off',
       streak: 0, // fast right answers in a row, for the glow
       goldenLeft: s.runMode === 'count' ? Math.max(1, Math.floor(s.runCount / 12)) : 2,
       beat: !!s.beat,
@@ -265,7 +278,7 @@ export class Quiz {
     };
     this.onRun?.(run.row);
     this.board.clearMarks();
-    this.els.choices.innerHTML = '';
+    this.menu.hide();
     this.els.area.style.setProperty('--glow', '0');
     this.state = 'feedback';
     this.updateButton();
@@ -322,12 +335,12 @@ export class Quiz {
     const left = run.total - run.results.length;
     while (run.queue.length < Math.min(QUEUE_AHEAD + 1, left)) {
       const n = run.results.length + run.queue.length + 1; // prompt number in the run
-      const task = run.task === 'mixed' ? (Math.random() < 0.5 ? 'name' : 'play') : run.task;
+      const task = run.task;
       let p;
       // a prompts run closes with its boss (hardest note) then a note you know, so it ends on a
       // success; both are queued together so a re-test can't take the closing slot
       if (run.total >= SPECIAL_MIN_RUN && left - run.queue.length === 2) {
-        const ranked = sch.zoneChances(run.zone, task).filter((x) => x.cell.key !== (run.queue.at(-1)?.cell.key ?? run.asked.at(-1))).sort((a, b) => a.p - b.p);
+        const ranked = sch.zoneChances(run.zone, itemTask(task)).filter((x) => x.cell.key !== (run.queue.at(-1)?.cell.key ?? run.asked.at(-1))).sort((a, b) => a.p - b.p);
         const known = ranked.filter((x) => x.seen);
         const boss = known[0] || ranked[0];
         const finale = [...known].reverse().find((x) => x !== boss) || ranked.at(-1);
@@ -344,12 +357,12 @@ export class Quiz {
       } else {
         // golden: now and then, a note you have been missing, with a special effect when right
         const missed = run.goldenLeft > 0 && Math.random() < GOLDEN_RATE
-          ? sch.zoneChances(run.zone, task).filter((x) => x.lapses > 0 && x.p < 0.7 && x.cell.key !== run.asked.at(-1)).sort((a, b) => a.p - b.p)[0]
+          ? sch.zoneChances(run.zone, itemTask(task)).filter((x) => x.lapses > 0 && x.p < 0.7 && x.cell.key !== run.asked.at(-1)).sort((a, b) => a.p - b.p)[0]
           : null;
         if (missed) {
           run.goldenLeft--;
           p = { cell: missed.cell, sp: spellFor(missed.cell, task), special: 'golden' };
-        } else p = sch.pickPrompt(run.zone, run, task);
+        } else p = sch.pickPrompt(run.zone, run, itemTask(task));
       }
       p.task = task;
       run.asked.push(p.cell.key);
@@ -370,7 +383,7 @@ export class Quiz {
     let { cell, sp, retest, probe, task, special } = run.queue.shift();
     if (special === 'finale' && run.failed.has(cell.key)) {
       // missed during this run: close on the best-known note you have not missed instead
-      const x = this.getScheduler().zoneChances(run.zone, task).filter((y) => !run.failed.has(y.cell.key) && y.cell.key !== run.asked.at(-1)).sort((a, b) => b.p - a.p)[0];
+      const x = this.getScheduler().zoneChances(run.zone, itemTask(task)).filter((y) => !run.failed.has(y.cell.key) && y.cell.key !== run.asked.at(-1)).sort((a, b) => b.p - a.p)[0];
       if (x) {
         cell = x.cell;
         sp = spellFor(cell, task);
@@ -378,6 +391,7 @@ export class Quiz {
     }
     const s = this.s;
     const naming = task === 'name';
+    const tf = task === 'truefalse';
     const expected = this.getScheduler().expectedMs(itemKey(cell.key, sp));
     const reveal = run.beat ? (BEATS * 60000) / run.bpm : Math.min(REVEAL_MAX, Math.max(REVEAL_MIN, REVEAL_FACTOR * expected));
     const giveUpAfter = Math.min(s.timeoutSec * 1000, reveal);
@@ -388,17 +402,20 @@ export class Quiz {
     };
     run.prev = { cell, sp };
     // name prompts never show labels: they would give the answer away
-    this.showCues(cell, !!retest, !!probe || naming);
+    this.showCues(cell, !!retest, !!probe || noGuitar(task));
+    if (tf) this.cur.shown = this.tfName(cell);
     this.state = 'await';
     const e = this.els;
-    e.note.textContent = naming ? '?' : spellName(cell.midi, sp);
+    e.note.textContent = naming ? '?' : tf ? this.cur.shown.name + '?' : spellName(cell.midi, sp);
     e.note.className = 'prompt-note' + (special ? ' ' + special : '');
     void e.note.offsetWidth;
     e.note.classList.add('pop');
-    if (naming) this.board.mark(cell.s, cell.f, 'ask', '?');
+    if (noGuitar(task)) this.board.mark(cell.s, cell.f, 'ask', tf ? this.cur.shown.name : '?');
     e.names.classList.toggle('hidden', !naming);
+    e.tf.classList.toggle('hidden', !tf);
     e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again — you missed this one a moment ago'
       : naming ? 'Name the marked note: type its letter (Shift = sharp) or click it below'
+        : tf ? `Is the marked note ${this.cur.shown.name}? Yes (Y or →) or No (N or ←)`
         : 'Play it inside the zone');
     e.queue.innerHTML = s.showQueue && run.task === 'play' ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
       `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
@@ -442,7 +459,7 @@ export class Quiz {
     this.scheduleRetest(cur);
     const hint = this.getScheduler().positionMastered(cur.cell) ? '' : this.structuralHint(cur.cell);
     // beat mode keeps the beat going: no waiting for a play-along
-    if (this.s.retry && !this.run.beat) {
+    if (this.s.retry && !this.run.beat && cur.task !== 'truefalse') {
       this.els.sub.textContent = (hint ? hint + ' ' : '') +
         (naming ? 'Type or click its name once (not graded).' : 'Play it once where it is shown (not graded).') +
         ' It comes back in a few prompts.';
@@ -520,6 +537,83 @@ export class Quiz {
     }
   }
 
+  // True or false: the marked position with its real name half the time, otherwise a name
+  // it is easy to mix it up with: one you have confused it with, or a semitone or tone away.
+  tfName(cell) {
+    const truth = Math.random() < 0.5;
+    let pc = cell.pc;
+    if (!truth) {
+      const conf = [...this.getScheduler().confusedWith(cell)];
+      const near = [1, -1, 2, -2].map((d) => (cell.pc + d + 12) % 12);
+      const pool = conf.length && Math.random() < 0.6 ? conf : near;
+      pc = pool[Math.floor(Math.random() * pool.length)];
+    }
+    return { pc, truth, name: noteName(pc, Math.random() < 0.5) };
+  }
+
+  answerTF(yes) {
+    const cur = this.cur;
+    if (this.state !== 'await' || !cur || cur.task !== 'truefalse' || cur.graded) return;
+    const ms = Math.max(0, performance.now() - cur.shownAt);
+    const { cell, shown } = cur;
+    const right = NAME_LABELS[cell.pc];
+    const correct = yes === shown.truth;
+    this.grade(correct, ms, null, { answerName: yes ? 'yes' : 'no' });
+    if (correct) {
+      cur.solvedMs = ms;
+      this.closePrompt();
+      this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', right.split('/')[0]);
+      this.feedback('good', this.goodText(shown.truth ? `Yes, it is ${right}` : `No, it is ${right}`, ms));
+      this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
+      this.advance(NEXT_DELAY);
+      return;
+    }
+    this.feedback('bad', shown.truth ? `✗ It is ${shown.name}` : `✗ Not ${shown.name}: it is ${right}`);
+    this.sound?.('bad');
+    this.missed();
+  }
+
+  // What comes next, answered on the open strings (or by clicking a row, or keys 1–6).
+  // Low E carries the usual next step, which a muted strum also takes.
+  showMenu(sub = null) {
+    const s = this.s;
+    const a = this.actions;
+    if (this.running) return this.menu.hide();
+    if (this.state === 'preview') {
+      this.menuSub = null;
+      return this.menu.show('Zone', this.offers.map((o) => ({
+        label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
+      })), 'start the run');
+    }
+    this.menuSub = sub;
+    if (sub === 'type') {
+      return this.menu.show('Run type', [
+        ...RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),
+        { label: 'Back', act: () => this.showMenu() },
+      ], 'back');
+    }
+    const type = (RUN_TYPES.find(([t]) => t === s.runTask) || RUN_TYPES[0])[1];
+    this.menu.show('Next', [
+      { label: 'New run', act: () => this.prepare() },
+      { label: `Run type: ${type} …`, act: () => this.showMenu('type') },
+      { label: s.runMode === 'count' ? `Length: ${s.runCount} prompts (switch to a ${s.sprintSec} s sprint)` : `Length: ${s.sprintSec} s sprint (switch to ${s.runCount} prompts)`, act: () => { a.toggleMode(); this.showMenu(); } },
+      { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
+      { label: 'Intervals tab', act: () => a.goIntervals() },
+    ], 'new run');
+  }
+
+  // A muted strum. Outside a run it takes the next step (new run, then start it). During a
+  // run a double strum stops it, and a single one skips the wait after a miss.
+  onStrum(double) {
+    if (this.running) {
+      if (double) return this.end('stopped');
+      if (this.state === 'await' && this.cur?.graded) this.advance(0);
+      return;
+    }
+    if (this.menuSub) return this.showMenu();
+    this.primary();
+  }
+
   scheduleRetest(cur) {
     const run = this.run;
     const q = run.queue;
@@ -559,6 +653,10 @@ export class Quiz {
 
   // ev: { midi, t } with t in performance.now() time
   onNote(ev) {
+    if (!this.running) {
+      if (this.isActive()) this.menu.onNote(ev.midi);
+      return;
+    }
     const cur = this.cur;
     if (this.state !== 'await' || !cur || cur.task === 'name') return;
     if (ev.t < cur.shownAt || ev.t < this.muteUntil) return;
@@ -599,7 +697,7 @@ export class Quiz {
     if (!cur || cur.revealed) return;
     cur.revealed = true;
     this.dropCue(cur.cell);
-    this.board.reveal(cur.cell.s, cur.cell.f, cur.task === 'name' ? NAME_LABELS[cur.cell.pc].split('/')[0] : midiLabel(cur.cell.midi, cur.sp === 'f'));
+    this.board.reveal(cur.cell.s, cur.cell.f, noGuitar(cur.task) ? NAME_LABELS[cur.cell.pc].split('/')[0] : midiLabel(cur.cell.midi, cur.sp === 'f'));
   }
 
   grade(correct, ms, played, extra = {}) {
@@ -609,7 +707,7 @@ export class Quiz {
     const now = Date.now();
     const pred = sch.predict(run.desc, cell, sp, now); // before the update, to check the model later
     const cue = cur.cue;
-    const { g, G } = sch.record(run.desc, cell, sp, correct, ms, now, cueOpts({ queueShown: cur.queueShown, cueTarget: cue.cueTarget, cueN: cue.cueN }));
+    const { g, G } = sch.record(run.desc, cell, sp, correct, ms, now, cueOpts({ queueShown: cur.queueShown, cueTarget: cue.cueTarget, cueN: cue.cueN, task: cur.task }));
     cur.graded = true;
     if (!correct) run.failed.add(cell.key);
     // fade: the label goes once the note is answered right, and comes back after a miss
@@ -631,7 +729,8 @@ export class Quiz {
       predP: pred.p, predMs: pred.ms, predR: pred.R, predS: pred.S, predD: pred.D,
       task: cur.task, answerName: extra.answerName ?? null, probe: cur.probe,
       errorType: correct ? null : errorType(cell.midi, played),
-      cueMode: cur.task === 'name' ? 'off' : run.cueMode, ...cue,
+      cueMode: noGuitar(cur.task) ? 'off' : run.cueMode, ...cue,
+      shownName: cur.shown?.name ?? null,
       special: cur.special, bpm: cur.bpm,
     };
     this.onSave();
@@ -718,12 +817,14 @@ export class Quiz {
       this.state = 'idle';
       this.run = null;
       e.sub.textContent = this.idleText();
+      this.showMenu();
       return;
     }
     e.note.textContent = reason === 'stopped' ? 'Stopped' : 'Done';
     e.sub.textContent = 'Press New run or Enter to keep going';
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
+    this.showMenu();
   }
 
   // A finished prompts run: one note from perfect, one short of your best on this zone and
@@ -849,9 +950,13 @@ export class Quiz {
       return;
     }
     if (e.key === 'Escape' && this.running) return this.end('stopped');
-    // keys 1–3 pick one of the offered zones before the run
-    if (this.state === 'preview' && this.offers?.[+e.key - 1]) return this.prepare(this.offers[+e.key - 1]);
+    // keys 1–6 pick a row of the open-string menu (1 = low E)
+    if (!this.running && /^[1-6]$/.test(e.key)) return this.menu.pick(+e.key - 1);
     if (e.key.length !== 1 || !this.run || !this.running) return;
+    if (this.cur?.task === 'truefalse') {
+      if (e.key === 'y' || e.key === 'Y' || e.key === 'ArrowRight') return this.answerTF(true);
+      if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowLeft') return this.answerTF(false);
+    }
     if (e.key.toLowerCase() === 'h') return this.giveUp('show');
     const idx = 'CDEFGAB'.indexOf(e.key.toUpperCase());
     if (idx < 0) return;

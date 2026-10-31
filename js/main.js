@@ -4,6 +4,7 @@ import * as storage from './storage.js';
 import * as backup from './backup.js';
 import { AudioInput } from './audio.js';
 import { createDetector, NoteTracker } from './pitch.js';
+import { DOUBLE_MS, StrumDetector } from './strum.js';
 import { Scheduler, newModel } from './srs.js';
 import { Fretboard } from './fretboard.js';
 import { Quiz } from './quiz.js';
@@ -31,6 +32,7 @@ const DEFAULTS = {
   retry: true,
   showQueue: false,
   beat: false,
+  strumLevel: 4, // muted strum: a burst this many times above the noise gate
   cueMode: 'fade',
   runTask: 'play',
   plan: '',
@@ -53,6 +55,8 @@ const app = {
   view: 'practice',
   audio: new AudioInput(),
   tracker: new NoteTracker(),
+  strum: new StrumDetector(),
+  lastStrum: { t: -Infinity, running: false },
   detect: createDetector(4096),
   loop: 0,
 };
@@ -167,9 +171,21 @@ function processFrame() {
   const res = rms >= s.gate ? app.detect(frame, app.audio.sampleRate, app.minF, app.maxF) : null;
   if (app.view === 'settings') updateMeter(rms);
   if (app.view === 'tuner') app.tuner.onFrame(res, rms, now);
+  if (app.strum.feed(now, rms, !!res && res.clarity >= s.clarity, s.gate)) onStrum(now);
   const ev = app.tracker.feed(now, res, rms, s);
   if (ev) app.quiz.onNote(ev);
   if (ev && app.view === 'intervals') app.intervals.onNote(ev);
+}
+
+// A muted strum: the "go" signal. Two within DOUBLE_MS, both during a run, are a double
+// strum (so the strum that starts a run can't pair with the next one and stop it).
+function onStrum(now) {
+  const running = app.view === 'intervals' ? app.intervals.running : app.quiz.running;
+  const double = running && app.lastStrum.running && now - app.lastStrum.t < DOUBLE_MS;
+  app.lastStrum = double ? { t: -Infinity, running } : { t: now, running };
+  $('strumSeen').textContent = `Muted strum heard${double ? ' (double)' : ''} at ${new Date().toLocaleTimeString()}`;
+  if (app.view === 'practice') app.quiz.onStrum(double);
+  else if (app.view === 'intervals') app.intervals.onStrum(double);
 }
 
 // Meter scale: -60 dBFS (empty) to 0 dBFS (full).
@@ -266,6 +282,7 @@ function updateModeUI() {
   document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === s.runMode));
   document.querySelectorAll('#taskSeg button').forEach((b) => b.classList.toggle('active', b.dataset.task === (s.runTask || 'play')));
   $('beatBtn').classList.toggle('active', !!s.beat);
+  if (app.quiz && !app.quiz.running) app.quiz.showMenu(app.quiz.menuSub);
   const input = $('runLen');
   Object.assign(input, count ? { min: 1, max: 200, step: 1 } : { min: 10, max: 1200, step: 10 });
   input.value = count ? s.runCount : s.sprintSec;
@@ -308,6 +325,7 @@ function bindSettings() {
       if (key === 'gate') updateGateMarker();
       if (key === 'channel') { app.audio.setChannel(v); updateAudioLabel(); }
       if (key === 'gain') app.audio.setGain(v);
+      if (key === 'strumLevel') app.strum.level = v;
       if (key === 'runCount' || key === 'sprintSec') updateModeUI();
     });
   });
@@ -407,7 +425,7 @@ async function checkModel() {
   const tuning = app.settings.tuning.replace(/'/g, "''");
   const rows = (await storage.sql(`SELECT pred_p AS p, correct::INT AS y,
       t - lag(t) OVER (PARTITION BY string_idx, fret, spelling, coalesce(task, 'play') ORDER BY t) AS lag
-    FROM attempts WHERE tuning = '${tuning}' QUALIFY pred_p IS NOT NULL AND NOT coalesce(cue_target, false) ORDER BY t`))
+    FROM attempts WHERE tuning = '${tuning}' AND coalesce(task, 'play') IN ('play', 'name') QUALIFY pred_p IS NOT NULL AND NOT coalesce(cue_target, false) ORDER BY t`))
     .map((r) => ({ p: r.p, y: r.y, lag: r.lag == null ? null : Number(r.lag) }));
   const attempts = await tuningAttempts();
   const fit = fitDecay(attempts, app.strings, app.settings.frets, app.model.meta.decay);
@@ -568,10 +586,13 @@ async function init() {
   }
   $('loading').remove();
   bindUsers(db);
-  window.ft = { sql: storage.sql, status: storage.status };
+  // console helpers; ft.strum() acts like a muted strum (for testing without a guitar)
+  window.ft = { sql: storage.sql, status: storage.status, strum: () => onStrum(performance.now()) };
 
   app.settings = { ...DEFAULTS, ...storage.lastSettings(), ...((await storage.get('settings')) || {}) };
   if (!Number.isInteger(app.settings.channel)) app.settings.channel = 0; // was saved as NaN by an old bug
+  if (app.settings.runTask === 'mixed') app.settings.runTask = 'play'; // mixed runs were removed
+  app.strum.level = app.settings.strumLevel;
   app.board = new Fretboard($('board'));
   app.heat = new Fretboard($('heatBoard'));
   app.tuner = new Tuner($('view-tuner'), () => app.settings);
@@ -581,7 +602,7 @@ async function init() {
       area: $('promptArea'), note: $('promptNote'), sub: $('promptSub'), timer: $('promptTimer'),
       zone: $('zoneLabel'), progress: $('progressLabel'), fill: $('progressFill'),
       feedback: $('feedback'), summary: $('summary'), queue: $('promptQueue'), startBtn: $('startBtn'), showMe: $('showMeBtn'), names: $('nameButtons'),
-      ring: $('accRing'), choices: $('zoneChoices'),
+      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'),
     },
     getSettings: () => app.settings,
     getScheduler: () => app.scheduler,
@@ -596,6 +617,13 @@ async function init() {
     },
     onSave: saveModel,
     onRunEnd: () => makeBackup('run'),
+    // the open-string menu changes the same settings as the practice bar
+    actions: {
+      setTask: (t) => { app.settings.runTask = t; saveSettings(); updateModeUI(); },
+      toggleMode: () => { app.settings.runMode = app.settings.runMode === 'count' ? 'sprint' : 'count'; saveSettings(); updateModeUI(); },
+      toggleBeat: () => { app.settings.beat = !app.settings.beat; saveSettings(); updateModeUI(); },
+      goIntervals: () => showView('intervals'),
+    },
     sound,
   });
   app.ivBoard = new Fretboard($('ivBoard'));
@@ -603,8 +631,9 @@ async function init() {
     board: app.ivBoard,
     els: {
       area: $('ivArea'), title: $('ivTitle'), sub: $('ivSub'), steps: $('ivSteps'), timer: $('ivTimer'),
-      progress: $('ivProgress'), fill: $('ivFill'), feedback: $('ivFeedback'), items: $('ivItems'), startBtn: $('ivStartBtn'),
+      progress: $('ivProgress'), fill: $('ivFill'), feedback: $('ivFeedback'), items: $('ivItems'), startBtn: $('ivStartBtn'), menu: $('ivMenu'),
     },
+    goPractice: () => showView('practice'),
     getSettings: () => app.settings,
     getStrings: () => app.strings,
     isActive: () => app.view === 'intervals',
@@ -630,6 +659,7 @@ async function init() {
     saveSettings();
     updateModeUI();
     if (app.quiz.state === 'preview') app.quiz.prepare(); // the choice can change the zones offered
+    else app.quiz.showMenu();
   }));
   $('beatBtn').onclick = () => {
     if (app.quiz.running) return;
