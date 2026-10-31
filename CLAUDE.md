@@ -11,7 +11,7 @@ Node is at `C:\Program Files\nodejs` (prepend it to PATH): `npm test`, `npm run 
 
 ## Screenshots of every visible change
 - Test UI changes in headless Edge: `node tools/browser-check.mjs tools/tour.mjs --out <dir>` (the server must be running; it uses the `test` user; write other step files like `tools/tour.mjs` for specific states).
-- Commit the screenshots of the screens that changed to `docs/screenshots/<branch-name>/`, before and after when something changed visibly, and show them in the pull request description with links pinned to the commit (`https://github.com/<owner>/<repo>/blob/<sha>/docs/screenshots/...?raw=true`). Show them in the reply too.
+- Show the screenshots of the screens that changed (before and after when useful) in the reply to the user, not in commits or pull requests: save them outside the repo (the session scratchpad) and do not commit them.
 
 ## Subagents
 Use subagents in parallel when it clearly speeds things up or the pieces are independent (separate files or areas, research, reviews): preferably just a few, never more than about a dozen. Work that touches the same files stays in one place.
