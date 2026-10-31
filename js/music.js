@@ -1,16 +1,10 @@
 // @ts-check
-// Note names, pitch maths and tunings. Strings are indexed from the lowest (0).
+// Note names and pitch maths. Strings are indexed from the lowest (0); instruments and
+// tunings are in instruments.js.
 
 export const SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-// Open-string MIDI numbers, lowest string first.
-export const TUNINGS = {
-  standard: { name: 'Standard (E A D G B E)', strings: [40, 45, 50, 55, 59, 64] },
-  dropD: { name: 'Drop D (D A D G B E)', strings: [38, 45, 50, 55, 59, 64] },
-  eb: { name: 'Eb standard', strings: [39, 44, 49, 54, 58, 63] },
-  seven: { name: '7-string (B E A D G B E)', strings: [35, 40, 45, 50, 55, 59, 64] },
-};
 
 export const pcOf = (midi) => ((midi % 12) + 12) % 12;
 export const noteName = (midi, flats = false) => (flats ? FLATS : SHARPS)[pcOf(midi)];

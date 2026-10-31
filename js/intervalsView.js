@@ -40,7 +40,7 @@ export class IntervalsView {
     this.board.onCellClick = (s, f) => this.simulate(this.getStrings()[s] + f);
     this.els.startBtn.onclick = () => this.primary();
     this.goPractice = o.goPractice;
-    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats);
+    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats, () => !!this.s.lowAtBottom);
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
@@ -49,7 +49,7 @@ export class IntervalsView {
     if (this.running) return this.menu.hide();
     this.menu.show('Next', [
       { label: 'Start a run', act: () => this.primary() },
-      { label: 'Back to Practice', act: () => this.goPractice?.() },
+      { label: 'Note position practice', act: () => this.goPractice?.() },
     ], 'start a run');
   }
 
@@ -127,7 +127,7 @@ export class IntervalsView {
     this.run = { id: Date.now().toString(36), total: s.runCount, results: [], prev: null, unlockedAtStart: unlockedKeys(this.stats) };
     this.run.row = {
       run_id: this.run.id, started_at: Date.now(), ended_at: null, end_reason: null,
-      tuning: s.tuning, mode: 'count', run_count: s.runCount, timeout_sec: TIMEOUT_MS / 1000, task: 'interval',
+      tuning: s.tuningLabel, instrument: s.instrument, strings: this.getStrings().join(','), mode: 'count', run_count: s.runCount, timeout_sec: TIMEOUT_MS / 1000, task: 'interval',
       zone_type: null, zone_strings: null, zone_cs: null, zone_cf: null, zone_span: null, zone_fret_min: null, zone_fret_max: null, zone_label: null,
     };
     this.onRun?.(this.run.row);
@@ -188,6 +188,8 @@ export class IntervalsView {
   // ev: { midi, t } with t in performance.now() time
   onNote(ev) {
     if (!this.running) {
+      const open = this.getStrings().indexOf(ev.midi);
+      if (this.menu.visible && open >= 0) this.board.vibrate(open, 0, ev.freq || 440 * 2 ** ((ev.midi - 69) / 12));
       this.menu.onNote(ev.midi);
       return;
     }
@@ -198,6 +200,7 @@ export class IntervalsView {
     this.muteUntil = performance.now() + MUTE_MS;
     if (isRight(p, ev.midi, cur.step)) {
       const pos = p.type === 'degree' ? this.where(ev.midi, p.cells) : p.cells[cur.step];
+      if (pos) this.board.vibrate(pos.s, pos.f, ev.freq || 440 * 2 ** ((ev.midi - 69) / 12));
       if (pos) this.board.flash(pos.s, pos.f, 'good', p.names[p.type === 'triad' ? cur.step : 0]);
       cur.step++;
       this.renderSteps();
@@ -218,6 +221,7 @@ export class IntervalsView {
     if (isReference(p, ev.midi, cur.step)) return;
     cur.wrong.push({ midi: ev.midi, ms });
     const pos = this.where(ev.midi, p.cells);
+    if (pos) this.board.vibrate(pos.s, pos.f, ev.freq || 440 * 2 ** ((ev.midi - 69) / 12));
     if (pos) this.board.flash(pos.s, pos.f, 'bad', midiLabel(ev.midi, this.s.flats).replace(/\d+$/, ''));
     this.sound?.('bad');
     this.miss(ms, ev.midi, `✗ You played ${midiLabel(ev.midi, this.s.flats)}`);
@@ -248,7 +252,7 @@ export class IntervalsView {
     addResult(this.stats, p.key, correct, ms);
     run.results.push({ key: p.key, correct, ms });
     this.onAttempt({
-      t: Date.now(), runId: run.id, tuning: this.s.tuning, desc: NO_ZONE,
+      t: Date.now(), runId: run.id, tuning: this.s.tuningLabel, instrument: this.s.instrument, strings: this.getStrings().join(','), desc: NO_ZONE,
       s: p.root?.s ?? null, f: p.root?.f ?? null, target: p.targets[0] ?? null, played, correct, ms: Math.round(ms), g: null, review: false,
       solveMs: correct ? Math.round(ms) : null, wrongCount: cur.wrong.length,
       wrongNotes: cur.wrong.map((w) => w.midi).join(',') || null, wrongMs: cur.wrong.map((w) => Math.round(w.ms)).join(',') || null,

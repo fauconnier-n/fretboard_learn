@@ -47,3 +47,11 @@ test('mastery colours run from the palette red to the palette green', async () =
   assert.equal(masteryColor(0.5), PALETTE.yellow);
   assert.match(masteryColor(0.25), /^#[0-9a-f]{6}$/);
 });
+
+test('board orientation: low E on top by default, at the bottom like tab when asked', async () => {
+  const { Fretboard } = await import('../js/fretboard.js');
+  const fb = Object.assign(new Fretboard(null), { strings: [40, 45, 50, 55, 59, 64], top: 24, sp: 30 });
+  assert.ok(fb.cy(0) < fb.cy(5), 'low E above high e by default');
+  fb.lowAtBottom = true;
+  assert.ok(fb.cy(0) > fb.cy(5), 'low E below high e like tab');
+});

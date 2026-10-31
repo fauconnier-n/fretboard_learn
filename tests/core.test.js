@@ -1,9 +1,14 @@
 // Pure-logic tests, no browser needed: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TUNINGS, freqToMidi, midiToFreq, noteName, stringName, positionsOf, spellingsOf } from '../js/music.js';
+import { freqToMidi, midiToFreq, noteName, stringName, positionsOf, spellingsOf } from '../js/music.js';
 import { fluency, forgetting, errorType, similarity, itemKey } from '../js/srs.js';
 import { selfTest } from '../js/zones.js';
+import { INSTRUMENTS } from '../js/instruments.js';
+
+import { tunedStrings } from '../js/instruments.js';
+// every instrument in standard and drop tuning (a shift moves every string alike: same zones)
+const ALL_TUNINGS = Object.fromEntries(Object.keys(INSTRUMENTS).flatMap((i) => ['standard', 'drop'].map((m) => [i + ' ' + m, { strings: tunedStrings(i, m) }])));
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 
@@ -20,20 +25,20 @@ test('note names and spellings', () => {
   assert.equal(noteName(-2), 'A#'); // negative midi still maps to a pitch class
   assert.deepEqual(spellingsOf(1), ['s', 'f']);
   assert.deepEqual(spellingsOf(0), ['n']);
-  const std = TUNINGS.standard.strings;
+  const std = INSTRUMENTS.guitar6.strings;
   assert.equal(stringName(std, 0), 'E');
   assert.equal(stringName(std, 5), 'e');
-  assert.equal(stringName(TUNINGS.dropD.strings, 0), 'D');
+  assert.equal(stringName(tunedStrings('guitar6', 'drop'), 0), 'D');
 });
 
 test('positionsOf finds every place a note sits', () => {
-  const pos = positionsOf(TUNINGS.standard.strings, 22, 64); // E4: fret 24 on low E is off the neck
+  const pos = positionsOf(INSTRUMENTS.guitar6.strings, 22, 64); // E4: fret 24 on low E is off the neck
   assert.deepEqual(pos, [{ s: 1, f: 19 }, { s: 2, f: 14 }, { s: 3, f: 9 }, { s: 4, f: 5 }, { s: 5, f: 0 }]);
-  assert.deepEqual(positionsOf(TUNINGS.standard.strings, 22, 39), []);
+  assert.deepEqual(positionsOf(INSTRUMENTS.guitar6.strings, 22, 39), []);
 });
 
 test('every zone holds the 12 pitch classes and the zones cover the neck', () => {
-  for (const [name, t] of Object.entries(TUNINGS)) {
+  for (const [name, t] of Object.entries(ALL_TUNINGS)) {
     for (const frets of [12, 15, 21, 22, 24]) {
       for (const types of ['both', 'string', 'box']) {
         const r = selfTest(t.strings, frets, types);

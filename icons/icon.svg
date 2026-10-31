@@ -9,6 +9,6 @@
     <line x1="8" y1="20" x2="56" y2="20"/><line x1="8" y1="26" x2="56" y2="26"/><line x1="8" y1="32" x2="56" y2="32"/>
     <line x1="8" y1="38" x2="56" y2="38"/><line x1="8" y1="44" x2="56" y2="44"/>
   </g>
-  <circle cx="31.5" cy="26" r="5" fill="#7acc67" stroke="#3f3c37" stroke-width="1.5"/>
+  <circle cx="31.5" cy="26" r="5" fill="#6fd94c" stroke="#3f3c37" stroke-width="1.5"/>
   <circle cx="42" cy="38" r="5" fill="#e5252f" stroke="#3f3c37" stroke-width="1.5"/>
 </svg>

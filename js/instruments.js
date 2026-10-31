@@ -1,0 +1,119 @@
+// @ts-check
+// Instruments and tunings. Strings are listed lowest first as open-string MIDI notes.
+//
+// Knowledge carries across instruments by **string key**: the open note of a string, moved
+// up an octave on a bass (a bass sounds an octave below a guitar, but its E string is
+// fingered exactly like the guitar's). The memory model of an instrument is rebuilt from the
+// whole answer log, replaying each past answer on the string with the same key:
+// - a string added (low B on a 5-string bass) has no past answers: it starts unknown;
+// - strings left out (guitar → bass) are skipped, and their answers stay in the log;
+// - a retuned string (standard → drop D) has a new key: only that string starts over;
+// - going back to an earlier instrument or tuning rebuilds it exactly as it was.
+
+import { noteName } from './music.js';
+
+// Standard tuning of each instrument. Other tunings: "drop" (lowest string a tone down) and
+// a shift of every string by whole semitones (Eb standard = standard, 1 down; drop C = drop,
+// 2 down), or a custom tuning.
+/** @type {Record<string, { name: string, family: 'guitar' | 'bass', strings: number[] }>} */
+export const INSTRUMENTS = {
+  guitar6: { name: '6-string guitar', family: 'guitar', strings: [40, 45, 50, 55, 59, 64] },
+  guitar7: { name: '7-string guitar', family: 'guitar', strings: [35, 40, 45, 50, 55, 59, 64] },
+  guitar8: { name: '8-string guitar', family: 'guitar', strings: [30, 35, 40, 45, 50, 55, 59, 64] },
+  guitar9: { name: '9-string guitar', family: 'guitar', strings: [25, 30, 35, 40, 45, 50, 55, 59, 64] },
+  bass4: { name: '4-string bass', family: 'bass', strings: [28, 33, 38, 43] },
+  bass5: { name: '5-string bass', family: 'bass', strings: [23, 28, 33, 38, 43] },
+  bass6: { name: '6-string bass', family: 'bass', strings: [23, 28, 33, 38, 43, 48] },
+};
+export const SHIFT_MIN = -7;
+export const SHIFT_MAX = 5;
+
+// Answers logged before instruments existed carry only a tuning name: [instrument, strings].
+export const LEGACY = {
+  standard: ['guitar6', [40, 45, 50, 55, 59, 64]],
+  dropD: ['guitar6', [38, 45, 50, 55, 59, 64]],
+  eb: ['guitar6', [39, 44, 49, 54, 58, 63]],
+  seven: ['guitar7', [35, 40, 45, 50, 55, 59, 64]],
+};
+
+/** Strings of a standard or drop tuning shifted by whole semitones. @param {string} instrument @param {'standard' | 'drop'} mode @param {number} shift */
+export function tunedStrings(instrument, mode, shift = 0) {
+  const st = [...instrumentOf(instrument).strings];
+  if (mode === 'drop') st[0] -= 2;
+  return st.map((m) => m + shift);
+}
+
+/** How a shift reads: "1 semitone down", "2 semitones up", "" for none. @param {number} shift */
+export const shiftText = (shift) => (shift ? `${Math.abs(shift)} semitone${Math.abs(shift) > 1 ? 's' : ''} ${shift < 0 ? 'down' : 'up'}` : '');
+
+const instrumentOf = (id) => INSTRUMENTS[id] || INSTRUMENTS.guitar6;
+
+/** String keys (see above) of an instrument's strings. @param {string} instrument @param {number[]} strings */
+export const stringKeys = (instrument, strings) => strings.map((m) => m + (instrumentOf(instrument).family === 'bass' ? 12 : 0));
+
+const LETTERS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+/**
+ * A custom tuning written lowest string first, e.g. "D2 A2 D3 G3 B3 E4" (# and b allowed).
+ * @param {string} text @param {number} count number of strings
+ * @returns {{ strings: number[], flats: boolean } | { error: string }}
+ */
+export function parseTuning(text, count) {
+  const parts = String(text || '').trim().split(/[\s,]+/).filter(Boolean);
+  if (parts.length !== count) return { error: `Write ${count} notes, lowest string first (you wrote ${parts.length}).` };
+  const strings = [];
+  for (const p of parts) {
+    const m = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(p);
+    if (!m) return { error: `"${p}" is not a note with an octave, like E2, F#1 or Bb3.` };
+    strings.push(12 * (+m[3] + 1) + LETTERS[m[1].toUpperCase()] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0));
+  }
+  if (new Set(strings).size !== strings.length) return { error: 'Two strings have the same note.' };
+  if (strings.some((s) => s < 12 || s > 84)) return { error: 'A note is out of range for a string.' };
+  return { strings, flats: parts.some((p) => /^[A-Ga-g]b/.test(p)) };
+}
+
+/** A tuning written as notes, lowest first, e.g. "E2 A2 D3". @param {number[]} strings @param {boolean} [flats] */
+export const tuningText = (strings, flats = false) => strings.map((m) => noteName(m, flats) + (Math.floor(m / 12) - 1)).join(' ');
+
+/**
+ * The strings to play from the settings: tuning 'standard' or 'drop' with tuningShift
+ * semitones, or 'custom' (a custom tuning that does not parse falls back to standard).
+ * label is what the answer log records as the tuning, e.g. 'standard', 'drop-2', 'custom'.
+ * @param {{ instrument?: string, tuning?: string, tuningShift?: number, customTuning?: string }} s
+ */
+export function resolveTuning(s) {
+  const standard = instrumentOf(s.instrument).strings;
+  if (s.tuning === 'custom') {
+    const p = parseTuning(s.customTuning ?? '', standard.length);
+    if ('strings' in p) return { strings: p.strings, flats: p.flats, error: '', label: 'custom' };
+    return { strings: standard, flats: false, error: p.error, label: 'standard' };
+  }
+  const mode = s.tuning === 'drop' ? 'drop' : 'standard';
+  const shift = Math.max(SHIFT_MIN, Math.min(SHIFT_MAX, Math.round(+(s.tuningShift ?? 0)) || 0));
+  // down-tunings are named with flats (Eb standard), up-tunings with sharps
+  return { strings: tunedStrings(s.instrument ?? 'guitar6', mode, shift), flats: shift < 0, error: '', label: mode + (shift ? (shift > 0 ? '+' : '') + shift : '') };
+}
+
+/** The instrument and strings an answer was given on (older rows: from their tuning name). */
+export function attemptStrings(a) {
+  if (a.strings) return { instrument: a.instrument || 'guitar6', strings: String(a.strings).split(',').map(Number) };
+  const [instrument, strings] = LEGACY[a.tuning] || LEGACY.standard;
+  return { instrument, strings };
+}
+
+/**
+ * A past answer replayed on the instrument whose string keys are `keys`: the same answer on
+ * the string with the same key, or null if this instrument has no such string.
+ * @param {any} a an answer from the log @param {number[]} keys
+ */
+export function mapAttempt(a, keys) {
+  const { instrument, strings } = attemptStrings(a);
+  const from = stringKeys(instrument, strings);
+  const s = keys.indexOf(from[a.s]);
+  if (s < 0) return null;
+  if (s === a.s && from.length === keys.length && from.every((k, i) => k === keys[i])) return a;
+  // the zone shape is in string numbers: move it to this instrument's numbering
+  const d = a.desc || {};
+  const sk = typeof d.sk === 'string' ? d.sk.split(',').map((x) => keys.indexOf(from[+x])).filter((x) => x >= 0).join(',') : d.sk;
+  return { ...a, s, desc: { ...d, sk, cs: d.cs == null ? d.cs : d.cs + (s - a.s) } };
+}

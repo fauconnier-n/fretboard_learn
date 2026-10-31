@@ -1,4 +1,5 @@
-import { TUNINGS, midiLabel, midiToFreq } from './music.js';
+import { midiLabel, midiToFreq } from './music.js';
+import { INSTRUMENTS, LEGACY, mapAttempt, parseTuning, resolveTuning, shiftText, stringKeys, tunedStrings, tuningText } from './instruments.js';
 import { generateZones, selfTest } from './zones.js';
 import * as storage from './storage.js';
 import * as backup from './backup.js';
@@ -10,7 +11,7 @@ import { Fretboard } from './fretboard.js';
 import { Quiz } from './quiz.js';
 import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
-import { renderStats } from './stats.js';
+import { confusionPairs, renderStats } from './stats.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
 
 const DEFAULTS = {
@@ -21,9 +22,13 @@ const DEFAULTS = {
   clarity: 0.9,
   a4: 440,
   latencyMs: 80,
-  tuning: 'standard',
+  instrument: 'guitar6',
+  tuning: 'standard', // 'standard', 'drop' or 'custom'
+  tuningShift: 0, // standard and drop: every string moved by this many semitones
+  customTuning: '', // custom tuning, lowest string first, e.g. "D2 A2 D3 G3 B3 E4"
   frets: 15,
   leftHanded: false,
+  lowAtBottom: false, // low E on top by default (like Rocksmith); true draws it at the bottom (like tab)
   zoneTypes: 'both',
   runMode: 'count',
   runCount: 20,
@@ -38,7 +43,7 @@ const DEFAULTS = {
   plan: '',
   sound: true,
 };
-const BOARD_KEYS = ['tuning', 'frets', 'leftHanded', 'zoneTypes'];
+const BOARD_KEYS = ['instrument', 'frets', 'leftHanded', 'lowAtBottom', 'zoneTypes'];
 const FRAME = 3072;
 const POLL_MS = 25;
 
@@ -51,7 +56,9 @@ const app = {
   modelKey: null,
   scheduler: null,
   zones: [],
-  strings: TUNINGS.standard.strings,
+  strings: INSTRUMENTS.guitar6.strings,
+  keys: INSTRUMENTS.guitar6.strings,
+  practicePage: 'practice', // the Practice tab reopens the last kind of quiz
   view: 'practice',
   audio: new AudioInput(),
   tracker: new NoteTracker(),
@@ -97,40 +104,97 @@ function sound(kind) {
 
 // ---------- board / model ----------
 
+// Every answer of the log replayed on this instrument: answers on a string with the same key
+// (instruments.js) count, others are left out. The Intervals tab has its own stats.
 const tuningAttempts = async () =>
-  (await storage.allAttempts()).filter((a) => a.tuning === app.settings.tuning)
-    .filter((a) => a.task !== 'interval') // the Intervals tab has its own stats, not the note model
+  (await storage.allAttempts()).filter((a) => a.task !== 'interval')
+    .map((a) => mapAttempt(a, app.keys)).filter(Boolean)
     .sort((a, b) => a.t - b.t);
+
+// SQL: the open strings an answer was given on, also for rows from before instruments
+const LOG_STRINGS = `coalesce(strings, CASE tuning ${Object.entries(LEGACY).map(([name, [, st]]) => `WHEN '${name}' THEN '${st.join(',')}'`).join(' ')} END)`;
+const sameStrings = () => `${LOG_STRINGS} = '${app.strings.join(',')}'`;
+
+// The tuning controls: Standard/Drop switch, a semitone slider, the notes they give, and the
+// custom tuning page. A custom tuning written for another string count is dropped.
+function fillTunings(preview = null) {
+  const s = app.settings;
+  if (!INSTRUMENTS[s.instrument]) s.instrument = 'guitar6';
+  const inst = INSTRUMENTS[s.instrument];
+  if (s.tuning === 'custom' && !('strings' in parseTuning(s.customTuning, inst.strings.length))) s.tuning = 'standard';
+  if (!['standard', 'drop', 'custom'].includes(s.tuning)) s.tuning = 'standard';
+  const custom = s.tuning === 'custom';
+  const shift = preview ?? s.tuningShift;
+  if (!$('instrumentSelect').options.length) {
+    $('instrumentSelect').innerHTML = Object.entries(INSTRUMENTS).map(([id, i]) => `<option value="${id}">${i.name}</option>`).join('');
+  }
+  $('instrumentSelect').value = s.instrument;
+  document.querySelectorAll('#tuneMode button').forEach((b) => b.classList.toggle('active', b.dataset.mode === s.tuning));
+  Object.assign($('tuneShift'), { value: shift, disabled: custom });
+  $('tuneShiftOut').textContent = shiftText(shift) || 'none';
+  const r = resolveTuning({ ...s, tuningShift: shift });
+  const notes = tuningText(r.strings, r.flats);
+  $('tuningNotes').textContent = custom ? `Custom tuning in use: ${notes}. Choose Standard or Drop to leave it.` : `Open strings: ${notes}`;
+  $('customBtn').textContent = custom ? 'Custom tuning (in use) ›' : 'Custom tuning ›';
+  $('sumInstrument').textContent = `${inst.name} · ${custom ? 'custom' : s.tuning === 'drop' ? 'drop' : 'standard'}${!custom && s.tuningShift ? ', ' + shiftText(s.tuningShift) : ''} (${notes})`;
+}
+
+// Settings: a home page of cards, one page per topic, custom tuning under instrument & tuning.
+function openSettings(page = 'home') {
+  app.settingsPage = page;
+  document.querySelectorAll('[data-spage]').forEach((p) => p.classList.toggle('hidden', p.dataset.spage !== page));
+  if (page === 'custom') {
+    const r = resolveTuning(app.settings);
+    $('customTuning').value = app.settings.tuning === 'custom' ? app.settings.customTuning : tuningText(r.strings, r.flats);
+    $('tuningError').textContent = '';
+  }
+  if (page === 'data') renderBackups();
+  if (page === 'tables') renderTable();
+  window.scrollTo(0, 0);
+}
+
+async function setTuning(changes) {
+  Object.assign(app.settings, changes);
+  saveSettings();
+  fillTunings();
+  await applyBoardSettings();
+}
 
 async function applyBoardSettings() {
   const s = app.settings;
-  const tuning = TUNINGS[s.tuning] || TUNINGS.standard;
+  const tuning = resolveTuning(s);
   app.strings = tuning.strings;
+  app.keys = stringKeys(s.instrument, tuning.strings);
   // prompts mix sharps and flats; this only picks how string names and the tuner are written
-  s.flats = s.tuning === 'eb';
-  const key = 'model:' + s.tuning;
+  s.flats = tuning.flats;
+  s.tuningLabel = tuning.label; // what the answer log records as the tuning
+  // one model per set of strings; it is rebuilt from the whole log whenever it is loaded, so
+  // answers given meanwhile on another instrument count on the strings they share
+  const key = 'model:' + app.keys.join(',');
   if (app.modelKey !== key) {
-    app.model = (await storage.get(key)) || newModel();
+    const legacy = Object.entries(LEGACY).find(([, [inst, st]]) => stringKeys(inst, st).join(',') === app.keys.join(','));
+    app.model = (await storage.get(key)) || (legacy && (await storage.get('model:' + legacy[0]))) || newModel();
+    app.model.stale = true;
     app.modelKey = key;
   }
   app.zones = generateZones(tuning.strings, s.frets, s.zoneTypes);
-  app.scheduler = new Scheduler(app.model, tuning.strings, s.frets);
+  app.scheduler = new Scheduler(app.model, tuning.strings, s.frets, app.keys);
   if (app.scheduler.needsRebuild) {
-    // the model format changed: replay the answer log, which keeps every answer time
+    // replay the answer log, which keeps every answer and its time
     app.scheduler.rebuild(await tuningAttempts());
     await storage.set(app.modelKey, app.model);
   }
-  const cfg = { strings: tuning.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats };
+  const cfg = { strings: app.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats, lowAtBottom: s.lowAtBottom };
   app.board.configure(cfg);
   app.heat.configure(cfg);
   app.ivBoard.configure(cfg);
   app.intervals.leave();
   app.intervals.reset();
   app.quiz.reset();
-  app.tuner.setStrings(tuning.strings, s.flats);
+  app.tuner.setStrings(app.strings, s.flats);
   // detector range: a tone below the lowest string up to the top fret
-  app.minF = midiToFreq(Math.min(...tuning.strings) - 3, s.a4);
-  app.maxF = midiToFreq(Math.max(...tuning.strings) + s.frets + 3, s.a4);
+  app.minF = midiToFreq(Math.min(...app.strings) - 3, s.a4);
+  app.maxF = midiToFreq(Math.max(...app.strings) + s.frets + 3, s.a4);
   if (app.view === 'stats') showStats();
 }
 
@@ -162,7 +226,7 @@ function updateAudioLabel() {
 function processFrame() {
   const buf = app.audio.read();
   if (!buf) return;
-  const frame = buf.subarray(buf.length - FRAME);
+  const frame = buf.subarray(buf.length - (app.minF < 40 ? Math.min(buf.length, 4096) : FRAME));
   let sum = 0;
   for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
   const rms = Math.sqrt(sum / frame.length);
@@ -184,8 +248,13 @@ function onStrum(now) {
   const double = running && app.lastStrum.running && now - app.lastStrum.t < DOUBLE_MS;
   app.lastStrum = double ? { t: -Infinity, running } : { t: now, running };
   $('strumSeen').textContent = `Muted strum heard${double ? ' (double)' : ''} at ${new Date().toLocaleTimeString()}`;
-  if (app.view === 'practice') app.quiz.onStrum(double);
-  else if (app.view === 'intervals') app.intervals.onStrum(double);
+  if (app.view === 'practice') {
+    app.board.strum();
+    app.quiz.onStrum(double);
+  } else if (app.view === 'intervals') {
+    app.ivBoard.strum();
+    app.intervals.onStrum(double);
+  }
 }
 
 // Meter scale: -60 dBFS (empty) to 0 dBFS (full).
@@ -235,7 +304,11 @@ function refreshChannels() {
 
 function showView(name) {
   app.view = name;
-  document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  const practice = name === 'practice' || name === 'intervals';
+  if (practice) app.practicePage = name;
+  document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === (practice ? 'practice' : name)));
+  document.querySelectorAll('#practiceNav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  $('practiceNav').classList.toggle('hidden', !practice);
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
   if (name === 'stats') showStats();
   if (name === 'settings') {
@@ -252,12 +325,11 @@ async function showStats() {
   const attemptCount = await storage.countAttempts();
   const weekAgo = new Date().setHours(0, 0, 0, 0) - 6 * 86400000; // today and the 6 days before
   const monthAgo = Date.now() - 30 * 86400000;
-  const tuning = app.settings.tuning.replace(/'/g, "''");
   // practice consistency: days with at least one answer in the last 7 (no streak to lose)
   const [{ days }] = await storage.sql(`SELECT count(DISTINCT strftime(to_timestamp(t / 1000), '%Y-%m-%d'))::INT AS days FROM attempts WHERE t >= ${weekAgo}`);
   // check-up prompts are random, so their success rate is not pulled towards the target
-  const [probe] = await storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE probe AND t >= ${monthAgo} AND tuning = '${tuning}'`);
-  const [named] = await storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE task = 'name' AND t >= ${monthAgo} AND tuning = '${tuning}'`);
+  const [probe] = await storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE probe AND t >= ${monthAgo} AND ${sameStrings()}`);
+  const [named] = await storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE task = 'name' AND t >= ${monthAgo} AND ${sameStrings()}`);
   const pct = (x) => Math.round(x * 100) + '%';
   renderStats({
     extraCards: [
@@ -273,6 +345,7 @@ async function showStats() {
     flats: app.settings.flats,
     heat: app.heat,
     attemptCount,
+    confusions: confusionPairs(await tuningAttempts(), app.settings.frets),
   });
 }
 
@@ -320,6 +393,7 @@ function bindSettings() {
       app.settings[key] = v;
       showOutput(input);
       saveSettings();
+      if (key === 'instrument') fillTunings();
       if (BOARD_KEYS.includes(key) || key === 'a4') await applyBoardSettings();
       if (key === 'deviceId') connectAudio();
       if (key === 'gate') updateGateMarker();
@@ -341,7 +415,7 @@ function download(name, text) {
 
 function runSelfTest() {
   const lines = [];
-  for (const [id, t] of Object.entries(TUNINGS)) {
+  for (const [id, t] of Object.entries(INSTRUMENTS).flatMap(([iid, inst]) => ['standard', 'drop'].map((m) => [inst.name + ' ' + m, { strings: tunedStrings(iid, m) }]))) {
     for (const frets of [12, 15, 22, 24]) {
       const r = selfTest(t.strings, frets);
       const ok = !r.bad.length && !r.uncovered.length;
@@ -422,10 +496,9 @@ async function restoreBackup(id) {
 async function checkModel() {
   const out = $('modelCheck');
   out.innerHTML = '<p class="muted small">Checking…</p>';
-  const tuning = app.settings.tuning.replace(/'/g, "''");
   const rows = (await storage.sql(`SELECT pred_p AS p, correct::INT AS y,
       t - lag(t) OVER (PARTITION BY string_idx, fret, spelling, coalesce(task, 'play') ORDER BY t) AS lag
-    FROM attempts WHERE tuning = '${tuning}' AND coalesce(task, 'play') IN ('play', 'name') QUALIFY pred_p IS NOT NULL AND NOT coalesce(cue_target, false) ORDER BY t`))
+    FROM attempts WHERE ${sameStrings()} AND coalesce(task, 'play') IN ('play', 'name') QUALIFY pred_p IS NOT NULL AND NOT coalesce(cue_target, false) ORDER BY t`))
     .map((r) => ({ p: r.p, y: r.y, lag: r.lag == null ? null : Number(r.lag) }));
   const attempts = await tuningAttempts();
   const fit = fitDecay(attempts, app.strings, app.settings.frets, app.model.meta.decay);
@@ -434,7 +507,7 @@ async function checkModel() {
   const resetBtn = app.model.meta.decay ? ' <button class="btn small" id="defaultDecayBtn">Back to the default decay</button>' : '';
   const cueRows = (await storage.sql(`SELECT pred_p AS p, correct::INT AS y, ms, coalesce(cue_target, false)::INT AS own,
       coalesce(cue_n, 0) AS n, cue_nearest AS near
-    FROM attempts WHERE tuning = '${tuning}' AND coalesce(task, 'play') = 'play' AND cue_mode IS NOT NULL AND pred_p IS NOT NULL`))
+    FROM attempts WHERE ${sameStrings()} AND coalesce(task, 'play') = 'play' AND cue_mode IS NOT NULL AND pred_p IS NOT NULL`))
     .map((r) => ({ p: r.p, y: r.y, ms: Number(r.ms), own: !!r.own, n: Number(r.n), near: r.near }));
   out.innerHTML = renderCheck(rows, fit.html + useBtn + resetBtn) + `<h4>Reliance on note names</h4>${renderCueReliance(cueRows)}`;
   const apply = async (d) => {
@@ -592,6 +665,9 @@ async function init() {
   app.settings = { ...DEFAULTS, ...storage.lastSettings(), ...((await storage.get('settings')) || {}) };
   if (!Number.isInteger(app.settings.channel)) app.settings.channel = 0; // was saved as NaN by an old bug
   if (app.settings.runTask === 'mixed') app.settings.runTask = 'play'; // mixed runs were removed
+  // tunings from before the standard/drop switch
+  const OLD = { seven: { instrument: 'guitar7', tuning: 'standard' }, dropD: { tuning: 'drop' }, dropA: { tuning: 'drop' }, dropE: { tuning: 'drop' }, eb: { tuning: 'standard', tuningShift: -1 } };
+  Object.assign(app.settings, OLD[app.settings.tuning] || {});
   app.strum.level = app.settings.strumLevel;
   app.board = new Fretboard($('board'));
   app.heat = new Fretboard($('heatBoard'));
@@ -647,7 +723,28 @@ async function init() {
     sound,
   });
 
-  document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => showView(b.dataset.tab)));
+  document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => {
+    if (b.dataset.tab === 'settings' && app.view === 'settings') return openSettings('home'); // second click: back to the cards
+    showView(b.dataset.tab === 'practice' ? app.practicePage : b.dataset.tab);
+  }));
+  document.querySelectorAll('#practiceNav button').forEach((b) => (b.onclick = () => showView(b.dataset.tab)));
+  $('view-settings').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-open]');
+    if (b) openSettings(b.dataset.open);
+  });
+  document.querySelectorAll('#tuneMode button').forEach((b) => (b.onclick = () => setTuning({ tuning: b.dataset.mode })));
+  $('tuneShift').addEventListener('input', () => fillTunings(+$('tuneShift').value)); // preview while sliding
+  $('tuneShift').addEventListener('change', () => setTuning({ tuningShift: +$('tuneShift').value }));
+  $('customUse').onclick = async () => {
+    const text = $('customTuning').value;
+    const p = parseTuning(text, INSTRUMENTS[app.settings.instrument].strings.length);
+    if ('error' in p) {
+      $('tuningError').textContent = p.error;
+      return;
+    }
+    await setTuning({ tuning: 'custom', customTuning: text.trim() });
+    openSettings('instrument');
+  };
   document.querySelectorAll('#modeSeg button').forEach((b) => (b.onclick = () => {
     app.settings.runMode = b.dataset.mode;
     saveSettings();
@@ -684,6 +781,7 @@ async function init() {
   $('tableRefresh').onclick = () => renderTable();
   navigator.mediaDevices?.addEventListener?.('devicechange', refreshDevices);
 
+  fillTunings();
   bindSettings();
   updateGateMarker();
   bindData();

@@ -47,6 +47,7 @@ const BPM_MAX = 220;
 const SPECIAL_TEXT = { boss: 'Boss note: the hardest one in this zone', finale: 'Last one', golden: '★ Golden note: one you have been missing' };
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const hz = (ev) => ev.freq || 440 * 2 ** ((ev.midi - 69) / 12); // typed or clicked notes have no measured frequency
 // runs without the guitar: name the marked position, or say whether the name shown is right
 const noGuitar = (task) => task === 'name' || task === 'truefalse';
 const itemTask = (task) => (noGuitar(task) ? 'name' : 'play'); // both no-guitar tasks train the position → name card
@@ -86,7 +87,7 @@ export class Quiz {
       const b = e.target.closest('[data-tf]');
       if (b) this.answerTF(b.dataset.tf === 'yes');
     };
-    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats);
+    this.menu = new GuitarMenu(this.els.menu, this.getStrings, () => !!this.s.flats, () => !!this.s.lowAtBottom);
     this.menuSub = null;
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
@@ -146,7 +147,9 @@ export class Quiz {
   // (updated after every answer), positions not unlocked yet under fog.
   paintProgress() {
     const sch = this.getScheduler();
-    if (!sch) return;
+    if (!sch || !this.board.layers) return;
+    // during a run the board shows only the run: no knowledge colours
+    if (this.running) return this.board.setHeat(() => null);
     const snap = sch.snapshot();
     this.board.setHeat((s, f) => {
       const m = snap.mastery.get(s + ':' + f);
@@ -269,7 +272,7 @@ export class Quiz {
     run.row = {
       cue_mode: run.cueMode,
       run_id: run.id, started_at: Date.now(), ended_at: null, end_reason: null,
-      tuning: s.tuning, mode: run.mode,
+      tuning: s.tuningLabel, instrument: s.instrument, strings: this.getStrings().join(','), mode: run.mode,
       run_count: run.mode === 'count' ? s.runCount : null,
       sprint_sec: run.mode === 'sprint' ? s.sprintSec : null,
       zone_type: run.desc.type, zone_strings: run.desc.sk, zone_cs: run.desc.cs, zone_cf: run.desc.cf,
@@ -285,6 +288,7 @@ export class Quiz {
     this.state = 'feedback';
     this.updateButton();
     this.ring();
+    this.paintProgress();
     this.tick();
     if (run.beat) this.startBeat();
     this.next();
@@ -600,7 +604,7 @@ export class Quiz {
       { label: `Run type: ${type} …`, act: () => this.showMenu('type') },
       { label: s.runMode === 'count' ? `Length: ${s.runCount} prompts (switch to a ${s.sprintSec} s sprint)` : `Length: ${s.sprintSec} s sprint (switch to ${s.runCount} prompts)`, act: () => { a.toggleMode(); this.showMenu(); } },
       { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
-      { label: 'Intervals tab', act: () => a.goIntervals() },
+      { label: 'Interval practice', act: () => a.goIntervals() },
     ], 'new run');
   }
 
@@ -656,6 +660,8 @@ export class Quiz {
   // ev: { midi, t } with t in performance.now() time
   onNote(ev) {
     if (!this.running) {
+      const open = this.getStrings().indexOf(ev.midi);
+      if (this.isActive() && this.menu.visible && open >= 0) this.board.vibrate(open, 0, hz(ev));
       if (this.isActive()) this.menu.onNote(ev.midi);
       return;
     }
@@ -672,6 +678,7 @@ export class Quiz {
       this.closePrompt();
       this.els.showMe.classList.add('hidden');
       this.dropCue(cell);
+      this.board.vibrate(cell.s, cell.f, hz(ev));
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', spellName(cell.midi, cur.sp));
       this.feedback('good', cur.revealed ? `✓ That's it — ${midiLabel(cell.midi, flats)}. It comes back in a few prompts.` : this.goodText(spellName(cell.midi, cur.sp), ms));
       this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
@@ -682,7 +689,10 @@ export class Quiz {
     cur.attempts++;
     cur.wrong.push({ midi: ev.midi, ms });
     const pos = this.locate(ev.midi);
-    if (pos) this.board.flash(pos.s, pos.f, 'bad', midiLabel(ev.midi, flats));
+    if (pos) {
+      this.board.vibrate(pos.s, pos.f, hz(ev));
+      this.board.flash(pos.s, pos.f, 'bad', midiLabel(ev.midi, flats));
+    }
     const kind = ERROR_TEXT[errorType(cell.midi, ev.midi)];
     this.feedback('bad', `✗ You played ${midiLabel(ev.midi, flats)}${kind ? ` — ${kind}` : ''}`);
     this.sound?.('bad');
@@ -724,7 +734,7 @@ export class Quiz {
     this.ring();
     this.paintProgress();
     cur.log = {
-      t: Date.now(), runId: run.id, tuning: this.s.tuning, desc: run.desc,
+      t: Date.now(), runId: run.id, tuning: this.s.tuningLabel, instrument: this.s.instrument, strings: this.getStrings().join(','), desc: run.desc,
       s: cell.s, f: cell.f, target: cell.midi, spelling: sp, played, correct, ms: Math.round(ms), g, review: run.review,
       prevTarget: prev?.cell.midi ?? null, prevSpelling: prev?.sp ?? null, prevS: prev?.cell.s ?? null, prevF: prev?.cell.f ?? null,
       retest: cur.retest, queueShown: cur.queueShown, showMe: !!extra.showMe, fsrsGrade: G,
@@ -795,6 +805,7 @@ export class Quiz {
     this.state = 'done';
     this.cur = null;
     this.ring();
+    this.paintProgress();
     this.els.area.style.setProperty('--glow', '0');
     const res = run.results;
     const ok = res.filter((r) => r.correct);
