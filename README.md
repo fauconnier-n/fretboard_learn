@@ -62,6 +62,9 @@ The app needs no build. Node is only used for dev checks (`npm install` once):
 - `npm test`: tests for the pure logic in `music.js`, `srs.js` and `zones.js` (Node's built-in runner, `tests/`).
 - `npm run lint`: ESLint.
 - `npm run typecheck`: type-checks the modules that start with `// @ts-check`.
+- `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as user `test`, walks through the main screens and saves a screenshot of each (the server must be running).
+
+Colours and design rules: [docs/design.md](docs/design.md).
 
 ## Hosting / mobile later
 

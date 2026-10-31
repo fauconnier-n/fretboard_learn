@@ -9,5 +9,15 @@
 ## Checks before a pull request
 Node is at `C:\Program Files\nodejs` (prepend it to PATH): `npm test`, `npm run lint`, `npm run typecheck` must pass. Test in the app as user `test`, never `user`.
 
+## Screenshots of every visible change
+- Test UI changes in headless Edge: `node tools/browser-check.mjs tools/tour.mjs --out <dir>` (the server must be running; it uses the `test` user; write other step files like `tools/tour.mjs` for specific states).
+- Commit the screenshots of the screens that changed to `docs/screenshots/<branch-name>/`, before and after when something changed visibly, and show them in the pull request description with links pinned to the commit (`https://github.com/<owner>/<repo>/blob/<sha>/docs/screenshots/...?raw=true`). Show them in the reply too.
+
+## Subagents
+Use subagents in parallel when it clearly speeds things up or the pieces are independent (separate files or areas, research, reviews): preferably just a few, never more than about a dozen. Work that touches the same files stays in one place.
+
+## Design
+Colours come only from the palette in `docs/design.md` (CSS custom properties in `css/app.css`, `PALETTE` in `js/palette.js`). White page, never beige.
+
 ## Docs to keep in step with features
 `docs/FEATURES.md` (sections plus a dated line under Changes), `docs/learning-algorithm.md` for anything that changes what is asked or how answers count, and `README.md`.
