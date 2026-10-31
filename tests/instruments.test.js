@@ -1,12 +1,12 @@
 // Instruments, tunings and how knowledge follows strings between them: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { INSTRUMENTS, attemptStrings, mapAttempt, parseTuning, resolveTuning, stringKeys } from '../js/instruments.js';
+import { INSTRUMENTS, attemptStrings, mapAttempt, parseTuning, resolveTuning, stringKeys, tunedStrings } from '../js/instruments.js';
 import { Scheduler, newModel } from '../js/srs.js';
 
-const keysOf = (inst, tun = 'standard') => stringKeys(inst, INSTRUMENTS[inst].tunings[tun].strings);
+const keysOf = (inst, tun = 'standard') => stringKeys(inst, tunedStrings(inst, tun));
 // an answer on string s of an instrument
-const answer = (inst, tun, s) => ({ t: 1, s, f: 3, instrument: inst, strings: INSTRUMENTS[inst].tunings[tun].strings.join(','), desc: { sk: '0,1,2', cs: 1 } });
+const answer = (inst, tun, s) => ({ t: 1, s, f: 3, instrument: inst, strings: tunedStrings(inst, tun).join(','), desc: { sk: '0,1,2', cs: 1 } });
 
 test('default is a 6-string guitar in standard tuning', () => {
   assert.deepEqual(resolveTuning({}).strings, [40, 45, 50, 55, 59, 64]);
@@ -27,7 +27,7 @@ test('removing strings changes nothing for the strings kept (guitar to bass)', (
 });
 
 test('retuning one string (standard to drop D): only that string starts over', () => {
-  const dropD = keysOf('guitar6', 'dropD');
+  const dropD = keysOf('guitar6', 'drop');
   assert.equal(mapAttempt(answer('guitar6', 'standard', 0), dropD), null);
   for (let s = 1; s < 6; s++) assert.equal(mapAttempt(answer('guitar6', 'standard', s), dropD).s, s);
 });
@@ -66,10 +66,24 @@ test('custom tunings', () => {
 });
 
 test('new strings are introduced after the familiar ones', () => {
-  const g7 = INSTRUMENTS.guitar7.tunings.standard.strings;
+  const g7 = INSTRUMENTS.guitar7.strings;
   const sch = new Scheduler(newModel(), g7, 15, keysOf('guitar7'));
   assert.ok(sch.cellDifficulty(0, 3) > sch.cellDifficulty(1, 3), 'low B is harder than low E');
-  const bass = INSTRUMENTS.bass4.tunings.standard.strings;
+  const bass = INSTRUMENTS.bass4.strings;
   const bs = new Scheduler(newModel(), bass, 15, keysOf('bass4'));
   assert.equal(bs.cellDifficulty(0, 3), new Scheduler(newModel(), [40, 45, 50, 55, 59, 64], 15).cellDifficulty(0, 3), 'bass E string = guitar E string');
+});
+
+test('standard or drop, shifted by semitones', () => {
+  const eb = resolveTuning({ instrument: 'guitar6', tuning: 'standard', tuningShift: -1 });
+  assert.deepEqual(eb.strings, [39, 44, 49, 54, 58, 63]);
+  assert.equal(eb.flats, true);
+  assert.equal(eb.label, 'standard-1');
+  assert.deepEqual(resolveTuning({ instrument: 'guitar6', tuning: 'drop', tuningShift: -2 }).strings, [36, 43, 48, 53, 57, 62]); // drop C
+  assert.deepEqual(resolveTuning({ instrument: 'guitar7', tuning: 'drop' }).strings, [33, 40, 45, 50, 55, 59, 64]); // drop A
+  assert.deepEqual(resolveTuning({ instrument: 'bass4', tuning: 'drop' }).strings, [26, 33, 38, 43]); // drop D bass
+  assert.equal(resolveTuning({ tuning: 'standard', tuningShift: 99 }).label, 'standard+5'); // clamped
+  // Eb standard retunes every string: all of them start over
+  const ebKeys = stringKeys('guitar6', eb.strings);
+  assert.ok([0, 1, 2, 3, 4, 5].every((s) => mapAttempt(answer('guitar6', 'standard', s), ebKeys) === null));
 });

@@ -16,7 +16,6 @@
     <div class="brand"><img src="icons/icon.svg" alt="" width="26" height="26"> Fretboard Trainer</div>
     <nav class="tabs">
       <button data-tab="practice" class="active">Practice</button>
-      <button data-tab="intervals">Intervals</button>
       <button data-tab="tuner">Tuner</button>
       <button data-tab="stats">Stats</button>
       <button data-tab="settings">Settings</button>
@@ -39,6 +38,11 @@
       <span></span>
       <a class="btn small primary" href="http://localhost:8137/">Open the usual address</a>
     </div>
+    <!-- Practice holds two kinds of quiz: note positions and intervals -->
+    <nav class="seg practice-nav" id="practiceNav" aria-label="Practice">
+      <button data-tab="practice" class="active">Note position</button>
+      <button data-tab="intervals">Interval</button>
+    </nav>
     <section id="view-practice" class="view active">
       <div class="practice-bar">
         <div class="seg" id="taskSeg" title="Guitar runs: play the note shown, or only notes you have mixed up. No-guitar runs: name the marked position, or say if the name shown is right.">
@@ -135,9 +139,21 @@
     </section>
 
     <section id="view-settings" class="view">
-      <div class="settings-grid">
-        <fieldset class="panel">
-          <legend>Audio input</legend>
+        <!-- Settings home: one card per page -->
+        <section class="settings-page" data-spage="home">
+          <div class="settings-cards">
+            <button class="scard" data-open="audio"><b>Audio input</b><span id="sumAudio">Device, channel, gain, noise gate, muted strum</span></button>
+            <button class="scard" data-open="instrument"><b>Instrument &amp; tuning</b><span id="sumInstrument"></span></button>
+            <button class="scard" data-open="board"><b>Board display</b><span>Frets, string order, left-handed</span></button>
+            <button class="scard" data-open="practice"><b>Practice</b><span>Zones, waiting time, note names, plan</span></button>
+            <button class="scard" data-open="data"><b>Data &amp; backups</b><span>Export, import, model check, backups</span></button>
+            <button class="scard" data-open="tables"><b>Database tables</b><span>Newest answers and runs, with every column explained</span></button>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="audio">
+          <button class="btn small back" data-open="home">← Settings</button>
+          <h2>Audio input</h2>
+          <div class="panel spage-body">
           <div class="audio-status">
             <span id="audioLabel" class="muted">No input</span>
             <button id="connectBtn" class="btn small">Connect input</button>
@@ -161,29 +177,53 @@
           <label>Latency offset (ms) <input type="number" min="0" max="400" step="5" data-setting="latencyMs" data-type="int"></label>
           <label>A4 reference (Hz) <input type="number" min="415" max="466" step="0.5" data-setting="a4" data-type="float"></label>
           <p class="muted small">The latency offset is subtracted from every answer time to make up for detection delay.</p>
-        </fieldset>
-
-        <fieldset class="panel">
-          <legend>Fretboard</legend>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="instrument">
+          <button class="btn small back" data-open="home">← Settings</button>
+          <h2>Instrument &amp; tuning</h2>
+          <div class="panel spage-body">
           <label>Instrument
             <select id="instrumentSelect" data-setting="instrument"></select>
           </label>
-          <label>Tuning
-            <select id="tuningSelect" data-setting="tuning"></select>
-          </label>
-          <label id="customTuningRow" class="hidden">Custom tuning, lowest string first
-            <input type="text" id="customTuning" data-setting="customTuning" placeholder="e.g. D2 A2 D3 G3 B3 E4" spellcheck="false">
-          </label>
-          <p class="small bad-text" id="tuningError"></p>
+          <label>Tuning</label>
+          <div class="seg" id="tuneMode">
+            <button data-mode="standard">Standard</button>
+            <button data-mode="drop">Drop</button>
+          </div>
+          <label>All strings up or down <span class="row"><input type="range" id="tuneShift" min="-7" max="5" step="1"><output id="tuneShiftOut"></output></span></label>
+          <p class="tuning-notes" id="tuningNotes"></p>
+          <button class="btn" data-open="custom" id="customBtn">Custom tuning ›</button>
+          <p class="muted small">Drop lowers the lowest string by a tone (drop D on a guitar, drop A on a 7-string). The slider moves every string by semitones (one down = Eb standard).</p>
           <p class="muted small">What you learn follows each string by its open note: a new or retuned string starts from scratch, strings you leave out keep their progress, and switching back brings everything back.</p>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="custom">
+          <button class="btn small back" data-open="instrument">← Instrument &amp; tuning</button>
+          <h2>Custom tuning</h2>
+          <div class="panel spage-body">
+          <label>Notes of the open strings, lowest string first
+            <input type="text" id="customTuning" placeholder="e.g. D2 A2 D3 G3 B3 E4" spellcheck="false">
+          </label>
+          <div class="btn-row"><button class="btn primary" id="customUse">Use this tuning</button></div>
+          <p class="small bad-text" id="tuningError"></p>
+          <p class="muted small">Write each note with its octave: E2 is the low E of a guitar, E1 the low E of a bass. Sharps and flats: F#2, Bb1. Choosing Standard or Drop on the previous page leaves the custom tuning.</p>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="board">
+          <button class="btn small back" data-open="home">← Settings</button>
+          <h2>Board display</h2>
+          <div class="panel spage-body">
           <label>Frets <input type="number" min="12" max="24" step="1" data-setting="frets" data-type="int"></label>
+          <label class="check"><input type="checkbox" data-setting="lowAtBottom"> Low string at the bottom, like tab (off: lowest string on top, like Rocksmith). Used on every board and menu.</label>
           <label class="check"><input type="checkbox" data-setting="leftHanded"> Left-handed view</label>
-          <label class="check"><input type="checkbox" data-setting="lowAtBottom"> Low E string at the bottom, like tab (off: low E on top, like Rocksmith). Used on every board and menu.</label>
-          <p class="muted small">Sharp/flat notes are asked randomly as either name (A# or Bb), and each name is learnt separately. Progress follows each string: see the note under Tuning.</p>
-        </fieldset>
-
-        <fieldset class="panel">
-          <legend>Practice</legend>
+          <p class="muted small">Sharp/flat notes are asked randomly as either name (A# or Bb), and each name is learnt separately.</p>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="practice">
+          <button class="btn small back" data-open="home">← Settings</button>
+          <h2>Practice</h2>
+          <div class="panel spage-body">
           <label>Zone shapes
             <select data-setting="zoneTypes">
               <option value="both">Boxes and single strings</option>
@@ -208,10 +248,12 @@
           <p class="muted small">Fade shows a name where you are still unsure, drops it once you answer that note right, and brings it back after a miss. A right answer with its own name showing counts only as Hard and its time is not used for speed. Check-up prompts (every 10th) and re-tests never show the asked note's name, and "Name the note" runs show none.</p>
           <label class="check"><input type="checkbox" data-setting="showQueue"> Show the next notes in advance (makes recall easier, so those answer times are not used for speed)</label>
           <label class="check"><input type="checkbox" data-setting="sound"> Sound effects</label>
-        </fieldset>
-
-        <fieldset class="panel">
-          <legend>Data</legend>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="data">
+          <button class="btn small back" data-open="home">← Settings</button>
+          <h2>Data &amp; backups</h2>
+          <div class="panel spage-body">
           <p class="muted small">Everything is kept in this browser, in a DuckDB database per user, and copied to files on this computer by the local server (the <code>data</code> folder next to the app). If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it to another device.</p>
           <p class="small" id="dbInfo"></p>
           <div class="btn-row">
@@ -228,10 +270,12 @@
           <h4 class="backups-head">Automatic backups <button class="btn small" id="backupNowBtn">Back up now</button></h4>
           <p class="muted small">Made after every run and kept separately from the database (last 10, plus the largest one).</p>
           <ul class="backup-list" id="backupList"></ul>
-        </fieldset>
-
-        <fieldset class="panel tables-panel">
-          <legend>Database tables</legend>
+          </div>
+        </section>
+        <section class="settings-page hidden" data-spage="tables">
+          <button class="btn small back" data-open="home">← Settings</button>
+          <h2>Database tables</h2>
+          <div class="panel spage-body">
           <div class="tables-bar">
             <div class="seg" id="tableSeg">
               <button data-table="attempts" class="active">Answers</button>
@@ -244,8 +288,8 @@
           <div class="table-scroll"><table class="data-table" id="tableData"></table></div>
           <h4 class="cols-head">Columns</h4>
           <div class="table-scroll"><table class="doc-table" id="tableDocs"></table></div>
-        </fieldset>
-      </div>
+          </div>
+        </section>
     </section>
   </main>
 </body>

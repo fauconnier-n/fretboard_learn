@@ -12,39 +12,39 @@
 
 import { noteName } from './music.js';
 
-const t = (name, strings) => ({ name, strings });
-/** @type {Record<string, { name: string, family: 'guitar' | 'bass', tunings: Record<string, { name: string, strings: number[] }> }>} */
+// Standard tuning of each instrument. Other tunings: "drop" (lowest string a tone down) and
+// a shift of every string by whole semitones (Eb standard = standard, 1 down; drop C = drop,
+// 2 down), or a custom tuning.
+/** @type {Record<string, { name: string, family: 'guitar' | 'bass', strings: number[] }>} */
 export const INSTRUMENTS = {
-  guitar6: { name: '6-string guitar', family: 'guitar', tunings: {
-    standard: t('Standard (E A D G B E)', [40, 45, 50, 55, 59, 64]),
-    dropD: t('Drop D (D A D G B E)', [38, 45, 50, 55, 59, 64]),
-    eb: t('Eb standard', [39, 44, 49, 54, 58, 63]),
-  } },
-  guitar7: { name: '7-string guitar', family: 'guitar', tunings: {
-    standard: t('Standard (B E A D G B E)', [35, 40, 45, 50, 55, 59, 64]),
-    dropA: t('Drop A (A E A D G B E)', [33, 40, 45, 50, 55, 59, 64]),
-  } },
-  guitar8: { name: '8-string guitar', family: 'guitar', tunings: {
-    standard: t('Standard (F# B E A D G B E)', [30, 35, 40, 45, 50, 55, 59, 64]),
-    dropE: t('Drop E (E B E A D G B E)', [28, 35, 40, 45, 50, 55, 59, 64]),
-  } },
-  guitar9: { name: '9-string guitar', family: 'guitar', tunings: {
-    standard: t('Standard (C# F# B E A D G B E)', [25, 30, 35, 40, 45, 50, 55, 59, 64]),
-  } },
-  bass4: { name: '4-string bass', family: 'bass', tunings: {
-    standard: t('Standard (E A D G)', [28, 33, 38, 43]),
-    dropD: t('Drop D (D A D G)', [26, 33, 38, 43]),
-  } },
-  bass5: { name: '5-string bass', family: 'bass', tunings: {
-    standard: t('Standard (B E A D G)', [23, 28, 33, 38, 43]),
-  } },
-  bass6: { name: '6-string bass', family: 'bass', tunings: {
-    standard: t('Standard (B E A D G C)', [23, 28, 33, 38, 43, 48]),
-  } },
+  guitar6: { name: '6-string guitar', family: 'guitar', strings: [40, 45, 50, 55, 59, 64] },
+  guitar7: { name: '7-string guitar', family: 'guitar', strings: [35, 40, 45, 50, 55, 59, 64] },
+  guitar8: { name: '8-string guitar', family: 'guitar', strings: [30, 35, 40, 45, 50, 55, 59, 64] },
+  guitar9: { name: '9-string guitar', family: 'guitar', strings: [25, 30, 35, 40, 45, 50, 55, 59, 64] },
+  bass4: { name: '4-string bass', family: 'bass', strings: [28, 33, 38, 43] },
+  bass5: { name: '5-string bass', family: 'bass', strings: [23, 28, 33, 38, 43] },
+  bass6: { name: '6-string bass', family: 'bass', strings: [23, 28, 33, 38, 43, 48] },
+};
+export const SHIFT_MIN = -7;
+export const SHIFT_MAX = 5;
+
+// Answers logged before instruments existed carry only a tuning name: [instrument, strings].
+export const LEGACY = {
+  standard: ['guitar6', [40, 45, 50, 55, 59, 64]],
+  dropD: ['guitar6', [38, 45, 50, 55, 59, 64]],
+  eb: ['guitar6', [39, 44, 49, 54, 58, 63]],
+  seven: ['guitar7', [35, 40, 45, 50, 55, 59, 64]],
 };
 
-// Answers logged before instruments existed carry only a tuning name.
-export const LEGACY = { standard: ['guitar6', 'standard'], dropD: ['guitar6', 'dropD'], eb: ['guitar6', 'eb'], seven: ['guitar7', 'standard'] };
+/** Strings of a standard or drop tuning shifted by whole semitones. @param {string} instrument @param {'standard' | 'drop'} mode @param {number} shift */
+export function tunedStrings(instrument, mode, shift = 0) {
+  const st = [...instrumentOf(instrument).strings];
+  if (mode === 'drop') st[0] -= 2;
+  return st.map((m) => m + shift);
+}
+
+/** How a shift reads: "1 semitone down", "2 semitones up", "" for none. @param {number} shift */
+export const shiftText = (shift) => (shift ? `${Math.abs(shift)} semitone${Math.abs(shift) > 1 ? 's' : ''} ${shift < 0 ? 'down' : 'up'}` : '');
 
 const instrumentOf = (id) => INSTRUMENTS[id] || INSTRUMENTS.guitar6;
 
@@ -76,26 +76,29 @@ export function parseTuning(text, count) {
 export const tuningText = (strings, flats = false) => strings.map((m) => noteName(m, flats) + (Math.floor(m / 12) - 1)).join(' ');
 
 /**
- * The strings to play from the settings. A custom tuning that does not parse falls back to standard.
- * @param {{ instrument?: string, tuning?: string, customTuning?: string }} s
+ * The strings to play from the settings: tuning 'standard' or 'drop' with tuningShift
+ * semitones, or 'custom' (a custom tuning that does not parse falls back to standard).
+ * label is what the answer log records as the tuning, e.g. 'standard', 'drop-2', 'custom'.
+ * @param {{ instrument?: string, tuning?: string, tuningShift?: number, customTuning?: string }} s
  */
 export function resolveTuning(s) {
-  const inst = instrumentOf(s.instrument);
-  const standard = inst.tunings.standard.strings;
+  const standard = instrumentOf(s.instrument).strings;
   if (s.tuning === 'custom') {
     const p = parseTuning(s.customTuning ?? '', standard.length);
-    if ('strings' in p) return { strings: p.strings, flats: p.flats, error: '' };
-    return { strings: standard, flats: false, error: p.error };
+    if ('strings' in p) return { strings: p.strings, flats: p.flats, error: '', label: 'custom' };
+    return { strings: standard, flats: false, error: p.error, label: 'standard' };
   }
-  const preset = inst.tunings[s.tuning ?? ''] || inst.tunings.standard;
-  return { strings: preset.strings, flats: s.tuning === 'eb', error: '' };
+  const mode = s.tuning === 'drop' ? 'drop' : 'standard';
+  const shift = Math.max(SHIFT_MIN, Math.min(SHIFT_MAX, Math.round(+(s.tuningShift ?? 0)) || 0));
+  // down-tunings are named with flats (Eb standard), up-tunings with sharps
+  return { strings: tunedStrings(s.instrument ?? 'guitar6', mode, shift), flats: shift < 0, error: '', label: mode + (shift ? (shift > 0 ? '+' : '') + shift : '') };
 }
 
 /** The instrument and strings an answer was given on (older rows: from their tuning name). */
 export function attemptStrings(a) {
   if (a.strings) return { instrument: a.instrument || 'guitar6', strings: String(a.strings).split(',').map(Number) };
-  const [instrument, tuning] = LEGACY[a.tuning] || LEGACY.standard;
-  return { instrument, strings: INSTRUMENTS[instrument].tunings[tuning].strings };
+  const [instrument, strings] = LEGACY[a.tuning] || LEGACY.standard;
+  return { instrument, strings };
 }
 
 /**
