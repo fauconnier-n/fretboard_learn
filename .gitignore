@@ -1,1 +1,3 @@
 node_modules/
+# disk copy of practice data (personal), written by serve.ps1
+data/
