@@ -128,6 +128,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Menus: Back is always on the bottom row and reads *Back to the main menu*; when a list is longer than the strings, More… sits just above it. After a finished run the menu also offers *Restart the run*; the Interval menu goes back to the Note position main menu from its bottom row.
+
 - **2026-11-01** — Menus follow the same rules everywhere: the green option on the top row is what two muted strums do (New run, Start the run, Resume the run, Start a run), the bottom row goes back (or turns the page when there are more options than strings), and run settings (type, length, beat) are only in the main menu: after a run the menu offers New run and Back.
 
 - **2026-11-01** — A run stopped by hand (Stop, Esc or three muted strums) can be resumed where it was: the menu offers *Resume the run* (lowest string, green; two muted strums do it too), *Restart the run* (the same zone from the start) and, on the highest string, *Cancel the run, back to the menu*. A resumed sprint does not count the pause; the run's row is saved again when it ends. On phones the page scrolls to the menu when a run ends.
