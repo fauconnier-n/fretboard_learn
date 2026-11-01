@@ -5,8 +5,11 @@
 import { pcOf, stringName } from './music.js';
 
 const MAX_BOX_SPAN = 5; // highest fret - lowest fret inside a box
+// two strings can only hold the 12 notes with 7 frets each, one fret apart (8 across the major
+// third G–B): a stretch, so only 2-string boxes may span this far
+const MAX_SPAN_2 = 7;
 const MIN_RUN = 2;      // at least two cells per string in a box
-const MAX_BOX_STRINGS = 4;
+const MAX_BOX_STRINGS = 6; // 12 cells, two per string at least
 
 let lastZones = null; // { key, zones }
 export function generateZones(strings, frets, types = 'both') {
@@ -43,7 +46,7 @@ function boxCandidates(strings, frets) {
         if (count + len > 12) break;
         const nlo = Math.min(lo, a);
         const nhi = Math.max(hi, b);
-        if (nhi - nlo > MAX_BOX_SPAN) break;
+        if (nhi - nlo > (runs.length ? MAX_SPAN_2 : MAX_BOX_SPAN)) break;
         if (prev && b < prev.a - 1) continue;
         let m = mask;
         let clash = false;
@@ -55,8 +58,8 @@ function boxCandidates(strings, frets) {
         if (clash) break; // a longer run on this string would clash too
         runs.push({ s, a, b });
         if (count + len === 12) {
-          if (runs.length >= 2) out.push(runs.map((r) => ({ ...r })));
-        } else if (runs.length < MAX_BOX_STRINGS) {
+          if (runs.length >= 2 && (runs.length === 2 || nhi - nlo <= MAX_BOX_SPAN)) out.push(runs.map((r) => ({ ...r })));
+        } else if (runs.length < MAX_BOX_STRINGS && (runs.length < 2 || nhi - nlo <= MAX_BOX_SPAN)) {
           dfs(s + 1, m, count + len, nlo, nhi);
         }
         runs.pop();
