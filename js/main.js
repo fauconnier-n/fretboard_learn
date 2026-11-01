@@ -69,7 +69,7 @@ const app = {
   audio: new AudioInput(),
   tracker: new NoteTracker(),
   strum: new StrumDetector(),
-  lastStrum: { t: -Infinity, running: false },
+  lastStrum: { t: -Infinity, running: false, n: 0 },
   detect: createDetector(4096),
   loop: 0,
 };
@@ -267,19 +267,21 @@ function processFrame() {
   if (ev && app.view === 'intervals') app.intervals.onNote(ev);
 }
 
-// A muted strum. Two within DOUBLE_MS in the same state (both in a run, or both outside) are a
-// double strum: it stops a run, or goes back to the previous menu.
+// A muted strum. Strums less than DOUBLE_MS apart in the same state (all in a run, or all
+// outside) make a series: n is its length so far. Two go back to the previous menu, three stop
+// a run.
 function onStrum(now) {
   const running = app.view === 'intervals' ? app.intervals.running : app.quiz.running;
-  const double = app.lastStrum.running === running && now - app.lastStrum.t < DOUBLE_MS;
-  app.lastStrum = double ? { t: -Infinity, running } : { t: now, running };
-  $('strumSeen').textContent = `Muted strum heard${double ? ' (double)' : ''} at ${new Date().toLocaleTimeString()}`;
+  const last = app.lastStrum;
+  const n = last.running === running && now - last.t < DOUBLE_MS ? last.n + 1 : 1;
+  app.lastStrum = { t: now, running, n };
+  $('strumSeen').textContent = `Muted strum heard${n > 1 ? ` (×${n})` : ''} at ${new Date().toLocaleTimeString()}`;
   if (app.view === 'practice') {
     app.board.strum();
-    app.quiz.onStrum(double);
+    app.quiz.onStrum(n);
   } else if (app.view === 'intervals') {
     app.ivBoard.strum();
-    app.intervals.onStrum(double);
+    app.intervals.onStrum(n);
   }
 }
 

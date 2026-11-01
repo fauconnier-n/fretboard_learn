@@ -54,10 +54,10 @@ export class IntervalsView {
     ]);
   }
 
-  // A muted strum: during a run a double strum stops it; between runs this menu has nothing to
-  // go back to, so strums do nothing.
-  onStrum(double) {
-    if (this.running && double) this.end('stopped');
+  // A muted strum: during a run three in a row stop it; between runs this menu has nothing to go
+  // back to, so strums do nothing.
+  onStrum(n) {
+    if (this.running && n >= 3) this.end('strum_stop');
   }
 
   get s() {
@@ -292,7 +292,7 @@ export class IntervalsView {
     burst(e.title, kind);
   }
 
-  // reason: 'completed' | 'stopped' (Stop or Esc) | 'left' (another tab or a board setting changed)
+  // reason: 'completed' | 'stopped' (Stop or Esc) | 'strum_stop' (three muted strums) | 'left' (another tab or a board setting changed)
   end(reason) {
     const run = this.run;
     if (!run || !this.running) return;
@@ -308,7 +308,7 @@ export class IntervalsView {
     this.board.clearMarks();
     const e = this.els;
     const added = unlockedKeys(this.stats).filter((k) => !run.unlockedAtStart.includes(k));
-    e.title.textContent = reason === 'stopped' ? 'Stopped' : 'Done';
+    e.title.textContent = reason === 'stopped' || reason === 'strum_stop' ? 'Stopped' : 'Done';
     e.sub.textContent = `${ok.length} of ${res.length} right · median ${fmt(med)}.` +
       (added.length ? ` New this run: ${added.map((k) => ITEM[k].label).join(', ')}.` : '') + ' Press Start or Enter to go again.';
     e.steps.textContent = '';

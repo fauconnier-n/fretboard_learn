@@ -176,7 +176,7 @@ export const TABLES = {
       ['run_id', 'VARCHAR PRIMARY KEY', 'Identifier of the run.'],
       ['started_at', 'DOUBLE', 'When Start run was pressed, in milliseconds since 1970.'],
       ['ended_at', 'DOUBLE', 'When the run ended. Empty while it is running.'],
-      ['end_reason', 'VARCHAR', "How it ended: 'completed' (all prompts done), 'time_up' (sprint over), 'stopped' (Stop run or Esc), 'left' (another tab or a board setting changed), 'closed' (page closed mid-run)."],
+      ['end_reason', 'VARCHAR', "How it ended: 'completed' (all prompts done), 'time_up' (sprint over), 'stopped' (Stop run or Esc), 'strum_stop' (three muted strums), 'left' (another tab or a board setting changed), 'closed' (page closed mid-run)."],
       ['tuning', 'VARCHAR', 'Tuning in use (see attempts.tuning).'],
       ['instrument', 'VARCHAR', 'Instrument (see attempts.instrument).'],
       ['strings', 'VARCHAR', 'Open-string notes, lowest first (see attempts.strings).'],
