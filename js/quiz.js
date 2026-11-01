@@ -186,7 +186,8 @@ export class Quiz {
     // a finished run: its notes on the neck, each with its name and progress bars
     if (runView) return this.board.setHeat(this.runResultsCell(sch));
     const snap = sch.snapshot();
-    this.board.setHeat((s, f) => mapCell(sch, snap, s, f, this.s.flats) || { fog: true });
+    // popups only on the Stats map and after a run, not on the board before a run
+    this.board.setHeat((s, f) => { const v = mapCell(sch, snap, s, f, this.s.flats); return v ? { ...v, tip: done ? v.tip : undefined } : { fog: true }; });
   }
 
   // Text before a run: welcome back after a gap (neutral, no streak lost), what is due,

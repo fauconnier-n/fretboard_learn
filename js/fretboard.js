@@ -163,20 +163,33 @@ export class Fretboard {
         const r = el('rect', { ...this.cellRect(s, f), class: 'fb-hit' }, this.layers.hits);
         r.addEventListener('pointerdown', (e) => {
           e.preventDefault();
-          this.onCellClick?.(s, f);
+          // a position with details (Stats, after a run): a click (a tap on a phone) pins its popup
+          if (this.tips?.has(s + ':' + f)) this.showTip(s, f, r, true);
+          else this.onCellClick?.(s, f);
         });
-        r.addEventListener('pointerenter', () => this.showTip(s, f, r));
-        r.addEventListener('pointerleave', () => this.showTip());
+        r.addEventListener('pointerenter', () => this.pinned || this.showTip(s, f, r));
+        r.addEventListener('pointerleave', () => this.pinned || this.showTip());
       }
     }
   }
 
   // A popup with the details of a position (the tip of its setHeat entry), next to its cell.
-  showTip(s, f, rect) {
+  // Hovering shows it; a click pins it until its cross or a click elsewhere closes it.
+  showTip(s, f, rect, pin = false) {
     const text = rect && this.tips?.get(s + ':' + f);
+    this.pinned = !!text && pin;
     if (!text) return this.tip?.classList.add('hidden');
-    if (!this.tip) document.body.append((this.tip = Object.assign(document.createElement('div'), { className: 'fb-tip' })));
-    this.tip.textContent = text;
+    if (!this.tip) {
+      this.tip = Object.assign(document.createElement('div'), { className: 'fb-tip' });
+      this.tip.innerHTML = '<span></span><button class="fb-tip-x" aria-label="Close">×</button>';
+      this.tip.lastChild.addEventListener('click', () => this.showTip());
+      document.body.append(this.tip);
+      document.addEventListener('pointerdown', (e) => {
+        if (this.pinned && !this.tip.contains(/** @type {Node} */ (e.target)) && !this.layers.hits.contains(/** @type {Node} */ (e.target))) this.showTip();
+      });
+    }
+    this.tip.firstChild.textContent = text;
+    this.tip.classList.toggle('pinned', this.pinned);
     this.tip.classList.remove('hidden');
     const r = rect.getBoundingClientRect();
     const w = this.tip.offsetWidth;
