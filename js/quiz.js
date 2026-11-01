@@ -137,6 +137,7 @@ export class Quiz {
     e.fill.style.width = '0%';
     e.feedback.textContent = '';
     e.summary.classList.add('hidden');
+    e.neckLegend.classList.add('hidden');
     this.state = 'idle';
     this.updateButton();
     this.paintProgress();
@@ -150,6 +151,8 @@ export class Quiz {
     if (!sch || !this.board.layers) return;
     // during a run the board shows only the run: no knowledge colours
     if (this.running) return this.board.setHeat(() => null);
+    // a finished run: its notes on the neck, with their progress rings
+    if (this.state === 'done' && this.run) return this.board.setHeat(this.runResultsCell(sch));
     const snap = sch.snapshot();
     this.board.setHeat((s, f) => mapCell(sch, snap, s, f, this.s.flats) || { fog: true });
   }
@@ -224,6 +227,7 @@ export class Quiz {
     e.names.classList.add('hidden');
     e.tf.classList.add('hidden');
     e.summary.classList.add('hidden');
+    e.neckLegend.classList.add('hidden');
     e.feedback.textContent = '';
     e.feedback.className = 'feedback';
     e.note.textContent = 'Ready?';
@@ -835,7 +839,6 @@ export class Quiz {
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
     this.showMenu();
-    this.els.summary.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   // A finished prompts run: one note from perfect, one short of your best on this zone and
@@ -852,15 +855,21 @@ export class Quiz {
     return out.join(' ');
   }
 
-  // Three rings for one note: known (memory), fast (vs your usual), automatic (mastered).
-  rings(key) {
-    const v = this.getScheduler().noteRings(key);
-    const arc = (r, f, cls) => {
-      const C = 2 * Math.PI * r;
-      return `<circle cx="14" cy="14" r="${r}" class="nr-bg"/><circle cx="14" cy="14" r="${r}" class="${cls}" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 14 14)"/>`;
+  // The board after a run: each position asked, with the rings of the spelling asked first and
+  // its name, red when it was missed in this run.
+  runResultsCell(sch) {
+    const byCell = new Map();
+    for (const r of this.run.results) {
+      const c = byCell.get(r.cell.key) || { r, missed: false };
+      c.missed ||= !r.correct;
+      byCell.set(r.cell.key, c);
+    }
+    return (s, f) => {
+      const c = byCell.get(s + ':' + f);
+      if (!c) return null;
+      const { r } = c;
+      return { rings: sch.noteRings(r.key), label: r.sp === 'r' ? NAME_LABELS[r.cell.pc].split('/')[0] : spellName(r.cell.midi, r.sp), missed: c.missed };
     };
-    const pc = (x) => Math.round(x * 100) + '%';
-    return `<svg class="note-rings" viewBox="0 0 28 28" role="img" aria-label="known ${pc(v.known)}, fast ${pc(v.fast)}, automatic ${pc(v.auto)}"><title>known ${pc(v.known)} · fast ${pc(v.fast)} · automatic ${pc(v.auto)}</title>${arc(12, v.known, 'nr-known')}${arc(8.5, v.fast, 'nr-fast')}${arc(5, v.auto, 'nr-auto')}</svg>`;
   }
 
   renderSummary(run, acc, med) {
@@ -912,8 +921,6 @@ export class Quiz {
       ${run.beat ? `<p class="muted small">Beat mode: ${Math.round(run.row.bpm_start)} → ${Math.round(run.bpm)} bpm.</p>` : ''}
       ${run.cued ? `<p class="muted small">The asked note's own name was on the board for ${run.cued} of ${run.results.length} prompts. Those count at most as Hard and their times are not used for speed.</p>` : ''}
       ${tomorrow}
-      <h4>Notes this run <span class="muted">· rings: outer known, middle fast, inner automatic</span></h4>
-      <ul class="ring-list">${rows.map((r) => `<li>${this.rings(r.key)}<b>${r.sp === 'r' ? NAME_LABELS[r.cell.pc] : spellName(r.cell.midi, r.sp)}</b></li>`).join('')}</ul>
       <h4>Answer times <span class="muted">· each dot is one prompt, first answer</span></h4>
       ${this.timePlot(run)}
       <div class="sum-lists">
@@ -922,6 +929,7 @@ export class Quiz {
       </div>
       <button class="btn primary" id="nextRunBtn">New run ⏎</button>`;
     e.classList.remove('hidden');
+    this.els.neckLegend.classList.remove('hidden');
     e.querySelector('#nextRunBtn').onclick = () => this.prepare();
   }
 
