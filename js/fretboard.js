@@ -12,8 +12,11 @@ function el(tag, attrs = {}, parent) {
 }
 
 // The contour of a zone: its cells form one band of adjacent strings, each string a run of
-// frets, so the outline goes down the right ends of the rows and back up the left ends.
-// Corners are rounded like the app's buttons. rects: the cells' rectangles.
+// frets, so the outline goes clockwise down the right ends of the rows and back up the left
+// ends. Corners are rounded like the app's buttons. rects: the cells' rectangles.
+// Returns d, the whole contour, and shade, only the edges facing right or down (with the
+// rounded corners between two of them): drawn shifted down and right, they make those edges
+// look thicker, like the buttons' shadow.
 export function zoneOutline(rects, radius = 9) {
   const rows = new Map();
   for (const r of rects) {
@@ -22,35 +25,43 @@ export function zoneOutline(rects, radius = 9) {
     row.x1 = Math.max(row.x1, r.x + r.width);
     rows.set(r.y, row);
   }
-  const list = [...rows.values()].sort((a, b) => a.y - b.y);
+  const list = [...rows.values()].sort((p, q) => p.y - q.y);
   const pts = [];
   for (const r of list) pts.push([r.x1, r.y], [r.x1, r.y + r.h]);
   for (const r of [...list].reverse()) pts.push([r.x0, r.y + r.h], [r.x0, r.y]);
   // drop points that do not turn (a straight edge across two rows)
   const corners = pts.filter((p, i) => {
-    const a = pts[(i - 1 + pts.length) % pts.length];
-    const b = pts[(i + 1) % pts.length];
-    return !((a[0] === p[0] && p[0] === b[0]) || (a[1] === p[1] && p[1] === b[1]));
+    const prev = pts[(i - 1 + pts.length) % pts.length];
+    const next = pts[(i + 1) % pts.length];
+    return !((prev[0] === p[0] && p[0] === next[0]) || (prev[1] === p[1] && p[1] === next[1]));
   });
   const n = corners.length;
+  const at = (i) => corners[((i % n) + n) % n];
+  // the corner i is cut back along both its edges, at most half of each edge
+  const cut = (i, toward) => {
+    const p = at(i);
+    const dx = toward[0] - p[0];
+    const dy = toward[1] - p[1];
+    const l = Math.hypot(dx, dy) || 1;
+    const k = Math.min(radius, l / 2) / l;
+    return [p[0] + dx * k, p[1] + dy * k];
+  };
+  const xy = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+  const arc = (i) => `Q${xy(at(i))} ${xy(cut(i, at(i + 1)))} `;
   let d = '';
-  for (let i = 0; i < n; i++) {
-    const p = corners[i];
-    const a = corners[(i - 1 + n) % n];
-    const b = corners[(i + 1) % n];
-    // the corner is cut back along both edges, at most half of each edge
-    const toward = (q, len) => {
-      const dx = q[0] - p[0];
-      const dy = q[1] - p[1];
-      const l = Math.hypot(dx, dy) || 1;
-      const k = Math.min(len, l / 2) / l;
-      return [p[0] + dx * k, p[1] + dy * k];
-    };
-    const s = toward(a, radius);
-    const t = toward(b, radius);
-    d += `${i ? 'L' : 'M'}${s[0].toFixed(1)} ${s[1].toFixed(1)} Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${t[0].toFixed(1)} ${t[1].toFixed(1)} `;
+  for (let i = 0; i < n; i++) d += `${i ? 'L' : 'M'}${xy(cut(i, at(i - 1)))} ${arc(i)}`;
+  // going clockwise, an edge faces right when it goes down and faces down when it goes left
+  const thick = (i) => at(i + 1)[1] > at(i)[1] || at(i + 1)[0] < at(i)[0];
+  let shade = '';
+  const start = [...Array(n).keys()].find((i) => !thick(i)) ?? 0;
+  for (let k = 1; k <= n; k++) {
+    const i = start + k; // edge from corner i to corner i + 1
+    if (!thick(i)) continue;
+    if (!thick(i - 1)) shade += `M${xy(cut(i, at(i + 1)))} `;
+    shade += `L${xy(cut(i + 1, at(i)))} `;
+    if (thick(i + 1)) shade += arc(i + 1);
   }
-  return d + 'Z';
+  return { d: d + 'Z', shade };
 }
 
 export class Fretboard {
@@ -171,14 +182,10 @@ export class Fretboard {
     }
     el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, this.mask);
     for (const c of cells) el('rect', { ...this.cellRect(c.s, c.f), fill: 'black' }, this.mask);
-    const d = zoneOutline(cells.map((c) => this.cellRect(c.s, c.f)));
-    // like the buttons: the contour is thicker on the bottom and right, a copy shifted down and
-    // right that shows only outside the zone
-    const outside = el('mask', { id: this.id + '-zone-out' }, zone);
-    el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, outside);
-    el('path', { d, fill: 'black' }, outside);
-    el('path', { d, class: 'fb-zone', transform: 'translate(2 2)', mask: `url(#${this.id}-zone-out)` }, zone);
+    const { d, shade } = zoneOutline(cells.map((c) => this.cellRect(c.s, c.f)));
     el('path', { d, class: 'fb-zone' }, zone);
+    // like the buttons: the edges facing right or down are thicker
+    el('path', { d: shade, class: 'fb-zone', transform: 'translate(1.8 1.8)' }, zone);
     dim.setAttribute('visibility', 'visible');
   }
 
