@@ -1,12 +1,8 @@
 // The first start for a beginner: the welcome intro, the new profile, the instrument step and
 // the first-run suggestion. From an empty browser profile:
 //   node tools/browser-check.mjs tools/welcome.mjs --fresh --no-seed --out screenshots/welcome
-import { runGif } from './tour.mjs';
+import { ready, runGif, wait, welcome } from './tour.mjs';
 
-const wait = 'const wait = (ms) => new Promise((r) => setTimeout(r, ms));';
-const until = `${wait} const until = async (f) => { for (let i = 0; i < 300 && !f(); i++) await wait(100); };`;
-const ready = `${until} await until(() => window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length); await wait(800);`;
-const welcome = `${until} await until(() => !document.getElementById('welcome').classList.contains('hidden')); await wait(300);`;
 const phone = { width: 844, height: 390, mobile: true, full: true };
 
 export default [
