@@ -1079,11 +1079,13 @@ export class Quiz {
     if (e.key === 'Escape' && this.running) return this.end('stopped');
     // keys 1–6 pick a row of the open-string menu (1 = low E)
     if (!this.running && /^[1-6]$/.test(e.key)) return this.menu.pick(+e.key - 1);
-    if (e.key.length !== 1 || !this.run || !this.running) return;
+    if (!this.run || !this.running) return;
+    // before the one-character check: the arrows answer too
     if (this.cur?.task === 'truefalse') {
       if (e.key === 'y' || e.key === 'Y' || e.key === 'ArrowRight') return this.answerTF(true);
       if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowLeft') return this.answerTF(false);
     }
+    if (e.key.length !== 1) return;
     if (e.key.toLowerCase() === 'h') return this.giveUp('show');
     const idx = 'CDEFGAB'.indexOf(e.key.toUpperCase());
     if (idx < 0) return;

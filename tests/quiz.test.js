@@ -65,7 +65,7 @@ test('leaving with a missed prompt still on screen logs it and closes the run ro
   assert.equal(runs.at(-1).end_reason, 'left');
 });
 
-test('true/false run: played notes and letter keys do not grade, Y/N does', () => {
+test('true/false run: played notes and letter keys do not grade, the arrows do', () => {
   const { quiz } = makeQuiz({ runTask: 'truefalse' });
   const cur = quiz.cur;
   assert.equal(cur.task, 'truefalse');
@@ -73,7 +73,7 @@ test('true/false run: played notes and letter keys do not grade, Y/N does', () =
   quiz.simulate(cur.cell.midi + 1);
   quiz.onKey({ key: 'C', target: { closest: () => null } });
   assert.equal(quiz.run.results.length, 0);
-  quiz.answerTF(cur.shown.truth);
+  quiz.onKey({ key: cur.shown.truth ? 'ArrowRight' : 'ArrowLeft', target: { closest: () => null } }); // arrows answer
   assert.equal(quiz.run.results.length, 1);
   assert.equal(quiz.run.results[0].correct, true);
   quiz.leave();
