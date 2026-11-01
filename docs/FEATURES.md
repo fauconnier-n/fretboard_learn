@@ -128,6 +128,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Every space on the neck is the same width, the open strings' too, so every position card is the same size; dots under the marker frets (two under 12). Fast and automatic bars fill only from right answers; the legends say what each bar means. The answer shown after a miss is written in ink on white. `tools/seed-test.mjs` makes varied practice data for the `test` profile (import it from Settings → Data).
+
 - **2026-11-01** — The knowledge map (Stats, All runs, the board between runs) uses the run results' cards instead of clouds: name and three bars, known red → green, fast light grey, automatic ink. The position of an open popup is highlighted and repeated at the top of the popup, which sits beside it on the board; popups close when the page changes.
 
 - **2026-11-01** — Popups open on a click or tap too (for phones), with a close cross; a click elsewhere closes them; none before or during a run. The switch reads This run / All runs. The test profile has no special badge or colour any more.
