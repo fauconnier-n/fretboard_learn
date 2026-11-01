@@ -55,10 +55,10 @@ test('version and meta are enough: a slim stored model rebuilds to the same mode
   assert.deepEqual(again.model.meta, sch.model.meta);
 });
 
-test('a graded answer changes nothing of the stored part except the replayed time fields', () => {
+test('a graded answer changes nothing of the stored part except the replayed time and session fields', () => {
   const log = syntheticLog();
   const sch = fromLog(newModel(), log);
-  const kept = (m) => { const { time, recentLog, floor, fx, ...rest } = JSON.parse(JSON.stringify(m.meta)); void time; void recentLog; void floor; void fx; return rest; };
+  const kept = (m) => { const { time, recentLog, floor, fx, session, lastAnswer, ...rest } = JSON.parse(JSON.stringify(m.meta)); void time; void recentLog; void floor; void fx; void session; void lastAnswer; return rest; };
   const before = kept(sch.model);
   const c = lowE.cells[3];
   sch.record(desc, c, 'n', true, 950, Date.now());

@@ -118,7 +118,7 @@ export function renderStats({ els, scheduler, strings, frets, flats, heat, attem
       const keys = spellingsOf(pc).map((sp) => (sp === 'n' ? cell.key : cell.key + ':' + sp));
       // fading: memory of a spelling you have played dropped below 85%
       const fade = keys.some((k) => model.cards[k] && retrievability(model.cards[k], now) < 0.85);
-      // mastered: right and fast on two separate days, and still strong
+      // mastered: right and fast in two separate sessions, and still strong
       const done = scheduler.positionMastered(cell, now);
       if (done) mastered++;
       if (fade) fading++;
@@ -128,7 +128,7 @@ export function renderStats({ els, scheduler, strings, frets, flats, heat, attem
 
   const cards = [
     ['Positions practised', `${seen} / ${total}`],
-    ['Mastered (2+ days)', mastered],
+    ['Mastered (2+ sessions)', mastered],
     ['Fading, due for review', fading],
     ['Unlocked area', pct(reachable / total)],
     ['Target success rate', pct(model.meta.target)],

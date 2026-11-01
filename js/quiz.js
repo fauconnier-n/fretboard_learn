@@ -876,6 +876,11 @@ export class Quiz {
     if (reason === 'completed' || reason === 'time_up') {
       this.getScheduler().endRun({ acc, medianMs: med ?? 99999, desc: run.desc, review: run.review });
     }
+    // a resumed run keeps its id, so it is counted once
+    if (res.length && !run.counted) {
+      run.counted = true;
+      this.getScheduler().countRun();
+    }
     if (reason === 'completed') run.nearMiss = this.nearMiss(run, ok.length);
     this.onSave();
     this.onRun?.({ ...run.row, ended_at: Date.now(), end_reason: reason, prompts: res.length, correct: ok.length, median_ms: med, bpm_end: run.beat ? run.bpm : null });
