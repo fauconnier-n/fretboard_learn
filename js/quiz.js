@@ -164,6 +164,7 @@ export class Quiz {
     e.timer.textContent = '';
     e.queue.innerHTML = '';
     e.fill.style.width = '0%';
+    e.fill.style.background = this.fillBg = '';
     e.feedback.textContent = '';
     e.summary.classList.add('hidden');
     e.neckLegend.classList.add('hidden');
@@ -273,6 +274,7 @@ export class Quiz {
     e.queue.innerHTML = '';
     e.progress.textContent = s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`;
     e.fill.style.width = '0%';
+    e.fill.style.background = this.fillBg = '';
     this.paintProgress();
     this.updateButton();
     this.showMenu();
@@ -708,6 +710,10 @@ export class Quiz {
       write(e.progress, `${Math.ceil(left / 1000)} s · ${run.results.length} answered`);
     } else {
       fill = ((100 * run.results.length) / run.total).toFixed(1) + '%';
+      // one step per answer, green when right and red when wrong, a white gap between steps
+      const n = run.results.length;
+      const bg = n ? `linear-gradient(90deg, ${run.results.map((r, i) => `var(--${r.correct ? 'green' : 'red'}) ${(100 * i) / n}% calc(${(100 * (i + 1)) / n}% - 2px), var(--bg) 0 ${(100 * (i + 1)) / n}%`).join(', ')})` : '';
+      if (this.fillBg !== bg) e.fill.style.background = this.fillBg = bg; // the style reads back normalised
     }
     if (e.fill.style.width !== fill) e.fill.style.width = fill;
     if (left <= 0) return this.end('time_up');
