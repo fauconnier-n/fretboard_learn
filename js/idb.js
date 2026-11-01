@@ -43,13 +43,7 @@ export async function putKv(user, key, value) {
   await done(tx);
 }
 
-export async function addAttempt(user, a) {
-  const tx = (await idb()).transaction('attempts', 'readwrite', TX);
-  tx.objectStore('attempts').add({ user, a });
-  await done(tx);
-}
-
-// several answers in one transaction (restoring from the disk copy)
+// answers in one transaction
 export async function addAttempts(user, list) {
   const tx = (await idb()).transaction('attempts', 'readwrite', TX);
   const st = tx.objectStore('attempts');

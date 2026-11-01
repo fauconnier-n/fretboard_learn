@@ -499,7 +499,9 @@ function bindData() {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      await storage.importAll(JSON.parse(await file.text()));
+      const data = JSON.parse(await file.text());
+      await makeBackup('before restore');
+      await storage.importAll(data);
       location.reload();
     } catch (err) {
       $('dataOut').textContent = 'Import failed: ' + err.message;
@@ -514,8 +516,13 @@ function bindData() {
   $('checkModelBtn').onclick = checkModel;
   $('resetBtn').onclick = async () => {
     if (!confirm(`Delete all progress, settings and the answer log of user "${storage.status().user}"? Other users are not affected.`)) return;
-    await storage.clearAll();
-    location.reload();
+    try {
+      await makeBackup('before restore');
+      await storage.clearAll();
+      location.reload();
+    } catch (err) {
+      $('dataOut').textContent = 'Reset failed: ' + err.message;
+    }
   };
   $('selfTestBtn').onclick = () => {
     $('dataOut').textContent = runSelfTest();
@@ -588,9 +595,13 @@ async function restoreBackup(id) {
   const msg = `Replace all data of user "${b.user}" with the backup from ${fmtDate(b.t)} (${b.attempts} answers)?\n` +
     'The current data is backed up first, so this can be undone.';
   if (!confirm(msg)) return;
-  await makeBackup('before restore');
-  await storage.importAll(b.data);
-  location.reload();
+  try {
+    await makeBackup('before restore');
+    await storage.importAll(b.data);
+    location.reload();
+  } catch (err) {
+    $('dataOut').textContent = 'Restore failed: ' + err.message;
+  }
 }
 
 // ---------- model check ----------
@@ -687,7 +698,7 @@ async function switchUser(name) {
 
 function bindUsers(db) {
   const sel = $('userSelect');
-  sel.innerHTML = storage.listUsers().map((u) => `<option value="${u}">${u}</option>`).join('') +
+  sel.innerHTML = storage.listUsers().map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join('') +
     '<option value="__new">+ New profile…</option>';
   sel.value = db.user;
   sel.onchange = () => {
@@ -752,7 +763,7 @@ async function renderDataPage() {
     (storage.diskStatus().supported ? '<option value="__folder">a folder…</option>' : '');
   $('bringBtn').disabled = !sel.options.length;
   const origins = await storage.origins();
-  $('originList').innerHTML = Object.entries(origins).map(([o, n]) => `<li><span>From "${o}" <span class="muted">· ${n} answers</span></span><button class="btn small" data-origin="${o}">Remove</button></li>`).join('');
+  $('originList').innerHTML = Object.entries(origins).map(([o, n]) => `<li><span>From "${esc(o)}" <span class="muted">· ${n} answers</span></span><button class="btn small" data-origin="${esc(o)}">Remove</button></li>`).join('');
 }
 
 // the model is replayed from the log, which has changed
