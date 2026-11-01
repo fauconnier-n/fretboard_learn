@@ -425,7 +425,7 @@ export class Quiz {
         : 'Play it inside the zone');
     e.queue.innerHTML = s.showQueue && run.task === 'play' ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
       `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
-    e.showMe.classList.remove('hidden');
+    e.showMe.classList.remove('invisible');
     if (Number.isFinite(run.total)) e.progress.textContent = `${run.results.length + 1} / ${run.total}`;
     this.later(() => this.giveUp('time'), giveUpAfter);
   }
@@ -460,7 +460,7 @@ export class Quiz {
   missed() {
     const cur = this.cur;
     const naming = cur.task === 'name';
-    this.els.showMe.classList.add('hidden');
+    this.els.showMe.classList.add('invisible');
     this.reveal();
     this.scheduleRetest(cur);
     const hint = this.getScheduler().positionMastered(cur.cell) ? '' : this.structuralHint(cur.cell);
@@ -523,7 +523,7 @@ export class Quiz {
       if (!cur.graded) this.grade(true, ms, cell.midi, { answerName: label });
       cur.solvedMs = ms;
       this.closePrompt();
-      this.els.showMe.classList.add('hidden');
+      this.els.showMe.classList.add('invisible');
       this.dropCue(cell);
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', NAME_LABELS[cell.pc].split('/')[0]);
       this.feedback('good', cur.revealed ? `✓ That's it — ${NAME_LABELS[cell.pc]}. It comes back in a few prompts.` : this.goodText(NAME_LABELS[cell.pc], ms));
@@ -676,7 +676,7 @@ export class Quiz {
       if (!cur.graded) this.grade(true, ms, ev.midi);
       cur.solvedMs = ms;
       this.closePrompt();
-      this.els.showMe.classList.add('hidden');
+      this.els.showMe.classList.add('invisible');
       this.dropCue(cell);
       this.board.vibrate(cell.s, cell.f, hz(ev));
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', spellName(cell.midi, cur.sp));
@@ -823,7 +823,7 @@ export class Quiz {
     const e = this.els;
     e.timer.textContent = '';
     e.queue.innerHTML = '';
-    e.showMe.classList.add('hidden');
+    e.showMe.classList.add('invisible');
     e.names.classList.add('hidden');
     e.tf.classList.add('hidden');
     this.updateButton();
