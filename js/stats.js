@@ -21,7 +21,7 @@ export function mapCell(scheduler, snap, s, f, flats) {
     const asked = spellingsOf(pcOf(midi)).reduce((t, sp) => t + (scheduler.model.cards[sp === 'n' ? key : key + ':' + sp]?.seen || 0), 0);
     const t = Math.min(1, Math.log2(1 + asked) / Math.log2(41)); // 40 questions or more: full size
     // density rises fast: a well-practised position is a solid band of colour
-    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t, core: t }, fill: masteryColor(m), opacity: Math.min(1, 0.2 + 1.1 * t), label };
+    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t, core: t }, fill: masteryColor(m), opacity: Math.min(0.85, 0.2 + 0.95 * t), label };
   }
   if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true };
   return null;

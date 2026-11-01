@@ -110,7 +110,7 @@ export class Fretboard {
     const defs = el('defs', {}, svg);
     this.mask = el('mask', { id: this.id + '-mask' }, defs);
     // a light blur so the clouds of the knowledge map have no hard edge
-    el('feGaussianBlur', { stdDeviation: '1.8' }, el('filter', { id: this.id + '-soft', x: '-20%', y: '-40%', width: '140%', height: '180%' }, defs));
+    el('feGaussianBlur', { stdDeviation: '2.4' }, el('filter', { id: this.id + '-soft', x: '-20%', y: '-40%', width: '140%', height: '180%' }, defs));
 
     const g = el('g', {}, svg);
     const xa = this.X(this.nutX);
@@ -171,7 +171,14 @@ export class Fretboard {
     }
     el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, this.mask);
     for (const c of cells) el('rect', { ...this.cellRect(c.s, c.f), fill: 'black' }, this.mask);
-    el('path', { d: zoneOutline(cells.map((c) => this.cellRect(c.s, c.f))), class: 'fb-zone' }, zone);
+    const d = zoneOutline(cells.map((c) => this.cellRect(c.s, c.f)));
+    // like the buttons: the contour is thicker on the bottom and right, a copy shifted down and
+    // right that shows only outside the zone
+    const outside = el('mask', { id: this.id + '-zone-out' }, zone);
+    el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, outside);
+    el('path', { d, fill: 'black' }, outside);
+    el('path', { d, class: 'fb-zone', transform: 'translate(2 2)', mask: `url(#${this.id}-zone-out)` }, zone);
+    el('path', { d, class: 'fb-zone' }, zone);
     dim.setAttribute('visibility', 'visible');
   }
 
@@ -270,13 +277,13 @@ export class Fretboard {
           const id = `${this.id}-c${s}-${f}`;
           const grad = el('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
           // a pill, solid across a middle band (wider when practised more), fading at top and bottom
-          const half = 0.14 + 0.2 * (v.cloud.core ?? 0.5);
-          for (const [o, a] of [[0, 0], [0.5 - half - 0.16, 0.4], [0.5 - half, 1], [0.5 + half, 1], [0.5 + half + 0.16, 0.4], [1, 0]]) {
+          const half = 0.1 + 0.16 * (v.cloud.core ?? 0.5);
+          for (const [o, a] of [[0, 0], [0.5 - half - 0.26, 0.3], [0.5 - half - 0.12, 0.7], [0.5 - half, 1], [0.5 + half, 1], [0.5 + half + 0.12, 0.7], [0.5 + half + 0.26, 0.3], [1, 0]]) {
             el('stop', { offset: Math.max(0, Math.min(1, o)).toFixed(3), 'stop-color': v.fill, 'stop-opacity': a }, grad);
           }
           const ry = (this.sp / 2) * v.cloud.h;
           const rx = Math.max(ry, (this.cw(f) / 2) * v.cloud.w);
-          el('rect', { x: (-rx).toFixed(1), y: (-ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: ry.toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), filter: `url(#${this.id}-soft)`, class: 'fb-cloud' }, g);
+          el('rect', { x: (-rx).toFixed(1), y: (-ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: (ry * 0.7).toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), filter: `url(#${this.id}-soft)`, class: 'fb-cloud' }, g);
           if (v.label) el('text', { y: 3.5, class: 'fb-heat-lbl' }, g).textContent = v.label;
           continue;
         }
