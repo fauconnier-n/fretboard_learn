@@ -120,6 +120,8 @@ export class Quiz {
     const b = this.els.startBtn;
     b.textContent = this.state === 'preview' ? 'Start run ⏎' : this.running ? 'Stop run' : 'New run ⏎';
     b.classList.toggle('danger', this.running);
+    document.body.classList.toggle('in-run', this.running);
+    this.board.zoomTo(this.running ? this.run.zone.cells : null);
   }
 
   reset() {
@@ -790,7 +792,7 @@ export class Quiz {
     const e = this.els;
     e.feedback.textContent = text;
     e.feedback.className = 'feedback ' + kind;
-    burst(e.note, kind, this.s.answerFx);
+    burst(e.note, kind);
   }
 
   // reason: 'completed' | 'time_up' | 'stopped' (Stop button) | 'left' (view or board changed)

@@ -1,5 +1,5 @@
 // Offline support: network first (so edits show up straight away), cache as fallback.
-const CACHE = 'fretboard-trainer-v28';
+const CACHE = 'fretboard-trainer-v29';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
   'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',

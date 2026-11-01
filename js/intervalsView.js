@@ -109,6 +109,7 @@ export class IntervalsView {
     const b = this.els.startBtn;
     b.textContent = this.running ? 'Stop' : 'Start ⏎';
     b.classList.toggle('danger', this.running);
+    document.body.classList.toggle('in-run', this.running);
   }
 
   primary() {
@@ -285,7 +286,7 @@ export class IntervalsView {
     const e = this.els;
     e.feedback.textContent = text;
     e.feedback.className = 'feedback ' + kind;
-    burst(e.title, kind, this.s.answerFx);
+    burst(e.title, kind);
   }
 
   // reason: 'completed' | 'stopped' (Stop or Esc) | 'left' (another tab or a board setting changed)
