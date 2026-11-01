@@ -7,6 +7,7 @@
 import { ITEM, ITEMS, accuracy, addResult, buildStats, isReference, isRight, itemState, makePrompt, medianMs, pickItem, unlockedKeys } from './intervals.js';
 import { midiLabel, pcOf } from './music.js';
 import { GuitarMenu } from './guitarMenu.js';
+import { burst } from './burst.js';
 
 const TIMEOUT_MS = 8000;
 const TRIAD_TIMEOUT_MS = 12000; // three notes to find
@@ -284,9 +285,7 @@ export class IntervalsView {
     const e = this.els;
     e.feedback.textContent = text;
     e.feedback.className = 'feedback ' + kind;
-    e.area.classList.remove('flash-good', 'flash-bad');
-    void e.area.offsetWidth;
-    e.area.classList.add('flash-' + kind);
+    burst(e.title, kind, this.s.answerFx);
   }
 
   // reason: 'completed' | 'stopped' (Stop or Esc) | 'left' (another tab or a board setting changed)

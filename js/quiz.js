@@ -11,6 +11,7 @@ import { LANDMARKS, cueOpts, errorType, itemKey } from './srs.js';
 import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
 import { mapCell } from './stats.js';
+import { burst } from './burst.js';
 
 const DAY = 86400000;
 const PROBE_EVERY = 10; // every 10th prompt is a random check-up, not picked by the model
@@ -789,9 +790,7 @@ export class Quiz {
     const e = this.els;
     e.feedback.textContent = text;
     e.feedback.className = 'feedback ' + kind;
-    e.area.classList.remove('flash-good', 'flash-bad');
-    void e.area.offsetWidth;
-    e.area.classList.add('flash-' + kind);
+    burst(e.note, kind, this.s.answerFx);
   }
 
   // reason: 'completed' | 'time_up' | 'stopped' (Stop button) | 'left' (view or board changed)

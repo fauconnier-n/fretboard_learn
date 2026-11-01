@@ -144,11 +144,10 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 /* room for two lines (a hint after a miss), so the board below does not move */
 .prompt-sub { color: var(--muted); margin-top: 6px; min-height: 2.9em; }
 .prompt-timer { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-height: 1.4em; }
-.prompt-area.flash-good { animation: glowGood .6s ease-out; }
-.prompt-area.flash-bad { animation: glowBad .6s ease-out; }
 @keyframes notePop { from { transform: scale(.8); opacity: .3; } to { transform: scale(1); opacity: 1; } }
-@keyframes glowGood { from { background-color: rgba(60, 189, 43, .28); } to { background-color: transparent; } }
-@keyframes glowBad { from { background-color: rgba(229, 37, 47, .2); } to { background-color: transparent; } }
+/* the answer animation (js/burst.js): a layer at the asked note's centre, above everything */
+.burst { position: fixed; width: 0; height: 0; z-index: 50; pointer-events: none; }
+.burst span { position: absolute; left: 0; top: 0; }
 
 .feedback { text-align: center; font-weight: 700; min-height: 1.5em; margin-top: 8px; }
 .feedback.good { color: var(--good); }
