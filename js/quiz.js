@@ -973,8 +973,14 @@ export class Quiz {
     const x = (ms) => L + ((Math.log(Math.min(12000, Math.max(300, ms))) - lo) / (hi - lo)) * (R - L);
     const ticks = [500, 1000, 2000, 3000, 5000, 10000].map((ms) =>
       `<line x1="${x(ms)}" x2="${x(ms)}" y1="8" y2="${H - 22}" class="tp-grid"/><text x="${x(ms)}" y="${H - 6}" class="tp-tick">${ms / 1000} s</text>`).join('');
-    const dots = run.results.map((r, i) =>
-      `<circle cx="${x(r.ms).toFixed(1)}" cy="${18 + ((i * 37) % 5) * 11}" r="5" class="${r.correct ? 'tp-ok' : 'tp-bad'}"><title>${spellName(r.cell.midi, r.sp)} · ${(r.ms / 1000).toFixed(2)} s${r.correct ? '' : ' · missed'}</title></circle>`).join('');
+    // right: a disc; missed: a cross, so the two differ by shape as well as colour
+    const dots = run.results.map((r, i) => {
+      const cx = x(r.ms).toFixed(1);
+      const cy = 18 + ((i * 37) % 5) * 11;
+      const title = `<title>${spellName(r.cell.midi, r.sp)} · ${(r.ms / 1000).toFixed(2)} s${r.correct ? '' : ' · missed'}</title>`;
+      return r.correct ? `<circle cx="${cx}" cy="${cy}" r="5" class="tp-ok">${title}</circle>`
+        : `<path d="M${cx} ${cy}m-5 -5l10 10m0 -10l-10 10" class="tp-bad">${title}</path>`;
+    }).join('');
     const med = median(run.results.filter((r) => r.correct).map((r) => r.ms));
     // the two labels sit on opposite sides of their lines so they don't collide
     const line = (ms, cls, label, right) => (ms == null ? '' : `<line x1="${x(ms)}" x2="${x(ms)}" y1="6" y2="${H - 22}" class="${cls}"/>
