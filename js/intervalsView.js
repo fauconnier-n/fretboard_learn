@@ -45,19 +45,19 @@ export class IntervalsView {
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
-  // Between runs: the next step on the open strings (low E, or a muted strum, starts a run).
+  // Between runs: the next step on the open strings (low E starts a run).
   showMenu() {
     if (this.running) return this.menu.hide();
     this.menu.show('Next', [
-      { label: 'Start a run', act: () => this.primary() },
+      { label: 'Start a run', primary: true, act: () => this.primary() },
       { label: 'Note position practice', act: () => this.goPractice?.() },
-    ], 'start a run');
+    ]);
   }
 
-  // A muted strum: starts a run between runs; during a run a double strum stops it.
+  // A muted strum: during a run a double strum stops it; between runs this menu has nothing to
+  // go back to, so strums do nothing.
   onStrum(double) {
-    if (!this.running) return this.primary();
-    if (double) this.end('stopped');
+    if (this.running && double) this.end('stopped');
   }
 
   get s() {

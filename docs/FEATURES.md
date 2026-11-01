@@ -40,7 +40,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
   - no guitar: **Name the note** (a position is marked; type its letter or click one of the 12 name buttons, laid out like a piano with the sharps or flats on top, centred between their naturals; the buttons show sharps or flats as set in Settings → Practice, and both spellings of a sharp/flat count) and **True or false** (a position is marked with a name, right half the time; answer Yes or No with the buttons, Y/N or the arrow keys).
 - **Zone choice:** before a run, the picked zone plus up to two other, different-looking zones are offered on the open-string menu.
 - **Guitar-only control:**
-  - a **muted strum** (strings damped by the fretting hand) takes the next step: new run, then start it; during a run it skips the wait after a miss, and two quick muted strums stop the run;
+  - **muted strums** (strings damped by the fretting hand): outside a run, two quick ones go back to the previous menu (a single one does nothing, so a stray strum starts nothing); during a run a single one skips the wait after a miss and two quick ones stop the run. The main step of each menu (New run, Start the run) is green, like the main button;
   - choices are made by playing an **open string**: the menu is drawn as the neck at the nut, with the string's letter left of each option. Between runs: E new run, A run type, D length (prompts / sprint), G beat mode, B Intervals tab; the run-type menu has the 4 types and Back; before a run, the offered zones;
   - the same rows can be clicked, or picked with keys 1–6 (1 = low E);
   - the Intervals tab has its own menu (E start a run, A back to Practice) and the same strums.
@@ -127,6 +127,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — The middle bar is called *speed vs avg* (your answer time on this note against your average on all notes). Open-string menus: the main step is green; Ready has *Start the run*; outside a run two muted strums go back to the previous menu and a single one does nothing.
 
 - **2026-11-01** — During a run, Stop is 6 px less tall around the same centre (so it no longer touches the top of the screen) and the score ring is as tall, its digits as tall as the button's lower-case letters. Popups label the line on the top bar "before this session", like a pin; the middle bar is called *pace*.
 

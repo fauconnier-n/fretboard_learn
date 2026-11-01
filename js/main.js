@@ -267,11 +267,11 @@ function processFrame() {
   if (ev && app.view === 'intervals') app.intervals.onNote(ev);
 }
 
-// A muted strum: the "go" signal. Two within DOUBLE_MS, both during a run, are a double
-// strum (so the strum that starts a run can't pair with the next one and stop it).
+// A muted strum. Two within DOUBLE_MS in the same state (both in a run, or both outside) are a
+// double strum: it stops a run, or goes back to the previous menu.
 function onStrum(now) {
   const running = app.view === 'intervals' ? app.intervals.running : app.quiz.running;
-  const double = running && app.lastStrum.running && now - app.lastStrum.t < DOUBLE_MS;
+  const double = app.lastStrum.running === running && now - app.lastStrum.t < DOUBLE_MS;
   app.lastStrum = double ? { t: -Infinity, running } : { t: now, running };
   $('strumSeen').textContent = `Muted strum heard${double ? ' (double)' : ''} at ${new Date().toLocaleTimeString()}`;
   if (app.view === 'practice') {
