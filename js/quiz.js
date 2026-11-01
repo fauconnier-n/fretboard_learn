@@ -170,7 +170,7 @@ export class Quiz {
     this.showMenu();
   }
 
-  // Practice board between runs: the knowledge map (clouds and note names, as on the Stats
+  // Practice board between runs: the knowledge map (note names and bars, as on the Stats
   // page), positions not unlocked yet under fog.
   paintProgress() {
     const sch = this.getScheduler();

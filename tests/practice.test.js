@@ -48,7 +48,7 @@ test('note rings: empty for an unseen note, full for a known fast mastered one',
 });
 
 
-test('knowledge map: note names, and clouds bigger and denser with more questions', async () => {
+test('knowledge map: note names, bars and a popup with how often it was asked', async () => {
   const { mapCell } = await import('../js/stats.js');
   const sch = new Scheduler(newModel(), strings, 15);
   const cell = lowE.cells.find((c) => c.f === 5);
@@ -58,8 +58,8 @@ test('knowledge map: note names, and clouds bigger and denser with more question
   for (let i = 0; i < 20; i++) sch.record(desc, cell, 'n', true, 900, Date.now());
   const often = mapCell(sch, sch.snapshot(), 0, 5, false);
   assert.equal(once.label, 'A');
-  assert.ok(often.opacity > once.opacity && often.cloud.w > once.cloud.w);
-  assert.ok(often.cloud.w - once.cloud.w > often.cloud.h - once.cloud.h, 'grows mostly along the string');
+  assert.ok(['known', 'fast', 'auto'].every((k) => often.bars[k] >= 0 && often.bars[k] <= 1));
+  assert.ok(once.tip.includes('Asked 1×') && often.tip.includes('Asked 21×'));
   const unplayed = mapCell(sch, sch.snapshot(), 0, 1, true);
   assert.deepEqual([unplayed.label, unplayed.faint], ['F', true]);
 });

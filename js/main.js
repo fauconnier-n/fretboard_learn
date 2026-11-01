@@ -8,7 +8,7 @@ import { AudioInput } from './audio.js';
 import { createDetector, NoteTracker } from './pitch.js';
 import { DOUBLE_MS, StrumDetector } from './strum.js';
 import { Scheduler, newModel } from './srs.js';
-import { Fretboard } from './fretboard.js';
+import { Fretboard, closeTips } from './fretboard.js';
 import { Quiz } from './quiz.js';
 import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
@@ -330,6 +330,7 @@ function refreshChannels() {
 
 function showView(name) {
   app.view = name;
+  closeTips();
   const practice = name === 'practice' || name === 'intervals';
   if (practice) app.practicePage = name;
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === (practice ? 'practice' : name)));

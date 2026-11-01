@@ -284,9 +284,6 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .legend i.lv-weak { background: var(--red); }
 .legend i.lv-mid { background: var(--yellow); }
 .legend i.lv-done { background: var(--green); }
-.legend i.cloud { width: 34px; height: 12px; border-radius: 999px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
-.legend i.cloud-small { width: 14px; height: 10px; border-radius: 999px; background: linear-gradient(transparent, var(--green), transparent); opacity: .35; }
-.legend i.cloud-big { width: 26px; height: 13px; border-radius: 999px; background: linear-gradient(transparent, var(--green) 35%, var(--green) 65%, transparent); }
 .show-me { margin-top: 6px; }
 /* like a piano: 14 half-button columns, each button two wide, sharps or flats on the top row */
 .name-buttons { display: grid; grid-template-columns: repeat(14, 27px); justify-content: center; row-gap: 6px; margin-top: 10px; }
@@ -464,12 +461,16 @@ body.in-run .prompt-queue:empty { display: none; }
 .fb-bars-lbl { font-size: 14px; font-weight: 900; fill: var(--ink); }
 .fb-bars-lbl.missed { fill: var(--red); }
 .fb-bar-track { fill: var(--panel2); }
-.nb-known { fill: var(--green); }
-.nb-fast { fill: var(--yellow-ink); }
+/* known is coloured from red to green by its level (set on the bar) */
+.nb-fast { fill: var(--steel); }
 .nb-auto { fill: var(--ink); }
+/* the position whose popup is open, and the same card at the top of the popup */
+.sel .fb-bars-bg { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; opacity: 1; }
+.sel .fb-heat { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: none; fill: var(--yellow); }
+.fb-tip-card { display: block; margin-bottom: 4px; }
 .legend i.bar-known, .legend i.bar-fast, .legend i.bar-auto { width: 22px; height: 5px; border-radius: 2px; }
-.legend i.bar-known { background: var(--green); }
-.legend i.bar-fast { background: var(--yellow-ink); }
+.legend i.bar-known { width: 34px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
+.legend i.bar-fast { background: var(--steel); }
 .legend i.bar-auto { background: var(--ink); }
 .legend .missed-name { color: var(--red); font-weight: 900; }
 .board-view { margin: 0 0 8px; }
