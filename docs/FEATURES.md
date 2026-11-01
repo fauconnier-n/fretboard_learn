@@ -12,7 +12,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Audio input and pitch
 - A single audio-input control, in Settings: device, input channel (for interfaces with several inputs), gain, noise gate, pitch clarity, latency offset, A4 reference.
 - An input meter with per-channel levels and a marker for the noise gate, to test the chosen input.
-- Pitch detection with the McLeod Pitch Method, plus a stabiliser so a ringing note counts once.
+- Pitch detection with the McLeod Pitch Method, in two stages (the whole lag range on the signal averaged down to 12 kHz, then the chosen peak refined at full rate, so the result is the full-rate one at a sixth of the cost), plus a stabiliser so a ringing note counts once. The audio context runs at 48 kHz whatever the interface's rate.
 - Muted-strum detection: a short burst well above the noise gate with no clear pitch. Its level is set in Settings → Audio input, next to a live "strum heard" check.
 - A Tuner tab: note, cents needle, frequency and the string targets of the current tuning.
 
@@ -124,6 +124,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Cheaper pitch detection: the McLeod detector runs in two stages (coarse at 12 kHz, refined at full rate around the peak and its half lag), giving the same pitch as before (tests on synthetic notes, 80–1300 Hz at 44.1/48/96 kHz, bass down to 30 Hz) in about a sixth of the time (1.8 → 0.3 ms per frame for a guitar, 5.3 → 0.5 ms for a bass, on a desktop). The audio context is pinned to 48 kHz. Please confirm the tuner with a real guitar.
 - **2026-11-01** — Calmer run loop: the answer timer and the progress bar are written only when their text or width changes (they were written every frame, which forced a layout per frame); the pulsing mark steps 8 times a second instead of repainting the board 60 times; the zone dim and shadow are plain geometry (one path with a hole, a clip) instead of masks rasterised at every repaint, so the dim's inner edge now follows the rounded zone contour; the tuner writes nothing while idle; pitch detection is skipped on Stats and in a hidden tab.
 - **2026-11-01** — Quicker start: the DuckDB engine starts while the storage-persistence request and the tab lock are pending; the schema check reads the catalogue once instead of issuing one `ALTER ... IF NOT EXISTS` per column (82 round trips); the safety-copy check compares counts, settings and runs first and reads every answer of the copy only when they disagree; the disk-copy sync reads answer keys instead of full rows; the board no longer waits for the audio device list; the service worker registers as soon as the database is open. No change in what is checked or repaired.
 - **2026-11-01** — Lighter answers: the model is no longer rewritten after every graded answer (100 KB to 1 MB of JSON to DuckDB, the safety copy and `kv.json` on disk each time); only its run-level `meta` is stored, at the end of a run, since everything else is replayed from the answer log at every start anyway. `kv.json` shrinks accordingly. Nothing changes in what is asked or how answers count.
