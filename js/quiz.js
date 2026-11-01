@@ -766,7 +766,8 @@ export class Quiz {
       shownName: cur.shown?.name ?? null,
       special: cur.special, bpm: cur.bpm,
     };
-    this.onSave();
+    // the model is saved at the end of the run (end()): what a graded answer changes in it is
+    // replayed from the answer log, which was just written by onAttempt
   }
 
   // Feedback line for a right first answer: the role of the prompt and the momentum.

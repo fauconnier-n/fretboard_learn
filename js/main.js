@@ -73,6 +73,13 @@ const app = {
   loop: 0,
 };
 
+// What is stored of a model: its version and `meta` (the difficulty target, run history, best
+// runs, fitted decay). Everything else (cards, notes, ctx, conf) is replayed from the answer log
+// at every load (applyBoardSettings marks the model stale), so storing it only cost time: the
+// full model is 100 KB to 1 MB of JSON, written to DuckDB, the safety copy and the disk.
+const persistedModel = (m) => ({ version: m.version, meta: m.meta });
+const saveModelNow = () => storage.set(app.modelKey, persistedModel(app.model));
+
 let saveQueued = false;
 function saveModel() {
   if (saveQueued) return;
@@ -80,7 +87,7 @@ function saveModel() {
   queueMicrotask(() => {
     saveQueued = false;
     const t = performance.now();
-    storage.set(app.modelKey, app.model).then(() => performance.measure('answer:save', { start: t }));
+    saveModelNow().then(() => performance.measure('answer:save', { start: t }));
   });
 }
 
@@ -179,7 +186,8 @@ async function applyBoardSettings() {
   const key = 'model:' + app.keys.join(',');
   if (app.modelKey !== key) {
     const legacy = Object.entries(LEGACY).find(([, [inst, st]]) => stringKeys(inst, st).join(',') === app.keys.join(','));
-    app.model = (await storage.get(key)) || (legacy && (await storage.get('model:' + legacy[0]))) || newModel();
+    // a stored model has only version and meta (older ones everything): the rest is replayed
+    app.model = { ...newModel(), ...((await storage.get(key)) || (legacy && (await storage.get('model:' + legacy[0]))) || {}) };
     app.model.stale = true;
     app.modelKey = key;
   }
@@ -188,7 +196,7 @@ async function applyBoardSettings() {
   if (app.scheduler.needsRebuild) {
     // replay the answer log, which keeps every answer and its time
     app.scheduler.rebuild(await tuningAttempts());
-    await storage.set(app.modelKey, app.model);
+    await saveModelNow();
   }
   const cfg = { strings: app.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats, lowAtBottom: s.lowAtBottom };
   app.board.configure(cfg);
@@ -465,7 +473,7 @@ function bindData() {
   $('rebuildBtn').onclick = async () => {
     const attempts = await tuningAttempts();
     app.scheduler.rebuild(attempts);
-    await storage.set(app.modelKey, app.model);
+    await saveModelNow();
     $('dataOut').textContent = `Rebuilt from ${attempts.length} logged answers.`;
   };
   $('checkModelBtn').onclick = checkModel;
@@ -494,7 +502,7 @@ async function makeBackup(reason) {
   if (!storage.status().persistent) return; // a NOT SAVED tab must not back up its empty in-memory data
   const t = performance.now();
   try {
-    await storage.set(app.modelKey, app.model);
+    await saveModelNow();
     await backup.save(storage.status().user, await storage.exportAll(), reason);
     performance.measure('run:backup', { start: t });
     if (app.view === 'settings') await renderBackups();
@@ -536,7 +544,7 @@ async function checkModel() {
   const apply = async (d) => {
     app.scheduler.useDecay(d);
     app.scheduler.rebuild(await tuningAttempts());
-    await storage.set(app.modelKey, app.model);
+    await saveModelNow();
     checkModel();
   };
   $('useDecayBtn')?.addEventListener('click', () => apply(fit.best));
@@ -685,6 +693,11 @@ async function init() {
   bindUsers(db);
   // console helpers; ft.strum() acts like a muted strum (for testing without a guitar)
   window.ft = { sql: storage.sql, status: storage.status, strum: () => onStrum(performance.now()) };
+  // models stored in full by earlier versions (100 KB each, every instrument's): keep only what
+  // is read back, once, so the kv table and kv.json stay small
+  if (db.persistent) {
+    for (const [k, v] of await storage.entries('model:')) if (v?.cards) await storage.set(k, persistedModel(v));
+  }
 
   app.settings = { ...DEFAULTS, ...storage.lastSettings(), ...((await storage.get('settings')) || {}) };
   if (!Number.isInteger(app.settings.channel)) app.settings.channel = 0; // was saved as NaN by an old bug

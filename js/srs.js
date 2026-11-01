@@ -793,7 +793,9 @@ export class Scheduler {
     meta.last = desc;
   }
 
-  // Replay the attempt log into fresh cards (keeps the difficulty target, decay and run history).
+  // Replay the attempt log into fresh cards. Of `meta` it keeps target, speedPush, recent, last,
+  // best and decay (changed by endRun, nearMiss and useDecay) and recomputes the rest: those
+  // are the only fields worth storing (main.js persistedModel); everything else comes from here.
   rebuild(attempts) {
     const fresh = newModel();
     for (const k of ['cards', 'notes', 'ctx', 'conf']) this.model[k] = fresh[k];
