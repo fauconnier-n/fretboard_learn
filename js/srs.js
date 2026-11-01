@@ -634,13 +634,16 @@ export class Scheduler {
   }
 
   // How far an item is towards known (memory), fast (your usual time or better) and
-  // automatic (mastered: right and fast on two days), each 0–1, for the rings in the summary.
+  // automatic (mastered: right and fast on two days), each 0–1, for the bars on the board.
+  // Fast and automatic come only from right answers: none yet, both empty.
   noteRings(key, now = Date.now()) {
     const c = this.model.cards[key];
     if (!c) return { known: 0, fast: 0, auto: 0 };
+    if (!c.correct) return { known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6), fast: 0, auto: 0 };
     return {
       known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6),
-      fast: Math.min(1, Math.exp(this.globalMu()) / this.expectedMs(key, now)),
+      // your time from right answers only (the prior would fill the bar before any)
+      fast: c.time?.n ? Math.min(1, Math.exp(this.globalMu()) / this.expectedMs(key, now)) : 0,
       // not mastered yet never shows a full ring
       auto: this.isMastered(key, now) ? 1 : Math.min(0.95, 0.5 * Math.min(1, (c.days?.length || 0) / 2) + 0.5 * Math.min(1, this.itemMastery(key, now) / 0.7)),
     };

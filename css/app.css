@@ -174,6 +174,7 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .fb-strlabel { fill: var(--muted); font-size: 12px; font-weight: 700; text-anchor: middle; }
 .fb-num { fill: var(--steel); font-size: 11px; text-anchor: middle; }
 .fb-num.marked { fill: var(--ink); font-weight: 800; }
+.fb-side-dot { fill: var(--steel); }
 /* outside the zone the board fades into the white page */
 .fb-dim { fill: rgba(255, 255, 255, .6); pointer-events: none; }
 /* the zone: only its contour, rounded like the buttons, no fill */
@@ -188,8 +189,9 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .fb-mark.bad .dot { fill: var(--red); stroke: #fff; filter: drop-shadow(0 0 6px var(--red)); }
 .fb-mark.bad .lbl { fill: #fff; stroke: var(--red); stroke-width: 3px; paint-order: stroke; }
 .fb-mark .strike { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
-.fb-mark.reveal .dot { fill: rgba(60, 189, 43, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s steps(8) infinite; }
-.fb-mark.reveal .lbl { fill: var(--green); }
+.fb-mark.reveal .dot { fill: #fff; stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s steps(8) infinite; }
+/* the name in ink on white: green on green was hard to read */
+.fb-mark.reveal .lbl { fill: var(--ink); }
 .fb-mark .ripple { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ripple .7s ease-out forwards; }
 .fb-mark.good .ripple { stroke: var(--green); }
 .fb-mark.bad .ripple { stroke: var(--red); }

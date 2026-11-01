@@ -10,7 +10,7 @@
 - Personal practice data lives in `data/` (ignored); never commit it.
 
 ## Checks before a pull request
-Node is at `C:\Program Files\nodejs` (prepend it to PATH): `npm test`, `npm run lint`, `npm run typecheck` must pass. Test in the app as profile `test`, never `user`. Restart the server after changing `serve.ps1`.
+Node is at `C:\Program Files\nodejs` (prepend it to PATH): `npm test`, `npm run lint`, `npm run typecheck` must pass. Test in the app as profile `test`, never `user`. For varied practice data in `test`: `node tools/seed-test.mjs screenshots/seed-test.json`, then import it from Settings → Data (it replaces that profile's data). Restart the server after changing `serve.ps1`.
 
 ## Screenshots of every visible change
 - Test UI changes in headless Edge: `node tools/browser-check.mjs tools/tour.mjs --out screenshots/<name>` (the server must be running; it uses the `test` profile; write other step files like `tools/tour.mjs` for specific states). It also writes `index.html`, a gallery of the shots. `tools/profiles.mjs` (`--fresh --no-seed`) covers the welcome screen and the Data page; `tools/hosted.mjs` the app as on GitHub Pages (`node tools/static.mjs`, `--host fretboard.test --secure`).
