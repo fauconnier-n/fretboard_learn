@@ -82,15 +82,18 @@ export async function launch({ port = 9333, profileName = `fretboard-browser-che
   return { send, evaluate, on, off, size, errors, close, profile };
 }
 
-// Makes "test" the active user (so real data is never touched), then opens the app and, for
-// the app page itself, waits until the database is open and the board is drawn.
-export async function openApp(page, { origin = 'http://localhost:8137', path = '', timeoutMs = 20000 } = {}) {
+// Makes "test" the active profile (so real data is never touched), then opens the app and, for
+// the app page itself, waits until the database is open and the board is drawn. With
+// `seed: false` nothing is set and the app starts on its welcome screen.
+export async function openApp(page, { origin = 'http://localhost:8137', path = '', timeoutMs = 20000, seed = true } = {}) {
   await page.send('Page.navigate', { url: origin + '/manifest.webmanifest' });
   await sleep(1200);
-  await page.evaluate(`localStorage.setItem('ft:activeUser', JSON.stringify('test')); localStorage.setItem('ft:users', JSON.stringify(['user','test']))`);
+  if (seed) {
+    await page.evaluate(`localStorage.setItem('ft:activeUser', JSON.stringify('test')); localStorage.setItem('ft:profiles', JSON.stringify({ test: { store: 'server', lastUsed: Date.now() } })); sessionStorage.setItem('ft:picked', '1')`);
+  }
   const t0 = Date.now();
   await page.send('Page.navigate', { url: origin + '/' + path });
-  if (path) return 0;
+  if (path || !seed) return 0;
   while (Date.now() - t0 < timeoutMs) {
     if (await page.evaluate(`!!(window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length)`)) break;
     await sleep(50);

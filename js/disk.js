@@ -103,10 +103,25 @@ function active() {
 }
 
 // {kv: {key: jsonText}, attempts: [...], runs: {run_id: row}}
-export async function load() {
-  const t = active();
+async function loadWith(t) {
   const [kv, attempts, runs] = await Promise.all([t.readKv(), t.readAll('attempts'), t.readAll('runs')]);
   return fold(kv, attempts, runs);
+}
+export const load = () => loadWith(active());
+
+// Another profile's folder, for bringing its answers in: the one stored under its name (asking
+// for permission if need be: call from a click), or null when it has none.
+export async function loadStored(name) {
+  const h = await folder.loadHandle(name).catch(() => null);
+  if (!h) return null;
+  if ((await folder.permission(h, true)) !== 'granted') throw new Error(`the folder of "${name}" needs permission`);
+  return loadWith(new folder.FolderTransport(h));
+}
+
+// a folder the user picks now: {name, data}
+export async function loadPicked() {
+  const { handle, name } = await openFolder();
+  return { name, data: await loadWith(new folder.FolderTransport(handle)) };
 }
 
 // kind: 'attempts' | 'runs'; one append per run file

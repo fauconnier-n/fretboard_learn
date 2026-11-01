@@ -6,7 +6,7 @@
 #   POST   /api/data/<name>/attempts|runs/<file>.jsonl   append lines to one run file
 #   DELETE /api/data/<name>/attempts|runs         keep the files aside as <kind>.bak-<stamp> (reset, import)
 # Writes go straight through to the disk (write-through + flush) before the reply.
-param([int]$Port = 8137, [switch]$Open, [switch]$NoApi) # -NoApi: a plain static host, like GitHub Pages
+param([int]$Port = 8137, [switch]$Open)
 
 $root = (Resolve-Path (Split-Path -Parent $MyInvocation.MyCommand.Path)).Path.TrimEnd('\') + '\'
 $dataDir = Join-Path $root 'data'
@@ -69,7 +69,6 @@ function Read-Body($req) {
 }
 
 function Invoke-Api($req, [string]$path) {
-  if ($NoApi) { return Text 404 'No disk API' }
   if ($path -eq '/api/disk') {
     return Reply 200 'application/json' $utf8.GetBytes('{"dir":' + (ConvertTo-Json $dataDir) + '}')
   }

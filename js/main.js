@@ -161,7 +161,10 @@ function openSettings(page = 'home') {
     $('customTuning').value = app.settings.tuning === 'custom' ? app.settings.customTuning : tuningText(r.strings, r.flats);
     $('tuningError').textContent = '';
   }
-  if (page === 'data') renderBackups();
+  if (page === 'data') {
+    renderBackups();
+    renderDataPage();
+  }
   if (page === 'tables') renderTable();
   window.scrollTo(0, 0);
 }
@@ -497,6 +500,35 @@ function bindData() {
     $('dataOut').textContent = runSelfTest();
   };
   $('backupNowBtn').onclick = () => makeBackup('manual');
+  // the profile's folder and other profiles' data; a cancelled picker (AbortError) is not an error
+  const act = (fn) => async (...args) => {
+    try {
+      await fn(...args);
+    } catch (e) {
+      if (e?.name !== 'AbortError') $('dataOut').textContent = e?.message || String(e);
+    }
+    renderDbStatus();
+  };
+  $('folderCreateBtn').onclick = act(() => storage.createFolder());
+  $('folderChooseBtn').onclick = act(() => storage.connectFolder((other) => confirm(`This folder holds the data of "${other}". Use it for "${storage.status().user}" anyway? The answers of both are merged.`)));
+  $('folderReconnectBtn').onclick = act(() => storage.reconnectFolder());
+  $('dbBadge').onclick = () => { if (storage.status().disk.needsPermission) $('folderReconnectBtn').click(); };
+  $('folderForgetBtn').onclick = act(() => storage.disconnectFolder());
+  $('bringBtn').onclick = act(async () => {
+    const src = $('bringFrom').value;
+    const { name, data } = src === '__folder' ? await storage.folderData() : { name: src, data: await storage.profileData(src) };
+    if (name === storage.status().user) throw new Error('That folder holds this profile\'s own data.');
+    const r = await storage.bringIn(data, name);
+    const old = data.attempts.length - r.attempts;
+    $('dataOut').textContent = `${r.attempts} answers and ${r.runs} runs brought from "${name}".` + (old ? ` ${old} answers were already here.` : '') + (data.attempts.length ? '' : ` "${name}" has no answers in this browser or its folder.`);
+    if (r.attempts || r.runs) await rebuildAfterLogChange();
+  });
+  $('originList').onclick = act(async (e) => {
+    const b = e?.target?.closest('[data-origin]');
+    if (!b || !confirm(`Remove the ${b.previousElementSibling.textContent.trim()}?`)) return;
+    await storage.removeOrigin(b.dataset.origin);
+    await rebuildAfterLogChange();
+  });
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-restore]');
     if (btn) restoreBackup(Number(btn.dataset.restore));
@@ -615,7 +647,7 @@ async function checkForLostData(db) {
   const back = db.disk.restored;
   if (back?.attempts) {
     banner.querySelector('span').textContent =
-      `${back.attempts} answers and ${back.runs} runs for "${db.user}" were missing in this browser and were copied back from the disk copy (${db.disk.dir}\\${db.user}).`;
+      `${back.attempts} answers and ${back.runs} runs for "${db.user}" were missing in this browser and were copied back from the disk copy (${db.disk.dir}).`;
     banner.querySelector('[data-restore]').classList.add('hidden');
     banner.classList.remove('hidden');
     return;
@@ -640,38 +672,164 @@ async function switchUser(name) {
 function bindUsers(db) {
   const sel = $('userSelect');
   sel.innerHTML = storage.listUsers().map((u) => `<option value="${u}">${u}</option>`).join('') +
-    '<option value="__new">+ New user…</option>';
+    '<option value="__new">+ New profile…</option>';
   sel.value = db.user;
   sel.onchange = () => {
     if (sel.value !== '__new') return switchUser(sel.value);
-    const name = storage.sanitizeUser(prompt('New user name (letters, digits, - and _):') || '');
-    if (name) switchUser(name);
-    else sel.value = db.user;
+    sel.value = db.user;
+    showWelcome('new').then(() => location.reload());
   };
   document.body.classList.toggle('test-user', db.user === 'test');
   renderDbStatus();
 }
 
-// The header badge and Settings → Data line. Called again when Settings opens, since the
-// disk copy can come and go with the server.
+// Where the copy is, for the badge and the Data page
+const copyPlace = (db) => (db.disk.mode === 'folder' ? `folder "${db.disk.name}"` : `${db.disk.name || 'the data folder'}\\${db.user} (local server)`);
+// why there is none right now
+function noCopyReason(db) {
+  const d = db.disk;
+  if (d.needsPermission) return 'the data folder needs your permission again (Settings → Data → Reconnect)';
+  if (d.error) return d.error;
+  if (d.mode === 'server') return 'the local server (start.bat) is not reachable; writes are sent once it is back';
+  return d.supported ? 'no folder chosen (Settings → Data)' : 'this browser cannot write to a folder; export a JSON backup now and then';
+}
+
+// The header badge and Settings → Data lines. Called again when Settings opens and every
+// 5 s, since the disk copy can come and go with the server or the folder's permission.
 function renderDbStatus() {
   const db = storage.status();
-  const onDisk = db.persistent && db.disk.dir && !db.disk.error;
+  const d = db.disk;
+  const onDisk = db.persistent && d.dir && !d.error;
   const badge = $('dbBadge');
-  badge.textContent = !db.persistent ? 'NOT SAVED' : onDisk ? 'saved' : 'saved in browser only';
+  badge.textContent = !db.persistent ? 'NOT SAVED' : onDisk ? (d.mode === 'folder' ? 'saved to folder' : 'saved to disk') : d.needsPermission ? 'folder: reconnect' : 'saved in browser only';
   badge.classList.toggle('warn', !onDisk);
+  badge.classList.toggle('action', !!d.needsPermission);
   badge.title = !db.persistent
     ? `Could not open ${db.file} (${db.error}). Progress is kept in memory only — is the app open in another tab?`
-    : onDisk
-      ? `DuckDB ${db.version} · ${db.file} · disk copy in ${db.disk.dir}\\${db.user}`
-      : `DuckDB ${db.version} · ${db.file} · no disk copy: ${db.disk.error || 'the local server (start.bat) is not reachable'}. Writes are sent once it is back.`;
-  const diskText = !db.persistent ? ''
-    : onDisk ? ` · disk copy in ${db.disk.dir}\\${db.user}` + (db.disk.waiting ? ` (${db.disk.waiting} writes on their way)` : ' (up to date)')
-      : ` · NO disk copy right now (${db.disk.error || 'local server not reachable; run start.bat'})` + (db.disk.waiting ? `, ${db.disk.waiting} writes waiting` : '');
-  $('dbInfo').textContent = `User "${db.user}" · DuckDB ${db.version} · ${db.persistent ? db.file + ' + safety copy in IndexedDB' : 'in memory only: ' + db.error}` +
-    diskText +
+    : onDisk ? `DuckDB ${db.version} · ${db.file} · copy in ${copyPlace(db)}` : `DuckDB ${db.version} · ${db.file} · no copy outside this browser: ${noCopyReason(db)}`;
+  const waiting = d.waiting ? ` (${d.waiting} writes on their way)` : ' (up to date)';
+  $('dbInfo').textContent = `Profile "${db.user}" · DuckDB ${db.version} · ${db.persistent ? db.file + ' + safety copy in IndexedDB' : 'in memory only: ' + db.error}` +
+    (!db.persistent ? '' : onDisk ? ` · copy in ${copyPlace(db)}${waiting}` : ` · NO copy outside this browser right now: ${noCopyReason(db)}`) +
     (db.mirrorError ? ` · safety copy error: ${db.mirrorError}` : '') +
     (db.persisted ? ' · storage marked persistent' : ' · storage NOT marked persistent: the browser may clear it when disk space is low');
+  // the Data folder block
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  show('folderReconnectBtn', !!d.needsPermission);
+  show('folderCreateBtn', d.supported && db.persistent);
+  show('folderChooseBtn', d.supported && db.persistent);
+  show('folderForgetBtn', d.mode === 'folder');
+  $('folderCreateBtn').textContent = d.mode === 'none' ? 'Create a folder…' : 'Move to a new folder…';
+  $('folderInfo').textContent = d.mode === 'folder'
+    ? (d.needsPermission ? `Folder "${d.name}": the browser needs your permission again before it can write there.`
+      : d.error ? `Folder "${d.name}" could not be used: ${d.error}.`
+        : `Folder "${d.name}"` + (d.savedAt ? ` · last saved ${new Date(d.savedAt).toLocaleTimeString()}` : '') + '. Moving makes a new fretboard-<name> folder where you choose and copies everything there; the old folder is left as it is.')
+    : d.mode === 'server' ? `Written by the local server in ${d.name || 'the data folder'}\\${db.user}. You can keep a folder of your own instead (one inside OneDrive or Dropbox follows you to another computer).`
+      : d.supported ? 'No folder yet. Pick one on this computer: every answer is written there too, as small files (one per run), and a wiped browser refills itself from them. A folder inside OneDrive or Dropbox follows you to another computer.'
+        : 'Saving to a folder needs Chrome or Edge on a computer. Export JSON now and then to keep a copy elsewhere.';
+}
+
+// Settings → Data: the profiles to bring data from, and what was brought in
+async function renderDataPage() {
+  const me = storage.status().user;
+  const sel = $('bringFrom');
+  sel.innerHTML = storage.listUsers().filter((u) => u !== me).map((u) => `<option value="${u}">${u}</option>`).join('') +
+    (storage.diskStatus().supported ? '<option value="__folder">a folder…</option>' : '');
+  $('bringBtn').disabled = !sel.options.length;
+  const origins = await storage.origins();
+  $('originList').innerHTML = Object.entries(origins).map(([o, n]) => `<li><span>From "${o}" <span class="muted">· ${n} answers</span></span><button class="btn small" data-origin="${o}">Remove</button></li>`).join('');
+}
+
+// the model is replayed from the log, which has changed
+async function rebuildAfterLogChange() {
+  app.model.stale = true;
+  await applyBoardSettings();
+  await renderDataPage();
+}
+
+// ---------- profiles: welcome and picker ----------
+
+const STORE_TEXT = { folder: 'own folder', server: 'data folder next to the app', browser: 'this browser only' };
+
+// Resolves with the profile to open: on the first start (no profile yet), when several profiles
+// exist (once per tab), and from "+ New profile…" in the header. A profile made here lands on
+// the instrument page next (ft:firstRun).
+function showWelcome(mode) {
+  return new Promise((resolve) => {
+    const el = $('welcome');
+    const all = storage.profiles();
+    const names = storage.listUsers();
+    const ds = storage.diskStatus();
+    const form = $('newProfile');
+    const err = (e) => { $('welcomeError').textContent = e?.message || String(e || ''); };
+    document.body.classList.add('welcome');
+    $('loading').classList.add('hidden');
+    el.classList.remove('hidden');
+    const onKey = (e) => { if (e.key === 'Enter' && form.classList.contains('hidden')) $('profileList').querySelector('[data-pick]')?.click(); };
+    document.addEventListener('keydown', onKey);
+    const done = (name) => {
+      document.removeEventListener('keydown', onKey);
+      sessionStorage.setItem('ft:picked', '1');
+      document.body.classList.remove('welcome');
+      el.classList.add('hidden');
+      $('loading').classList.remove('hidden');
+      resolve(name);
+    };
+    const showList = () => {
+      $('welcomeTitle').textContent = names.length ? 'Who is practising?' : 'Welcome';
+      $('profileList').innerHTML = names.map((n) => {
+        const p = all[n];
+        const what = [p.instrument && INSTRUMENTS[p.instrument]?.name, p.tuning, p.lastUsed && 'last used ' + fmtDate(p.lastUsed), STORE_TEXT[p.store]].filter(Boolean).join(' · ');
+        return `<li><span><b>${n}</b> <span class="muted">${what}</span></span><button class="btn small primary" data-pick="${n}">Open</button></li>`;
+      }).join('');
+      form.classList.add('hidden');
+      $('welcomeChoice').classList.remove('hidden');
+    };
+    const showForm = () => {
+      $('welcomeTitle').textContent = names.length ? 'New profile' : 'Welcome';
+      $('welcomeChoice').classList.add('hidden');
+      form.classList.remove('hidden');
+      $('storeFolder').classList.toggle('hidden', !ds.supported);
+      $('storeServer').classList.toggle('hidden', !ds.local);
+      $('browserOnlyNote').textContent = ds.supported ? '— no copy anywhere else; export a JSON backup now and then' : '— Chrome or Edge on a computer can also save to a folder';
+      form.store.value = ds.local ? 'server' : ds.supported ? 'folder' : 'browser';
+      err('');
+      $('profileName').focus();
+    };
+    $('profileList').onclick = (e) => {
+      const b = e.target.closest('[data-pick]');
+      if (!b) return;
+      storage.setActiveUser(b.dataset.pick);
+      done(b.dataset.pick);
+    };
+    $('newProfileBtn').onclick = showForm;
+    $('cancelProfileBtn').onclick = showList;
+    $('profileName').oninput = () => { $('profileFolder').textContent = storage.sanitizeUser($('profileName').value) ? `(folder: fretboard-${storage.sanitizeUser($('profileName').value)})` : ''; };
+    $('openFolderBtn').onclick = async () => {
+      try {
+        const name = await storage.openProfileFolder();
+        storage.setActiveUser(name, 'folder');
+        done(name);
+      } catch (e) {
+        if (e.name !== 'AbortError') err(e);
+      }
+    };
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const name = storage.sanitizeUser($('profileName').value);
+      if (!name) return err('A name is needed: letters, digits, - and _.');
+      const store = form.store.value;
+      try {
+        if (store === 'folder') await storage.createProfileFolder(name);
+        if (!all[name]) sessionStorage.setItem('ft:firstRun', name);
+        storage.setActiveUser(name, store);
+        done(name);
+      } catch (e2) {
+        if (e2.name !== 'AbortError') err(e2);
+      }
+    };
+    if (mode === 'new') showForm();
+    else showList(); // the first start too: a folder from another computer can be opened
+  });
 }
 
 // Browser storage belongs to one address. The same app opened at another local address
@@ -691,6 +849,9 @@ function checkAddress() {
 // ---------- init ----------
 
 async function init() {
+  await storage.migrateProfiles();
+  const names = storage.listUsers();
+  if (!names.length || (names.length > 1 && !sessionStorage.getItem('ft:picked'))) await showWelcome('pick');
   let db;
   try {
     db = await storage.open();
@@ -845,6 +1006,17 @@ async function init() {
   checkForLostData(db);
   checkAddress();
   setInterval(renderDbStatus, 5000);
+  // a profile made on the welcome screen picks its instrument and tuning first
+  $('firstRunDone').onclick = () => {
+    $('firstRunNote').classList.add('hidden');
+    showView('practice');
+  };
+  if (sessionStorage.getItem('ft:firstRun') === db.user) {
+    sessionStorage.removeItem('ft:firstRun');
+    $('firstRunNote').classList.remove('hidden');
+    showView('settings');
+    openSettings('instrument');
+  }
 
   window.fretboardSelfTest = runSelfTest;
   performance.mark('app:ready');

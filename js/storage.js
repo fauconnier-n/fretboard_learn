@@ -332,7 +332,7 @@ export async function open() {
   return { ...info };
 }
 
-export const status = () => ({ ...info, disk: { ...info.disk, waiting: pending.attempts.length + pending.runs.length + (pending.kv ? 1 : 0) } });
+export const status = () => ({ ...info, disk: { ...info.disk, ...disk.status(), waiting: pending.attempts.length + pending.runs.length + (pending.kv ? 1 : 0) } });
 
 function markDirty() {
   dirty = true;
@@ -529,14 +529,23 @@ export async function createFolder() {
   await resync();
 }
 
-// an existing profile folder becomes this profile's copy; returns the name found inside it
-// when it is another one, so the caller can ask before going on
-export async function connectFolder(force = false) {
+// an existing profile folder becomes this profile's copy; when the folder holds another
+// profile's data, `accept(name)` is asked first
+export async function connectFolder(accept) {
   const { handle, name } = await disk.openFolder();
-  if (name !== info.user && !force) return name;
+  if (name !== info.user && !(await accept(name))) return false;
   await disk.useFolder(info.user, handle);
   await resync();
-  return info.user;
+  return true;
+}
+
+// before open, on the welcome screen: a new profile's folder, or a folder found (its name)
+export const diskStatus = disk.status;
+export const createProfileFolder = (name) => disk.createFolder(name);
+export async function openProfileFolder() {
+  const { handle, name } = await disk.openFolder();
+  await disk.useFolder(name, handle);
+  return name;
 }
 
 export async function reconnectFolder() {
@@ -554,6 +563,13 @@ export async function disconnectFolder() {
 // Answers and runs are logs: bringing another profile's in is a union of rows, tagged with
 // `origin`, that the models are then rebuilt from. Settings and models are not brought.
 // Anything that changes the tables must keep this a union (docs/learning-algorithm.md).
+
+// another profile's answers and runs: its safety copy in this browser, else its folder
+export async function profileData(name) {
+  const copy = await mirror.load(name);
+  return copy.attempts.length ? copy : (await disk.loadStored(name)) || copy;
+}
+export const folderData = disk.loadPicked;
 
 export async function bringIn(data, origin) {
   const have = new Set(rows(await conn.query('SELECT t, string_idx AS s, fret AS f FROM attempts')).map(attemptKey));
@@ -644,6 +660,9 @@ const attemptRow = (a) => {
 {
   const missing = ATTEMPT_COLS.filter((c) => !(c in attemptRow({})));
   if (missing.length) console.error('attemptRow is missing columns', missing);
+  // the log tables stay a union of rows (bringIn): every column nullable, rows built by name
+  const required = Object.values(TABLES).flatMap(({ cols }) => cols.filter(([, type]) => /NOT NULL/i.test(type)).map(([n]) => n));
+  if (required.length) console.error('log table columns must be nullable', required);
 }
 const attemptValues = (a) => {
   const row = attemptRow(a);
