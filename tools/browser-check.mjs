@@ -35,7 +35,7 @@ if (!stepsFile || !exe) {
 }
 const steps = (await import(pathToFileURL(resolve(stepsFile)).href)).default;
 const profile = join(tmpdir(), `fretboard-browser-check-${port}`);
-const proc = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run',
+const proc = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--mute-audio',
   '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
 
 let ws;
