@@ -389,7 +389,12 @@ body.in-run .prompt-area .name-buttons, body.in-run .prompt-area .tf-buttons { g
 body.in-run .prompt-queue:empty { display: none; }
 /* during a run nothing waits below the board: the page does not scroll */
 body.in-run .hint { display: none; }
-body.in-run .practice-bar { padding: 0 8px; }
+body.in-run .practice-bar { padding: 0 8px; min-height: 40px; }
+/* Stop: 6 px less tall around the same centre and text, so it never touches the top; the score
+   ring as tall, its digits as tall as a lower-case letter of the button (8 px) */
+body.in-run #startBtn { padding-top: 4px; padding-bottom: 4px; }
+body.in-run .acc-ring { width: 34px; height: 34px; }
+body.in-run .ring-txt { font-size: 11.6px; }
 
 /* phones: during a run the header and banners slide up out of the way, so the board fits */
 @media (max-width: 720px), (max-height: 500px) {
@@ -507,7 +512,10 @@ body.in-run .practice-bar { padding: 0 8px; }
 .tip-hist .tip-lbl { margin: 0 4px 0 0; }
 .tip-hist span.ok, .tip-hist span.miss { border-radius: 50%; display: inline-block; width: 8px; height: 8px; }
 .tip-note { display: inline-block; padding: 1px 7px; margin-right: 4px; border: 2px solid var(--ink); border-radius: 6px; background: var(--yellow); }
-.tip-lbl i.mark { width: 2px; height: 10px; border-radius: 0; background: var(--ink); }
+.tip-leg { display: flex; align-items: center; gap: 6px; }
+.tip-lbl i.legbar { position: relative; flex: none; width: 34px; height: 7px; border-radius: 4px; background: var(--panel2); }
+.tip-lbl i.legbar b { position: absolute; left: 0; top: 0; bottom: 0; width: 70%; border-radius: 4px; background: var(--steel); }
+.tip-lbl i.legbar u { position: absolute; left: 45%; top: -3px; bottom: -3px; width: 2px; background: var(--ink); }
 .tip-hist .ok { background: var(--green); }
 .tip-hist .miss { background: var(--red); }
 .tip-time i { position: relative; display: block; height: 22px; margin: 2px 4px 0; border-top: 2px solid var(--line); }
