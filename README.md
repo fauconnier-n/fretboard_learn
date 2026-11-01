@@ -64,6 +64,7 @@ The app needs no build. Node is only used for dev checks (`npm install` once):
 - `npm run lint`: ESLint.
 - `npm run typecheck`: type-checks the modules that start with `// @ts-check`.
 - `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as user `test`, walks through the main screens and saves a screenshot of each (the server must be running).
+- `npm run perf` (`node tools/perf.mjs [--out file.json] [--compare baseline.json] [--seed k]`): measures the app headless as user `test`: cold and warm start (the `app:*` and `db:*` marks of `js/main.js` and `js/storage.js`, visible in the console with `performance.getEntriesByType('mark')`), a run of answers and what it writes, layouts and paints per second during a run, the Stats tab, the end-of-run backup. `--seed k` multiplies the test user's answer log k times first. `tools/cdp.mjs` holds the headless-browser plumbing shared by both tools.
 
 Colours and design rules: [docs/design.md](docs/design.md).
 

@@ -15,6 +15,9 @@ import { renderStats } from './stats.js';
 import { renderProgress } from './progress.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
 
+// timing marks for tools/perf.mjs (performance.getEntriesByType('mark'|'measure') in the console)
+performance.mark('app:modules');
+
 const DEFAULTS = {
   deviceId: '',
   channel: 0,
@@ -76,7 +79,8 @@ function saveModel() {
   saveQueued = true;
   queueMicrotask(() => {
     saveQueued = false;
-    storage.set(app.modelKey, app.model);
+    const t = performance.now();
+    storage.set(app.modelKey, app.model).then(() => performance.measure('answer:save', { start: t }));
   });
 }
 
@@ -324,6 +328,7 @@ function showView(name) {
 }
 
 async function showStats() {
+  performance.mark('stats:start');
   const attemptCount = await storage.countAttempts();
   const weekAgo = new Date().setHours(0, 0, 0, 0) - 6 * 86400000; // today and the 6 days before
   const monthAgo = Date.now() - 30 * 86400000;
@@ -362,6 +367,7 @@ async function showStats() {
     known,
     total: app.strings.length * (app.settings.frets + 1),
   });
+  performance.measure('stats:render', 'stats:start');
 }
 
 function updateModeUI() {
@@ -486,9 +492,11 @@ const REASONS = { run: 'after a run', manual: 'manual', 'before restore': 'befor
 
 async function makeBackup(reason) {
   if (!storage.status().persistent) return; // a NOT SAVED tab must not back up its empty in-memory data
+  const t = performance.now();
   try {
     await storage.set(app.modelKey, app.model);
     await backup.save(storage.status().user, await storage.exportAll(), reason);
+    performance.measure('run:backup', { start: t });
     if (app.view === 'settings') await renderBackups();
   } catch (e) {
     console.error('Backup failed', e);
@@ -672,6 +680,7 @@ async function init() {
     console.error(e);
     return;
   }
+  performance.mark('app:db');
   $('loading').remove();
   bindUsers(db);
   // console helpers; ft.strum() acts like a muted strum (for testing without a guitar)
@@ -804,6 +813,7 @@ async function init() {
   refreshChannels();
   await refreshDevices();
   await applyBoardSettings();
+  performance.mark('app:board');
   checkForLostData(db);
   checkAddress();
   setInterval(renderDbStatus, 5000);
@@ -812,6 +822,7 @@ async function init() {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+  performance.mark('app:ready');
 }
 
 init();

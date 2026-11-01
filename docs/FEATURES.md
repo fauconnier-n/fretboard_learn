@@ -124,6 +124,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Performance measurement: `npm run perf` (`tools/perf.mjs`) times cold and warm starts, a run of answers and its writes, the run loop, Stats and the end-of-run backup in headless Edge, with timing marks in `main.js` and `storage.js`; `--compare` shows the change against a saved baseline. No change to the app itself.
 - **2026-11-01** — Checked with a 9-string guitar: during a run the view is at most six strings high, so the board fits a phone held sideways; banners hide during runs on phones. Name the note: piano-style buttons of one size, sharps or flats as set in Settings → Practice (hints after a miss follow it).
 - **2026-11-01** — Answer animation settled: green confetti when right, red fireworks when wrong (the style setting is gone). The board zooms in on the zone during a run; bigger circles and names on it. On phones the header and run settings slide away during a run. Headless screenshot runs are muted.
 - **2026-11-01** — The answer flash is replaced by shapes thrown out of the asked note (fireworks, splat, confetti or stars; Settings → Practice). The zone's thicker bottom and right edges are now a filled shadow of its shape, like the buttons', with no seam. The board no longer moves when "Show me" or a hint appears.
