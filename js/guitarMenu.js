@@ -26,6 +26,15 @@ export class GuitarMenu {
       const row = /** @type {HTMLElement} */ (e.target).closest?.('[data-opt]');
       if (row instanceof HTMLElement) this.pick(+(row.dataset.opt ?? -1));
     });
+    // a focused row answers Enter/Space itself: the page's own Enter (the primary option) must not run
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = /** @type {HTMLElement} */ (e.target).closest?.('[data-opt]');
+      if (!(row instanceof HTMLElement)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.pick(+(row.dataset.opt ?? -1));
+    });
   }
 
   /**

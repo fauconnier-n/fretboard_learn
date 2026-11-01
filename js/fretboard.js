@@ -110,6 +110,8 @@ export class Fretboard {
   }
 
   render() {
+    // running vibrations draw on the old strings: cancelled before the map is replaced
+    for (const s of [...(this.vibes?.keys() || [])]) this.stopVibe(s);
     const svg = this.svg;
     const n = this.strings.length;
     svg.innerHTML = '';
