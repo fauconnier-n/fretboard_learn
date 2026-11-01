@@ -121,6 +121,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Clouds a bit less dense, with a softer, more gradual edge and less pill-like corners. The zone contour gets a button-like offset line, so its bottom and right edges look thicker.
+
 - **2026-11-01** — The zone is drawn as one thin contour with rounded corners, no fill. Clouds: soft edges, a wider solid band, much denser when practised. Stats: notes open per octave, a full-width Progress tile; "Hardest unlocked zones" and "Recent runs" removed.
 - **2026-11-01** — Pill-shaped clouds with a gradual vertical fade. After a run: Done, menu, then the run's notes on the neck (progress rings with names), then the details.
 - **2026-11-01** — Confusion boxes removed. Knowledge-map clouds: red → orange → yellow → green like the note bars, rounder, soft progressive edges, size and density by questions asked; note names on the Stats map and on the practice board after a run. A finished run shows its results first. (#10 restored #6–#9, which had been merged into their stacked branches instead of main.)
