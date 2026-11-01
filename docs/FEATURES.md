@@ -64,7 +64,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Answer shown automatically** after about 2.5× your expected time for that note (4–8 s, capped by the "Longest wait" setting). **Show me** (or H) shows it at any time. Both count as a miss.
 - **Check-up prompts:** every 10th prompt is a random position of the zone, with no names shown, as an honest measure.
 - **Before a run:** welcome back after a break, number of fading notes, and your practice plan if you wrote one.
-- **After a run**, in this order: **Done**, the open-string **menu**, the **neck with the run's notes** (each position asked shows its name on the left, in red if it was missed in this run, and three small bars on the right: known in green, fast in yellow, automatic in ink; a legend sits under the board; hovering a position opens a popup with what happened in the run; a switch shows **This run** or **All runs · this tuning**, the knowledge map of every run on this instrument and tuning), then the details: right first time, median vs usual time, check-ups, cued prompts, notes due tomorrow, a dot plot of answer times, faster-than-usual and needs-work lists, a near-miss line and the tempo change in beat mode.
+- **After a run**, in this order: **Done**, the open-string **menu**, the **neck with the run's notes** (each position asked shows its name on the left, in red if it was missed in this run, and three small bars on the right: known in green, fast in yellow, automatic in ink; a legend sits under the board; hovering a position opens a popup with what happened in the run, and a click or tap pins it (a grey cross or a click elsewhere closes it); a switch shows **This run** or **All runs**, the knowledge map of every run on this instrument and tuning). Popups appear only after a run and on the Stats map, never before or during a run), then the details: right first time, median vs usual time, check-ups, cued prompts, notes due tomorrow, a dot plot of answer times, faster-than-usual and needs-work lists, a near-miss line and the tempo change in beat mode.
 - Keyboard and click fallback for playing without a guitar.
 
 ## Intervals
@@ -100,7 +100,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Reliance on note names:** results by what the board showed, and a fitted odds multiplier for the asked note's own name and for nearby names.
 
 ## Data and storage
-- Profiles, each with its own database; `test` is for trying things (shown with a TEST DATA badge).
+- Profiles, each with its own database; `test` is for trying things.
 - DuckDB-WASM (core v2.0.0-dev) with one file per profile in the browser's private file system (OPFS). The worker is patched so a checkpoint really reaches the disk. Data is flushed after writes, at the end of each run, and when the page is hidden or closed.
 - Tables: `kv` (settings, and per instrument the model's version and `meta`: target, run history, best runs, fitted decay; the cards themselves are replayed from the log at every start), `attempts` (one row per prompt), `runs` (one row per run).
 - `attempts` logs:
@@ -127,6 +127,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — Popups open on a click or tap too (for phones), with a close cross; a click elsewhere closes them; none before or during a run. The switch reads This run / All runs. The test profile has no special badge or colour any more.
 
 - **2026-11-01** — After a run: each note as its name plus three bars (known, fast, automatic; green, yellow, ink instead of green and blue rings), a legend, popups with details on hover (this run after a run, all runs on the Stats map and the practice board), and a This run / All runs · this tuning switch. During a run the prompt keeps the note in place whatever the text length, the texts are shorter, and the run settings stay in the menu before the run. *With an instrument* / *No instrument on hand* instead of Guitar / No guitar.
 
