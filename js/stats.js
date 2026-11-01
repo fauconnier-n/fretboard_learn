@@ -64,7 +64,7 @@ export function detailHtml(scheduler, key, { note, title, runMs = [], keys = [ke
   const seen = cards.reduce((t, c) => t + c.seen, 0);
   const acc = seen ? cards.reduce((t, c) => t + c.acc * c.seen, 0) / seen : 0;
   return `<div class="tip-title"><span class="tip-note">${note}</span> ${title}</div>${row('known', 'known')}${row('fast', 'fast')}${row('auto', 'automatic')}` +
-    (before ? '<div class="tip-lbl tip-leg"><i class="legbar"><b></b><u></u></i> line: before your last session</div>' : '') +
+    (before ? '<div class="tip-lbl tip-leg"><i class="legline"></i> before this session</div>' : '') +
     `<div class="tip-hist"><span class="tip-lbl">last ${card?.hist?.length || 0}</span>${hist}</div>` +
     `<div class="tip-lbl">time · <i class="floor"></i> quickest 10%${usual ? ' · <i class="usual"></i> usual' : ''}${runMs.length ? ' · <i class="run"></i> this run' : ''}</div>${line}` +
     `<div class="tip-foot">Asked ${seen}× · ${pct(acc)} right${usual ? ` · usually ${(usual / 1000).toFixed(1)} s` : ''}</div>`;

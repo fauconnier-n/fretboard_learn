@@ -128,7 +128,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
-- **2026-11-01** — During a run, Stop is 6 px less tall around the same centre (so it no longer touches the top of the screen) and the score ring is as tall, its digits as tall as the button's lower-case letters. Popups have a legend for the line on the bars: a small bar with its line, "line: before your last session".
+- **2026-11-01** — During a run, Stop is 6 px less tall around the same centre (so it no longer touches the top of the screen) and the score ring is as tall, its digits as tall as the button's lower-case letters. Popups have a legend for the line on the bars: a black line, "before this session".
 
 - **2026-11-01** — Popups: the note and fret in a yellow box instead of a copy of the card; the last 15 answers as same-size dots; every bar has a mark where it stood before your last session on that position (a session starts after 30 min without answering it), on Stats too; "fast end" is called *quickest 10%*. During a run the page no longer scrolls (nothing waits below the board; on a phone held sideways the feedback line hides too), and the run bar sits a little in from the edges.
 
