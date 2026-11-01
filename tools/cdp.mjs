@@ -50,9 +50,15 @@ export async function launch({ port = 9333, profileName = `fretboard-browser-che
     }
     for (const fn of listeners.get(msg.method) || []) fn(msg.params);
   };
+  // a browser that dies mid-run must fail the call, not hang the tool
   const send = (method, params = {}) => new Promise((res, rej) => {
     const i = ++id;
     pending.set(i, { res, rej });
+    setTimeout(() => {
+      if (!pending.has(i)) return;
+      pending.delete(i);
+      rej(new Error(method + ': no answer from the browser in 4 minutes'));
+    }, 240000).unref();
     ws.send(JSON.stringify({ id: i, method, params }));
   });
   // runs `expression` in the page, awaiting a returned promise, and returns its value
