@@ -39,6 +39,14 @@ $noop = 'syncFile:(l,r)=>{}'
 $flush = 'syncFile:(l,r)=>{let a=k.getFileInfo(l,r);if((a==null?void 0:a.dataProtocol)===3){let h=k._files==null?void 0:k._files.get(a.fileName);h&&typeof h.flush=="function"&&h.flush()}}'
 if ($t.Contains($noop)) { [IO.File]::WriteAllText($worker, $t.Replace($noop, $flush), (New-Object Text.UTF8Encoding $false)) }
 else { Write-Warning 'syncFile patch not applied: check whether this version still needs it (see js/storage.js flush)' }
+# Start-up patch: the worker pipes the wasm download through a TransformStream to report progress
+# (unused here), which hands instantiateStreaming a synthetic Response, so the browser compiles the
+# 34 MB module from scratch on every start. The plain fetch() path lets it keep the compiled code.
+$t = [IO.File]::ReadAllText($worker)
+$progress = 'if(typeof TransformStream=="function"){'
+$warn = 'console.warn("instantiating without progress handler since transform streams are unavailable");'
+if ($t.Contains($progress)) { [IO.File]::WriteAllText($worker, $t.Replace($progress, 'if(!1){').Replace($warn, ''), (New-Object Text.UTF8Encoding $false)) }
+else { Write-Warning 'progress-stream patch not applied: check instantiateWasm in the worker' }
 
 Save-Text 'VERSION' "@duckdb/duckdb-wasm@$Version`n"
 Get-ChildItem $out | ForEach-Object { '{0,10}  {1}' -f $_.Length, $_.Name }
