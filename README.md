@@ -15,7 +15,7 @@ Everything the app does, with a dated change log: [docs/FEATURES.md](docs/FEATUR
 ## Users and storage
 
 Data lives in **DuckDB** (WASM build of core v2.0.0-dev, pinned in `vendor/duckdb/VERSION`). Each user gets its own database file in the browser's private file system: `opfs://fretboard-<user>.duckdb`. It has three tables:
-- `kv` holds settings and models.
+- `kv` holds the settings and, per set of strings, what the model keeps between starts: its version and `meta` (difficulty target, run history, best runs, fitted decay). The knowledge itself (cards, note stats, contexts, confusions) is replayed from `attempts` at every start and saved only at the end of a run, so answering costs one row, not a 100 KB rewrite.
 - `attempts` holds one row per prompt: the first answer and its time, the time to the right note, each wrong note and when it was played, and the prompt asked just before.
 - `runs` holds one row per run: zone, mode (prompts or sprint) and its length, settings in use, and how it ended (`completed`, `time_up`, `stopped`, `left` for another tab or a board change, `closed` if the page was closed mid-run). `attempts.run_id` links the two.
 
