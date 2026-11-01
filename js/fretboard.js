@@ -111,7 +111,6 @@ export class Fretboard {
     this.view = [0, 0, this.W, this.H];
     svg.setAttribute('viewBox', this.view.join(' '));
     const defs = el('defs', {}, svg);
-    this.mask = el('mask', { id: this.id + '-mask' }, defs);
     // a light blur so the clouds of the knowledge map have no hard edge
     el('feGaussianBlur', { stdDeviation: '2.4' }, el('filter', { id: this.id + '-soft', x: '-20%', y: '-40%', width: '140%', height: '180%' }, defs));
 
@@ -147,7 +146,9 @@ export class Fretboard {
     }
 
     this.layers = {
-      dim: el('rect', { x: 0, y: 0, width: this.W, height: this.H, class: 'fb-dim', mask: `url(#${this.id}-mask)`, visibility: 'hidden' }, svg),
+      // the board minus the zone, as one path with a hole: a mask would be rasterised again at
+      // every repaint of the board (each vibration, ripple or zoom frame)
+      dim: el('path', { class: 'fb-dim', 'fill-rule': 'evenodd', visibility: 'hidden' }, svg),
       zone: el('g', {}, svg),
       heat: el('g', {}, svg),
       marks: el('g', { class: 'fb-marks' }, svg),
@@ -167,21 +168,18 @@ export class Fretboard {
   setZone(cells) {
     const { zone, dim } = this.layers;
     zone.innerHTML = '';
-    this.mask.innerHTML = '';
     if (!cells) {
       dim.setAttribute('visibility', 'hidden');
       return;
     }
-    el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, this.mask);
-    for (const c of cells) el('rect', { ...this.cellRect(c.s, c.f), fill: 'black' }, this.mask);
     const d = zoneOutline(cells.map((c) => this.cellRect(c.s, c.f)));
+    const outside = `M0 0H${this.W}V${this.H}H0Z${d}`; // the board with the zone cut out (even-odd)
+    dim.setAttribute('d', outside);
     // like the buttons' shadow: the zone's shape filled and shifted 2 px down and right, seen
     // only outside the zone, so the edges facing right and down look thicker, with no seam
-    const outside = el('mask', { id: this.id + '-zone-out' }, zone);
-    el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, outside);
-    el('path', { d, fill: 'black' }, outside);
-    // the mask sits on an unshifted group: on the shifted path it would move with it
-    el('path', { d, class: 'fb-zone-shadow', transform: 'translate(2 2)' }, el('g', { mask: `url(#${this.id}-zone-out)` }, zone));
+    el('path', { d: outside, 'clip-rule': 'evenodd' }, el('clipPath', { id: this.id + '-zone-out' }, zone));
+    // the clip sits on an unshifted group: on the shifted path it would move with it
+    el('path', { d, class: 'fb-zone-shadow', transform: 'translate(2 2)' }, el('g', { 'clip-path': `url(#${this.id}-zone-out)` }, zone));
     el('path', { d, class: 'fb-zone' }, zone);
     dim.setAttribute('visibility', 'visible');
   }

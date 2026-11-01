@@ -182,7 +182,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-mark.good .dot { fill: var(--green); stroke: #fff; filter: drop-shadow(0 0 6px var(--green)); }
 .fb-mark.bad .dot { fill: var(--red); stroke: #fff; filter: drop-shadow(0 0 6px var(--red)); }
 .fb-mark.bad .lbl { fill: #fff; }
-.fb-mark.reveal .dot { fill: rgba(60, 189, 43, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s ease-in-out infinite; }
+.fb-mark.reveal .dot { fill: rgba(60, 189, 43, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s steps(8) infinite; }
 .fb-mark.reveal .lbl { fill: var(--green); }
 .fb-mark .ripple { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ripple .7s ease-out forwards; }
 .fb-mark.good .ripple { stroke: var(--green); }
@@ -196,7 +196,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-ring-lbl.missed { fill: var(--red); }
 @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 @keyframes ripple { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
+/* in steps: a pulsing mark inside the SVG repaints the board at every change, 8 times a second instead of 60 */
 @keyframes pulse { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .fb-mark.ask .dot, .fb-mark.reveal .dot { animation: none; } }
 
 /* ---------- summary ---------- */
 .summary { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
@@ -287,7 +289,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 /* like a piano: 14 half-button columns, each button two wide, sharps or flats on the top row */
 .name-buttons { display: grid; grid-template-columns: repeat(14, 27px); justify-content: center; row-gap: 6px; margin-top: 10px; }
 .name-buttons .btn { margin: 0 3px; padding-left: 0; padding-right: 0; min-width: 0; justify-content: center; }
-.fb-mark.ask .dot { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; animation: pulse 1s ease-in-out infinite; }
+.fb-mark.ask .dot { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; animation: pulse 1s steps(8) infinite; }
 .fb-mark.ask .lbl { fill: var(--ink); }
 .tomorrow { margin: 0 0 12px; font-size: 14px; }
 .check-table { border-collapse: collapse; font-size: 12px; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }

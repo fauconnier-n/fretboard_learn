@@ -67,6 +67,8 @@ const median = (xs) => {
   return s[s.length >> 1];
 };
 
+const write = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+
 export class Quiz {
   // o: { board, els, getSettings, getScheduler, getZones, getStrings, isActive, onAttempt, onRun, onSave, onRunEnd, sound }
   constructor(o) {
@@ -661,20 +663,25 @@ export class Quiz {
     }
   }
 
+  // Every frame while a run is on. DOM writes only when the text or width changes: a write per
+  // frame cost a layout per frame (the timer text changes 10 times a second, the bar rarely).
   tick() {
     const run = this.run;
     if (!run || !this.running) return;
     const now = performance.now();
     const e = this.els;
-    if (this.state === 'await' && this.cur) e.timer.textContent = ((now - this.cur.shownAt) / 1000).toFixed(1) + ' s';
+    if (this.state === 'await' && this.cur) write(e.timer, ((now - this.cur.shownAt) / 1000).toFixed(1) + ' s');
+    let left = Infinity;
+    let fill;
     if (run.endsAt) {
-      const left = Math.max(0, run.endsAt - now);
-      e.fill.style.width = (100 * left) / (run.endsAt - run.startedAt) + '%';
-      e.progress.textContent = `${Math.ceil(left / 1000)} s · ${run.results.length} answered`;
-      if (left <= 0) return this.end('time_up');
+      left = Math.max(0, run.endsAt - now);
+      fill = ((100 * left) / (run.endsAt - run.startedAt)).toFixed(1) + '%';
+      write(e.progress, `${Math.ceil(left / 1000)} s · ${run.results.length} answered`);
     } else {
-      e.fill.style.width = (100 * run.results.length) / run.total + '%';
+      fill = ((100 * run.results.length) / run.total).toFixed(1) + '%';
     }
+    if (e.fill.style.width !== fill) e.fill.style.width = fill;
+    if (left <= 0) return this.end('time_up');
     this.raf = requestAnimationFrame(() => this.tick());
   }
 

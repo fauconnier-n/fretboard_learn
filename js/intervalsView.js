@@ -75,6 +75,7 @@ export class IntervalsView {
   clearTimers() {
     this.timers.forEach(clearTimeout);
     this.timers = [];
+    cancelAnimationFrame(this.raf);
   }
 
   // The tab was opened: per-item stats from the answer log.
@@ -181,10 +182,12 @@ export class IntervalsView {
       : '';
   }
 
+  // the answer timer, written only when its text changes (a write per frame cost a layout per frame)
   tick() {
     if (this.state !== 'await' || !this.cur) return;
-    this.els.timer.textContent = ((performance.now() - this.cur.shownAt) / 1000).toFixed(1) + ' s';
-    requestAnimationFrame(() => this.tick());
+    const text = ((performance.now() - this.cur.shownAt) / 1000).toFixed(1) + ' s';
+    if (this.els.timer.textContent !== text) this.els.timer.textContent = text;
+    this.raf = requestAnimationFrame(() => this.tick());
   }
 
   // ev: { midi, t } with t in performance.now() time
