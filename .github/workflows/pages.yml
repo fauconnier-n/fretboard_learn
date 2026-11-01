@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 env:
   # what js/version.js says and what the archives are named after
-  VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+  VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
 jobs:
   check:
     runs-on: ubuntu-latest
