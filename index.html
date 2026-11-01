@@ -9,6 +9,12 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
+  <!-- the longest import chain (main → storage → duckdb-wasm → apache-arrow → flatbuffers/tslib), fetched at once -->
+  <link rel="modulepreload" href="js/storage.js">
+  <link rel="modulepreload" href="vendor/duckdb/duckdb-wasm.mjs">
+  <link rel="modulepreload" href="vendor/duckdb/apache-arrow.mjs">
+  <link rel="modulepreload" href="vendor/duckdb/flatbuffers.mjs">
+  <link rel="modulepreload" href="vendor/duckdb/tslib.mjs">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>

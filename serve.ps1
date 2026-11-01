@@ -21,7 +21,7 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 
 function Log([string]$msg) { Write-Host ("{0:HH:mm:ss} {1}" -f (Get-Date), $msg) }
 
-function Reply([int]$code, [string]$type, [byte[]]$bytes) { @{ code = $code; type = $type; bytes = $bytes } }
+function Reply([int]$code, [string]$type, [byte[]]$bytes, [hashtable]$headers = @{}) { @{ code = $code; type = $type; bytes = $bytes; headers = $headers } }
 function Text([int]$code, [string]$text) { Reply $code 'text/plain; charset=utf-8' $utf8.GetBytes($text) }
 
 function Start-Listener {
@@ -93,14 +93,22 @@ function Invoke-Api($req, [string]$path) {
   Text 405 'Method not allowed'
 }
 
-function Get-Static([string]$path) {
+# Static files answer conditional requests with 304 (ETag from size and modification time), so a
+# reload re-reads only files that changed. The vendored DuckDB files (34 MB, version pinned; an
+# upgrade bumps the cache name in sw.js) may be kept for a year without asking again.
+function Get-Static($req, [string]$path) {
   if ($path -eq '/') { $path = '/index.html' }
   $full = [IO.Path]::GetFullPath((Join-Path $root $path.TrimStart('/')))
   $inData = $full.StartsWith($dataDir + '\', [StringComparison]::OrdinalIgnoreCase)
   if (-not $inData -and $full.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $full -PathType Leaf)) {
+    $item = Get-Item -LiteralPath $full
+    $etag = '"{0:x}-{1:x}"' -f $item.Length, $item.LastWriteTimeUtc.Ticks
+    $headers = @{ 'ETag' = $etag; 'Last-Modified' = $item.LastWriteTimeUtc.ToString('R') }
+    if ($path.StartsWith('/vendor/')) { $headers['Cache-Control'] = 'public, max-age=31536000, immutable' }
+    if ($req.Headers['If-None-Match'] -eq $etag) { return Reply 304 '' @() $headers }
     $ext = [IO.Path]::GetExtension($full).ToLower()
     $type = if ($mime.ContainsKey($ext)) { $mime[$ext] } else { 'application/octet-stream' }
-    return Reply 200 $type ([IO.File]::ReadAllBytes($full))
+    return Reply 200 $type ([IO.File]::ReadAllBytes($full)) $headers
   }
   Text 404 'Not found'
 }
@@ -112,10 +120,12 @@ function Handle-Request($ctx) {
   $res = $ctx.Response
   try {
     $path = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath)
-    $r = if ($path.StartsWith('/api/')) { Invoke-Api $ctx.Request $path } else { Get-Static $path }
+    $r = if ($path.StartsWith('/api/')) { Invoke-Api $ctx.Request $path } else { Get-Static $ctx.Request $path }
     $res.StatusCode = $r.code
-    $res.ContentType = $r.type
+    if ($r.type) { $res.ContentType = $r.type }
     $res.Headers.Add('Cache-Control', 'no-cache')
+    if ($r.headers) { foreach ($h in $r.headers.Keys) { $res.Headers[$h] = $r.headers[$h] } }
+    if ($r.code -eq 304) { $res.Close(); return }
     $res.ContentLength64 = $r.bytes.Length
     if ($ctx.Request.HttpMethod -ne 'HEAD') { $res.OutputStream.Write($r.bytes, 0, $r.bytes.Length) }
   } catch [System.Net.HttpListenerException], [System.IO.IOException] {
