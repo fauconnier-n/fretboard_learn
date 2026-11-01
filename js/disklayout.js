@@ -49,6 +49,19 @@ export const parseJsonl = (text) => text.split('\n').flatMap((l) => {
 
 export const attemptKey = (a) => `${a.t}|${a.s}|${a.f}`;
 
+// The [key, JSON text] entries of the disk's kv that the browser takes: keys it lacks, and values
+// saved later than its own (settings carry savedAt, main.js saveSettings); otherwise the
+// browser's value wins.
+const savedAt = (text) => {
+  try {
+    return JSON.parse(text)?.savedAt || 0;
+  } catch {
+    return 0;
+  }
+};
+export const kvFromDisk = (remote, local) =>
+  Object.entries(remote).filter(([k, v]) => typeof v === 'string' && (!(k in local) || savedAt(v) > savedAt(local[k])));
+
 // Everything read from a profile folder, as {kv, attempts, runs}. Files may overlap (a synced
 // folder's "conflicted copy", a write repeated after a failure): answers are kept once by time
 // and position, runs once by run_id, a finished run beating an open one.

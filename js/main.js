@@ -59,6 +59,7 @@ const $ = (id) => document.getElementById(id);
 const app = {
   levelTick: 0,
   settings: null,
+  settingsAt: 0, // savedAt of the settings in use
   model: null,
   modelKey: null,
   scheduler: null,
@@ -100,7 +101,11 @@ const AUDIO_KEYS = ['deviceId', 'channel', 'gain', 'gate', 'clarity', 'latencyMs
 const audioPart = (s, audio) => Object.fromEntries(Object.entries(s).filter(([k]) => AUDIO_KEYS.includes(k) === audio));
 
 function saveSettings() {
-  storage.set('settings', { ...audioPart(app.settings, false), savedAt: Date.now() });
+  // settings saved later came in from the disk meanwhile (a folder connected, a sync retried in
+  // the background): they win, so show them rather than write these over them
+  if ((storage.get('settings')?.savedAt || 0) > app.settingsAt) return location.reload();
+  app.settingsAt = Date.now();
+  storage.set('settings', { ...audioPart(app.settings, false), savedAt: app.settingsAt });
   storage.rememberSettings(app.settings);
 }
 
@@ -514,11 +519,18 @@ function bindData() {
     }
     renderDbStatus();
   };
-  $('folderCreateBtn').onclick = act(() => storage.createFolder());
-  $('folderChooseBtn').onclick = act(() => storage.connectFolder((other) => confirm(`This folder holds the data of "${other}". Use it for "${storage.status().user}" anyway? The answers of both are merged.`)));
-  $('folderReconnectBtn').onclick = act(() => storage.reconnectFolder());
+  // a folder whose settings were saved later brings them in: reload to use them, or the next
+  // save would write the settings on screen over them
+  const folderAct = (fn) => act(async () => {
+    const before = storage.get('settings')?.savedAt;
+    await fn();
+    if (storage.get('settings')?.savedAt !== before) location.reload();
+  });
+  $('folderCreateBtn').onclick = folderAct(() => storage.createFolder());
+  $('folderChooseBtn').onclick = folderAct(() => storage.connectFolder((other) => confirm(`This folder holds the data of "${other}". Use it for "${storage.status().user}" anyway? The answers of both are merged.`)));
+  $('folderReconnectBtn').onclick = folderAct(() => storage.reconnectFolder());
   $('dbBadge').onclick = () => { if (storage.status().disk.needsPermission) $('folderReconnectBtn').click(); };
-  $('folderForgetBtn').onclick = act(() => storage.disconnectFolder());
+  $('folderForgetBtn').onclick = folderAct(() => storage.disconnectFolder());
   $('bringBtn').onclick = act(async () => {
     const src = $('bringFrom').value;
     const { name, data } = src === '__folder' ? await storage.folderData() : { name: src, data: await storage.profileData(src) };
@@ -875,6 +887,7 @@ async function init() {
   const machine = AUDIO_KEYS.some((k) => k in last) ? last : stored;
   app.settings = { ...DEFAULTS, ...last, ...audioPart(stored, false), ...audioPart(machine, true) };
   delete app.settings.savedAt;
+  app.settingsAt = stored.savedAt || 0;
   if (!Number.isInteger(app.settings.channel)) app.settings.channel = 0; // was saved as NaN by an old bug
   if (app.settings.runTask === 'mixed') app.settings.runTask = 'play'; // mixed runs were removed
   // tunings from before the standard/drop switch

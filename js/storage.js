@@ -12,7 +12,7 @@
 
 import * as idb from './idb.js';
 import * as disk from './disk.js';
-import { attemptKey, sanitizeUser } from './disklayout.js';
+import { attemptKey, kvFromDisk, sanitizeUser } from './disklayout.js';
 
 const PROFILES_KEY = 'ft:profiles';
 const ACTIVE_KEY = 'ft:activeUser';
@@ -289,7 +289,9 @@ export async function flush() {
 // and on the badge; the disk copy still gets it.
 const stored = (write) => {
   if (!info.persistent) return Promise.resolve();
-  return write().catch((e) => {
+  return write().then(() => {
+    info.storeError = '';
+  }, (e) => {
     info.storeError = e.message || String(e);
     console.error('IndexedDB write failed', e);
   });
@@ -303,15 +305,7 @@ function addToLog(list) {
 
 // ---------- disk copy ----------
 
-const runText = (r) => JSON.stringify(runValues(toRun(r)));
-// settings carry the time they were saved (main.js saveSettings), so the newer side wins
-const savedAt = (text) => {
-  try {
-    return JSON.parse(text)?.savedAt || 0;
-  } catch {
-    return 0;
-  }
-};
+const runText = (r) => JSON.stringify(toRun(r));
 
 // Copy whatever is missing across, both ways. Answers are matched by time and position,
 // runs by run_id (a finished run beats an open one, otherwise the browser's row wins),
@@ -345,7 +339,7 @@ async function syncDisk() {
       .filter((r) => !remote.runs[r.run_id] || (runText(r) !== runText(remote.runs[r.run_id]) && !runsToLocal.some((x) => x.run_id === r.run_id)));
 
     const localKv = mem.kv;
-    const kvToLocal = Object.entries(remote.kv).filter(([k, v]) => typeof v === 'string' && (!(k in localKv) || savedAt(v) > savedAt(localKv[k])));
+    const kvToLocal = kvFromDisk(remote.kv, localKv);
     if (toLocal.length) kvToLocal.push(...staleEntries({ ...localKv, ...Object.fromEntries(kvToLocal) }));
 
     if (toLocal.length || runsToLocal.length || kvToLocal.length) {
@@ -599,7 +593,6 @@ const attemptRow = (a) => {
 // A run row is a plain object with the RUN_COLS fields. It is written when the run
 // starts and again when it ends.
 
-const runValues = (r) => RUN_COLS.map((c) => (r[c] === undefined ? null : r[c]));
 const RUN_INTS = new Set(['run_count', 'sprint_sec', 'zone_span', 'zone_fret_min', 'zone_fret_max', 'timeout_sec', 'prompts', 'correct', 'median_ms', 'due_at_start']);
 // every column, integers rounded, so copies compare equal
 const toRun = (r) => Object.fromEntries(RUN_COLS.map((c) => {
@@ -668,11 +661,12 @@ export const allAttempts = () => mem.attempts.slice();
 
 export const countAttempts = () => mem.attempts.length;
 
-// Every row of one of the TABLES by column name, oldest first (console: ft.rows('attempts')).
-export function rows(table) {
+// Every row of one of the TABLES by column name, oldest first (console: ft.rows('attempts')),
+// or only those of `list`.
+export function rows(table, list) {
   if (!TABLES[table]) throw new Error('Unknown table ' + table);
-  if (table === 'runs') return allRuns();
-  return mem.attempts.map((a) => {
+  if (table === 'runs') return list || allRuns();
+  return (list || mem.attempts).map((a) => {
     const r = attemptRow(a);
     return Object.fromEntries(ATTEMPT_COLS.map((c) => [c, r[c] ?? null]));
   });
@@ -680,8 +674,8 @@ export function rows(table) {
 
 // Newest rows of one of the TABLES, for the table viewer in Settings.
 export function tableRows(table, limit = 50) {
-  const list = rows(table);
-  return { total: list.length, rows: list.slice(-Math.round(limit)).reverse() };
+  const all = table === 'runs' ? allRuns() : mem.attempts;
+  return { total: all.length, rows: rows(table, all.slice(-Math.round(limit))).reverse() };
 }
 
 export function exportAll() {
