@@ -73,7 +73,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Learning model
 - FSRS-6 memory card per item (position × spelling, plus "name" cards), with a decay you can fit to your own answers.
 - Grades 1–4 from right/wrong plus answer time compared with your expected time for that item. A first sighting is capped at Good.
-- Speed model separate from memory: a running mean and spread of log answer time for each item, the same note name, and overall. "Fast" is measured against your own fast end.
+- Speed model separate from memory: a running mean and spread of log answer time for each item, the same note name, and overall. "Fast" is measured against your own quickest 10% of right answers.
 - Answer times are not used for speed when the queue was visible or the note's own name was showing.
 - Shared factors (string, fret region, natural/sharp/flat, spelling) estimate positions you haven't played much.
 - Curriculum:
@@ -91,7 +91,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Knowledge map** of the neck (Stats page, the practice board between runs, and *All runs* after a run): each played position is a small card like the run results, its name and three bars over all runs: **known** (coloured red when weak through orange and yellow to green), **fast** (light grey) and **automatic** (ink). Unlocked positions not played yet have a dashed ring and a pale name; locked ones are cross-hatched on the practice board. Hovering or clicking a position (Stats, after a run) opens a popup beside it on the board, and the position is highlighted (yellow card, ink outline) like the card at the top of the popup.
 - **Notes:** accuracy and typical time per note name; open a note to see it **per octave** (C2, C3, C4…), from the positions of that name in each octave.
 - **Progress** (full width): answers in the last 7 days, right-first-time and typical answer time against the 7 days before (▲▼ coloured by whether it is better), and four charts: right first time per run and median answer time per run (each dot a run, the line the mean of the last 8), answers per day over 30 days, and positions answered right at least once over 30 days. Note-position quizzes on the current strings.
-- Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
+- Cards: mastered, fading/due, typical answer time, your quickest 10%, days practised this week, check-up accuracy, Name-the-note accuracy.
 - Slowest positions, marked erratic or steady, and per-note figures.
 
 ## Model check (Settings → Data)
@@ -127,6 +127,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — Popups: the note and fret in a yellow box instead of a copy of the card; the last 15 answers as same-size dots; every bar has a mark where it stood before your last session on that position (a session starts after 30 min without answering it), on Stats too; "fast end" is called *quickest 10%*. During a run the page no longer scrolls (nothing waits below the board; on a phone held sideways the feedback line hides too), and the run bar sits a little in from the edges.
 
 - **2026-11-01** — Note position has no settings bar: the menu under the prompt holds run type, length (10–50 prompts or a 60–180 s sprint), beat mode and interval practice, and Ready offers *Back to the menu*. Ready shows only the zone, no knowledge bars. Position popups in detail: labelled bars with a mark where each stood before the run, the last 10 answers, and a time line with your fast end, your usual time and this run's answers. Side dots above the board, fret numbers below. The answer shown after a miss is green again, with a white contour. On phones a run starts at the top of the page.
 
