@@ -690,6 +690,9 @@ async function init() {
   }
   performance.mark('app:db');
   $('loading').remove();
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
   bindUsers(db);
   // console helpers; ft.strum() acts like a muted strum (for testing without a guitar)
   window.ft = { sql: storage.sql, status: storage.status, strum: () => onStrum(performance.now()) };
@@ -824,7 +827,7 @@ async function init() {
   bindData();
   updateModeUI();
   refreshChannels();
-  await refreshDevices();
+  refreshDevices(); // the device list fills in on its own; the board does not wait for it
   await applyBoardSettings();
   performance.mark('app:board');
   checkForLostData(db);
@@ -832,9 +835,6 @@ async function init() {
   setInterval(renderDbStatus, 5000);
 
   window.fretboardSelfTest = runSelfTest;
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
   performance.mark('app:ready');
 }
 

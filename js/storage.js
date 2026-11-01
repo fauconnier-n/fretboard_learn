@@ -13,6 +13,7 @@
 
 import * as duckdb from '../vendor/duckdb/duckdb-wasm.mjs';
 import * as mirror from './mirror.js';
+import { missingColumnStatements } from './schema.js';
 import * as disk from './disk.js';
 
 const USERS_KEY = 'ft:users';
@@ -190,11 +191,7 @@ const RUN_COLS = colNames('runs');
 
 const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS kv (key VARCHAR PRIMARY KEY, value VARCHAR)',
-  ...Object.entries(TABLES).flatMap(([table, { cols }]) => [
-    `CREATE TABLE IF NOT EXISTS ${table} (${cols.map(([n, type]) => `${n} ${type}`).join(', ')})`,
-    // columns added in later versions appear in older files too
-    ...cols.filter(([, type]) => !type.includes('KEY')).map(([n, type]) => `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${n} ${type}`),
-  ]),
+  ...Object.entries(TABLES).map(([table, { cols }]) => `CREATE TABLE IF NOT EXISTS ${table} (${cols.map(([n, type]) => `${n} ${type}`).join(', ')})`),
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -208,6 +205,11 @@ async function startEngine() {
 async function connect() {
   conn = await db.connect();
   for (const sql of SCHEMA) await conn.query(sql);
+  // columns added in later versions appear in older files too: one look at the catalogue, then
+  // only the ALTERs needed (none, usually) instead of one round trip per column
+  const have = {};
+  for (const r of rows(await conn.query("SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_name IN ('attempts', 'runs')"))) (have[r.t] ||= new Set()).add(r.c);
+  for (const sql of missingColumnStatements(TABLES, have)) await conn.query(sql);
 }
 
 // Only one tab at a time may touch a user's database file: two engines racing on the
@@ -230,6 +232,10 @@ function acquireTabLock(name, waitMs) {
 
 export async function open() {
   info.user = activeUser();
+  info.file = `opfs://fretboard-${info.user}.duckdb`;
+  // the engine (worker and 34 MB module) starts while the persistence request and the tab lock
+  // are pending; it does not touch the file until db.open below
+  const engine = startEngine();
   // ask the browser not to evict this site's storage (DuckDB files, safety copy, backups)
   // when disk space runs low; without it all of them can be cleared together
   try {
@@ -237,17 +243,19 @@ export async function open() {
   } catch {
     info.persisted = false;
   }
-  info.file = `opfs://fretboard-${info.user}.duckdb`;
   const locked = await acquireTabLock('fretboard-db-' + info.user, LOCK_WAIT_MS);
-  await startEngine();
+  await engine;
   performance.mark('db:engine');
   if (!locked) info.error = `user "${info.user}" is open in another tab`;
 
   // the previous page's worker may still hold the file handle for a moment after a reload
   for (let i = 0; locked && i < OPEN_RETRIES && !info.persistent; i++) {
     try {
+      info.openTries = i + 1;
       await db.open({ path: info.file, accessMode: duckdb.DuckDBAccessMode.READ_WRITE });
+      performance.mark('db:open');
       await connect();
+      performance.mark('db:connect');
       info.persistent = true;
       info.error = '';
     } catch (e) {
@@ -266,13 +274,15 @@ export async function open() {
     await connect();
   }
 
-  stmts = {
-    getKv: await conn.prepare('SELECT value FROM kv WHERE key = ?'),
-    putKv: await conn.prepare('INSERT OR REPLACE INTO kv VALUES (?, ?)'),
-    addAttempt: await conn.prepare(`INSERT INTO attempts (${ATTEMPT_COLS.join(', ')}) VALUES (${ATTEMPT_COLS.map(() => '?').join(', ')})`),
-    putRun: await conn.prepare(`INSERT OR REPLACE INTO runs (${RUN_COLS.join(', ')}) VALUES (${RUN_COLS.map(() => '?').join(', ')})`),
-  };
-  info.version = (await conn.query('SELECT version() AS v')).toArray()[0].v;
+  const [getKv, putKv, addAttempt, putRun, version] = await Promise.all([
+    conn.prepare('SELECT value FROM kv WHERE key = ?'),
+    conn.prepare('INSERT OR REPLACE INTO kv VALUES (?, ?)'),
+    conn.prepare(`INSERT INTO attempts (${ATTEMPT_COLS.join(', ')}) VALUES (${ATTEMPT_COLS.map(() => '?').join(', ')})`),
+    conn.prepare(`INSERT OR REPLACE INTO runs (${RUN_COLS.join(', ')}) VALUES (${RUN_COLS.map(() => '?').join(', ')})`),
+    conn.query('SELECT version() AS v'),
+  ]);
+  stmts = { getKv, putKv, addAttempt, putRun };
+  info.version = version.toArray()[0].v;
   performance.mark('db:schema');
   if (info.persistent) {
     try {
@@ -341,8 +351,9 @@ async function syncDisk() {
     pending.attempts = [];
     pending.runs = [];
 
-    const local = await allAttempts();
-    const have = new Set(local.map(attemptKey));
+    // keys only: the full rows are needed just for answers the disk copy lacks (normally none)
+    const localKeys = rows(await conn.query('SELECT t, string_idx AS s, fret AS f FROM attempts')).map(attemptKey);
+    const have = new Set(localKeys);
     const onDisk = new Set(remote.attempts.map(attemptKey));
     const toLocal = [];
     for (const a of remote.attempts) {
@@ -351,7 +362,7 @@ async function syncDisk() {
       have.add(k);
       toLocal.push(toAttemptCopy(a));
     }
-    const toDisk = local.filter((a) => !onDisk.has(attemptKey(a)));
+    const toDisk = localKeys.some((k) => !onDisk.has(k)) ? (await allAttempts()).filter((a) => !onDisk.has(attemptKey(a))) : [];
 
     const localRuns = await duckRuns();
     const runsToLocal = Object.values(remote.runs).map(toRun)
@@ -386,7 +397,7 @@ async function syncDisk() {
 
     if (toDisk.length) await disk.append(user, 'attempts.jsonl', toDisk);
     if (runsToDisk.length) await disk.append(user, 'runs.jsonl', runsToDisk);
-    const merged = await duckKvText();
+    const merged = { ...localKv, ...Object.fromEntries(kvToLocal) };
     if (!sameKv(merged, remote.kv)) await disk.putKv(user, merged);
     info.disk.error = '';
     info.disk.savedAt = Date.now();
@@ -616,10 +627,16 @@ const runsText = (runs) => Object.fromEntries(Object.entries(runs).map(([k, r]) 
 // missing (a failed copy write), which are taken from DuckDB.
 async function reconcile() {
   const user = info.user;
-  const copy = await mirror.load(user);
   const duckKv = await duckKvText();
   const duckCount = await countAttempts();
   const runs = await duckRuns();
+  // the usual case first: same number of answers, same kv and runs, checked without reading
+  // every answer of the copy (that read grows with the log and was done at every start)
+  const quick = await mirror.loadKvRuns(user);
+  const copyCount = await mirror.countAttempts(user);
+  const quickEmpty = !copyCount && !Object.keys(quick.kv).length;
+  if (!quickEmpty && duckCount === copyCount && sameKv(duckKv, quick.kv) && sameKv(runsText(runs), runsText(quick.runs))) return;
+  const copy = await mirror.load(user);
   const empty = !copy.attempts.length && !Object.keys(copy.kv).length;
   const runsMissing = Object.keys(runs).some((id) => !copy.runs[id]);
   if (empty || duckCount > copy.attempts.length || runsMissing) {

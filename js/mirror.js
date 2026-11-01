@@ -69,6 +69,19 @@ export async function countAttempts(user) {
   return result(tx.objectStore('attempts').index('user').count(userRange(user)));
 }
 
+// kv and runs only, for the start-up check (the answers are counted with countAttempts)
+export async function loadKvRuns(user) {
+  const tx = (await idb()).transaction(['kv', 'runs']);
+  const userKeys = IDBKeyRange.bound([user], [user, []]);
+  const kvRows = await result(tx.objectStore('kv').getAll(userKeys));
+  const runRows = await result(tx.objectStore('runs').getAll(userKeys));
+  const kv = {};
+  for (const r of kvRows) kv[r.key] = r.value;
+  const runs = {};
+  for (const r of runRows) runs[r.run_id] = r.row;
+  return { kv, runs };
+}
+
 // {kv: {key: jsonText}, attempts: [...] in insertion order, runs: {run_id: row}}
 export async function load(user) {
   const tx = (await idb()).transaction(['kv', 'attempts', 'runs']);
