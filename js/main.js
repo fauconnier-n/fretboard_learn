@@ -246,7 +246,9 @@ function processFrame() {
   const rms = Math.sqrt(sum / frame.length);
   const s = app.settings;
   const now = performance.now();
-  const res = rms >= s.gate ? app.detect(frame, app.audio.sampleRate, app.minF, app.maxF) : null;
+  // the detector is the costly part: not run where nothing listens (Stats, a hidden tab)
+  const listening = app.view !== 'stats' && !document.hidden;
+  const res = listening && rms >= s.gate ? app.detect(frame, app.audio.sampleRate, app.minF, app.maxF) : null;
   if (app.view === 'settings') updateMeter(rms);
   if (app.view === 'tuner') app.tuner.onFrame(res, rms, now);
   if (app.strum.feed(now, rms, !!res && res.clarity >= s.clarity, s.gate)) onStrum(now);

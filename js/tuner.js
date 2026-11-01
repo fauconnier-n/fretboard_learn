@@ -11,6 +11,8 @@ function median(xs) {
   return s[s.length >> 1];
 }
 
+const write = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+
 export class Tuner {
   constructor(root, getSettings) {
     this.get = getSettings;
@@ -86,11 +88,11 @@ export class Tuner {
       this.cents = midi === this.midi ? 0.6 * this.cents + 0.4 * c : c;
       this.midi = midi;
       this.lastSeen = now;
-      els.note.textContent = noteName(midi, s.flats);
-      els.oct.textContent = octaveOf(midi);
-      els.hz.textContent = f.toFixed(1) + ' Hz';
+      write(els.note, noteName(midi, s.flats));
+      write(els.oct, octaveOf(midi));
+      write(els.hz, f.toFixed(1) + ' Hz');
       const rc = Math.round(this.cents);
-      els.cents.textContent = (rc > 0 ? '+' : rc < 0 ? '−' : '±') + Math.abs(rc) + ' ¢';
+      write(els.cents, (rc > 0 ? '+' : rc < 0 ? '−' : '±') + Math.abs(rc) + ' ¢');
       const inTune = Math.abs(this.cents) < 3;
       els.box.classList.toggle('in-tune', inTune);
       els.box.classList.remove('idle');
@@ -101,7 +103,8 @@ export class Tuner {
         if (Math.abs(m - mf) <= 2 && (near < 0 || Math.abs(m - mf) < Math.abs(this.strings[near] - mf))) near = i;
       });
       this.stringEls?.forEach((d, i) => d.classList.toggle('near', i === near));
-    } else if (now - this.lastSeen > HOLD_MS) {
+    } else if (now - this.lastSeen > HOLD_MS && !els.box.classList.contains('idle')) {
+      // once: these writes repeated 40 times a second for as long as the tuner was quiet
       this.hist = [];
       this.midi = null;
       els.box.classList.add('idle');
