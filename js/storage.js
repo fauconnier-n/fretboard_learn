@@ -562,7 +562,7 @@ export async function disconnectFolder() {
 // ---------- data of other profiles ----------
 // Answers and runs are logs: bringing another profile's in is a union of rows, tagged with
 // `origin`, that the models are then rebuilt from. Settings and models are not brought.
-// Anything that changes the tables must keep this a union (docs/learning-algorithm.md).
+// Anything that changes the tables must keep this a union.
 
 // another profile's answers and runs: its safety copy in this browser, else its folder
 export async function profileData(name) {

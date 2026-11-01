@@ -1,5 +1,5 @@
 // @ts-check
-// Spaced repetition + curriculum. See docs/learning-algorithm.md for the reasoning.
+// Spaced repetition + curriculum.
 //  - card per item = position (string:fret) + spelling. Natural notes have one item
 //    ("1:3"); sharps/flats have two linked twins ("1:1:s" = A#, "1:1:f" = Bb).
 //    "Name the note" (position → name) has its own card per position ("1:3:r").

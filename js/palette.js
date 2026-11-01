@@ -2,7 +2,7 @@
 // The app's colours, in one place for the scripts. css/app.css carries the same values as
 // custom properties (--green, --red, ...); keep both in step. Only the colours of the Born &
 // Raised poster, a touch brighter, on a white page, with its beige for secondary
-// backgrounds. See docs/design.md.
+// backgrounds.
 export const PALETTE = {
   greenLight: '#6fd94c', // the title green: primary actions
   green: '#3cbd2b', // right answers, progress

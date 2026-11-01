@@ -1,4 +1,4 @@
-/* Palette (docs/design.md; js/palette.js has the same values for the scripts).
+/* Palette (js/palette.js has the same values for the scripts).
    Only the colours of the Born & Raised poster, a touch brighter, on a white page; the
    poster's beige for secondary backgrounds. Use the role variables below in rules, and a
    raw palette colour only for its fixed meaning. */
