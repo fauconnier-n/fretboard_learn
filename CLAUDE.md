@@ -15,6 +15,7 @@ Node is at `C:\Program Files\nodejs` (prepend it to PATH): `npm test`, `npm run 
 - Test UI changes in headless Edge: `node tools/browser-check.mjs tools/tour.mjs --out screenshots/<name>` (the server must be running; it uses the `test` user; write other step files like `tools/tour.mjs` for specific states). It also writes `index.html`, a gallery of the shots.
 - Show the screenshots of the screens that changed in the reply, not in commits or pull requests. The chat does not display embedded images (`![](...)` shows "[Image]"), so keep them in the git-ignored `screenshots/` folder and put **markdown links** to the PNG files in the reply, with paths relative to the repo (e.g. `[Run summary](screenshots/x/4-practice-summary.png)`): they open in the app's file pane. Also open the gallery in the user's browser (`Start-Process screenshots/<name>/index.html`).
 - Include plenty of phone screenshots, held **sideways (landscape, 844×390)**; `tools/tour.mjs` has them (`m*` steps, `mobile: true`).
+- **Every set of screenshots includes a GIF of a run**: from the moment a note is asked, through the answer, to the confirmation (`runGif` in `tools/tour.mjs`; import it into other step files). Also one at phone width, sideways.
 - When a change shows an **animation**, record it as a GIF: a step with `gif: { clip: '<selector>', ms }` (start the animation in the step's js without awaiting it) writes `<name>.gif` (`tools/gif.mjs`, no dependency). Link the GIF like the screenshots.
 
 ## Subagents
