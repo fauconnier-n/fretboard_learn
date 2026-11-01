@@ -20,6 +20,8 @@ export class GuitarMenu {
     this.getLowAtBottom = getLowAtBottom;
     /** @type {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} */
     this.options = [];
+    /** @type {{ label: string, act: () => void } | null} */
+    this.primaryOption = null;
     el.addEventListener('click', (e) => {
       const row = /** @type {HTMLElement} */ (e.target).closest?.('[data-opt]');
       if (row instanceof HTMLElement) this.pick(+(row.dataset.opt ?? -1));
@@ -27,31 +29,50 @@ export class GuitarMenu {
   }
 
   /**
+   * Options fill the rows from the top; the bottom row is Back (when there is somewhere to go
+   * back to), or More… when there are more options than strings. Two muted strums take the
+   * primary option (green): the menu's hint says which.
    * @param {string} title
-   * @param {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} options at most one per string (primary: the main step, green)
-   * @param {string} [strumHint] what two muted strums do here, if anything
+   * @param {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} options from the top row
+   * @param {{ back?: () => void, backLabel?: string, hint?: string }} [o] back: the bottom row's action;
+   *   hint: what two muted strums do, when there is no primary option
    */
-  show(title, options, strumHint = '', page = 0) {
+  show(title, options, o = {}, page = 0) {
     const strings = this.getStrings();
-    // more options than strings (a 4-string bass): pages, the last string turning the page
     const n = strings.length;
-    if (options.length > n) {
-      const per = n - 1;
-      const pages = Math.ceil(options.length / per);
-      const turn = { label: page + 1 < pages ? 'More…' : 'Back to the first choices', act: () => this.show(title, options, strumHint, (page + 1) % pages) };
-      this.options = [...options.slice(page * per, page * per + per), turn];
-    } else this.options = options;
-    // drawn like the boards
+    // drawn like the boards: string indices from the top row down
     const order = strings.map((_, s) => s);
     if (this.getLowAtBottom()) order.reverse();
+    const all = o.back ? [...options, { label: o.backLabel || 'Back', act: o.back }] : options;
+    let shown = all;
+    if (all.length > n) {
+      // more options than strings (a 4-string bass): pages, the bottom row turning the page
+      const per = n - 1;
+      const pages = Math.ceil(all.length / per);
+      const turn = { label: page + 1 < pages ? 'More…' : 'Back to the first choices', act: () => this.show(title, options, o, (page + 1) % pages) };
+      shown = [...all.slice(page * per, page * per + per), turn];
+    }
+    // the last one (Back or More…) on the bottom row, the others from the top
+    const rowsOf = o.back || all.length > n ? [...shown.slice(0, -1).map((_, i) => order[i]), order[n - 1]] : shown.map((_, i) => order[i]);
+    this.options = [];
+    shown.forEach((opt, i) => { this.options[rowsOf[i]] = opt; });
+    this.primaryOption = options.find((p) => p.primary) || null;
+    const hint = this.primaryOption ? this.primaryOption.label.toLowerCase() : o.hint;
     const rows = order.map((s) => {
-      const o = this.options[s];
+      const opt = this.options[s];
       const name = stringName(strings, s, this.getFlats());
-      return `<div class="gm-row${o ? ' has-opt' : ''}${o?.active ? ' active' : ''}${o?.primary ? ' primary' : ''}"${o ? ` data-opt="${s}" role="button" tabindex="0"` : ''}>
-        <span class="gm-str">${name}</span><span class="gm-line" style="height:${(0.9 + (n - 1 - s) * 0.5).toFixed(2)}px"></span>${o ? `<span class="gm-opt">${o.label}</span>` : ''}</div>`;
+      return `<div class="gm-row${opt ? ' has-opt' : ''}${opt?.active ? ' active' : ''}${opt?.primary ? ' primary' : ''}"${opt ? ` data-opt="${s}" role="button" tabindex="0"` : ''}>
+        <span class="gm-str">${name}</span><span class="gm-line" style="height:${(0.9 + (n - 1 - s) * 0.5).toFixed(2)}px"></span>${opt ? `<span class="gm-opt">${opt.label}</span>` : ''}</div>`;
     }).join('');
-    this.el.innerHTML = `<div class="gm-title">${title}<span class="muted"> · play an open string to select${strumHint ? ` · two muted strums: ${strumHint}` : ''}</span></div><div class="gm-neck">${rows}</div>`;
+    this.el.innerHTML = `<div class="gm-title">${title}<span class="muted"> · play an open string to select${hint ? ` · two muted strums: ${hint}` : ''}</span></div><div class="gm-neck">${rows}</div>`;
     this.el.classList.remove('hidden');
+  }
+
+  /** Two muted strums: the primary option, if this menu has one. */
+  primary() {
+    if (!this.visible || !this.primaryOption) return false;
+    this.primaryOption.act();
+    return true;
   }
 
   hide() {
