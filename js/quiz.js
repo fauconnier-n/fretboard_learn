@@ -623,7 +623,7 @@ export class Quiz {
     this.menuSub = sub;
     const toMenu = () => this.reset();
     if (this.state === 'preview') {
-      return this.menu.show('Zone', [{ label: 'Start the run', primary: true, act: () => this.begin() }, ...this.offers.map((o) => ({
+      return this.menu.show('Choose a zone and start the run', [{ label: 'Start the run', primary: true, act: () => this.begin() }, ...this.offers.map((o) => ({
         label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
       }))], { back: toMenu });
     }

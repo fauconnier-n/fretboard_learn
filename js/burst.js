@@ -1,6 +1,6 @@
 // @ts-check
 // The answer animation, thrown out of the asked note: green confetti for a right answer, red
-// fireworks for a wrong one. See docs/design.md.
+// fireworks for a wrong one.
 import { PALETTE } from './palette.js';
 
 // Each kind: how many pieces, their colours and look, and where they travel.

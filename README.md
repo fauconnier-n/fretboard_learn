@@ -14,7 +14,7 @@ To run it on your own computer instead, double-click `start.bat`. It starts a ti
 2. **Tuner**: tune up and check the notes read cleanly.
 3. **Practice → Start run**.
 
-Everything the app does, with a dated change log: [docs/FEATURES.md](docs/FEATURES.md). How the app picks notes and models your memory, and why: [docs/learning-algorithm.md](docs/learning-algorithm.md). Ideas not yet built, with their evidence: [reports/Fretboard learning science ideas.md](reports/Fretboard%20learning%20science%20ideas.md).
+Every release lists its changes on the [releases page](https://github.com/fauconnier-n/fretboard_learn/releases).
 
 ## Profiles and storage
 
@@ -61,7 +61,7 @@ The app also warns when it is opened at a local address other than <http://local
   - *speed*, from the time of each right first answer: a running average of log answer time, with no buckets. While a position has few answers, its estimate leans on the same note name, then on your overall typical time.
 
   Prompts favour positions you are forgetting and positions that are right but slow, or slower than your usual. The answer log keeps every time, including time to the right note and each wrong note, so *Rebuild model from log* can replay it.
-- **Note names on the board**: by default, a name label shows on the zone positions you don't know well yet and is dropped as you answer them right (Settings → Practice). Check-ups never show labels. Each answer logs the labels shown and their distance to the note asked. Details: [docs/learning-algorithm.md](docs/learning-algorithm.md).
+- **Note names on the board**: by default, a name label shows on the zone positions you don't know well yet and is dropped as you answer them right (Settings → Practice). Check-ups never show labels. Each answer logs the labels shown and their distance to the note asked.
 - **Memory model**: each position (string + fret) is an FSRS-style card. There are also per-note stats and a per-position history tagged by zone *shape* (centroid, strings, span, where the cell sits in the shape), so weaknesses carry over to similar zones.
 - **Intervals tab**: a marked root and a question to play: octave shapes first, then intervals, triads and scale degrees, each opening once the earlier ones are known (`js/intervals.js`).
 - **Curriculum**: zones are picked to match a target predicted success, by default 80%, which adapts to your results. It starts on low E / low frets and unlocks material next to what you already know. With 8 or more items due, the run is a review and no new material is offered until the backlog is down.
@@ -76,7 +76,6 @@ The app needs no build. Node is only used for dev checks (`npm install` once):
 - The checks also run on GitHub for every pull request (`.github/workflows/pages.yml`).
 - `npm run perf` (`node tools/perf.mjs [--out file.json] [--compare baseline.json] [--seed k]`): measures the app headless as user `test`: cold and warm start (the `app:*` and `db:*` marks of `js/main.js` and `js/storage.js`, visible in the console with `performance.getEntriesByType('mark')`), a run of answers and what it writes, layouts and paints per second during a run, the Stats tab, the end-of-run backup. `--seed k` multiplies the test user's answer log k times first. `tools/cdp.mjs` holds the headless-browser plumbing shared by both tools.
 
-Colours and design rules: [docs/design.md](docs/design.md).
 
 ## Hosting
 
