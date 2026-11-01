@@ -69,12 +69,23 @@ test('zone outline: one closed contour around the rows, corners rounded', async 
   // a staircase: row 1 frets x 0-40, row 2 x 0-20 (cells 10 wide, 30 high)
   const cell = (x, y) => ({ x, y, width: 10, height: 30 });
   const rects = [cell(0, 0), cell(10, 0), cell(20, 0), cell(30, 0), cell(0, 30), cell(10, 30)];
-  const d = zoneOutline(rects);
+  const { d, shade } = zoneOutline(rects);
   assert.ok(d.startsWith('M') && d.endsWith('Z'));
   assert.equal((d.match(/Q/g) || []).length, 6, 'six corners: four outer, two at the step');
-  assert.ok(!/NaN/.test(d));
-  // a single row is a rounded rectangle
-  assert.equal((zoneOutline([cell(0, 0), cell(10, 0)]).match(/Q/g) || []).length, 4);
+  assert.ok(!/NaN/.test(d + shade));
+  // stepping down and to the left, every edge facing right or down joins one run
+  assert.equal((shade.match(/M/g) || []).length, 1);
+  // the top and left edges are never thickened
+  const ys = [...shade.matchAll(/(-?[d.]+) (-?[d.]+)/g)].map((m) => +m[2]);
+  assert.ok(ys.every((y) => y > 0), 'nothing on the top edge');
+  // a lower row sticking out to the right: its top edge breaks the run in two
+  const wider = zoneOutline([cell(0, 0), cell(10, 0), cell(0, 30), cell(10, 30), cell(20, 30), cell(30, 30)]);
+  assert.equal((wider.shade.match(/M/g) || []).length, 2);
+  // a single row is a rounded rectangle: one thick run, right edge then bottom edge
+  const one = zoneOutline([cell(0, 0), cell(10, 0)]);
+  assert.equal((one.d.match(/Q/g) || []).length, 4);
+  assert.equal((one.shade.match(/M/g) || []).length, 1);
+  assert.equal((one.shade.match(/Q/g) || []).length, 1, 'the bottom-right corner joins them');
 });
 
 test('progress helpers: rolling mean and the last week against the one before', async () => {
