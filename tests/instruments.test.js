@@ -87,3 +87,18 @@ test('standard or drop, shifted by semitones', () => {
   const ebKeys = stringKeys('guitar6', eb.strings);
   assert.ok([0, 1, 2, 3, 4, 5].every((s) => mapAttempt(answer('guitar6', 'standard', s), ebKeys) === null));
 });
+
+test('a new player starts on one run of frets from the nut on each string, never a scatter of marker frets', () => {
+  for (const inst of Object.keys(INSTRUMENTS)) {
+    const strings = tunedStrings(inst, 'standard');
+    const sch = new Scheduler(newModel(), strings, 15, keysOf(inst));
+    const snap = sch.snapshot();
+    let any = false;
+    strings.forEach((_, s) => {
+      const frets = [...Array(16).keys()].filter((f) => sch.isReachable(s, f, snap));
+      any ||= frets.length > 0;
+      assert.ok(frets.every((f, i) => f === i), `${inst} string ${s}: ${frets}`);
+    });
+    assert.ok(any, `${inst}: somewhere to start`);
+  }
+});

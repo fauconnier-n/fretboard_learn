@@ -49,6 +49,8 @@ const DAY = 86400000;
 const CTX_MAX = 24;
 const UNLOCK_FRACTION = 0.5;
 const STARTER_DIFF = 0.2;
+// open strings, the octave and the dot-marker frets are easier to find
+const markerBonus = (f) => (f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0);
 const TWIN_LINK = 0.85; // an unseen spelling starts from what is known of its twin, slightly discounted
 const DUE_R = 0.85; // below this recall probability an item is "fading, due for review"
 const BACKLOG_GATE = 8; // with this many due items, no zone with unseen positions is picked
@@ -377,8 +379,7 @@ export class Scheduler {
     // a string tuned like an easier one (high e vs low E) reuses what was learnt there
     for (let t = 0; t < k.length; t++) if (t !== s && pcOf(k[t]) === pcOf(k[s])) sd = Math.min(sd, stringDiff(k[t]) + 0.15);
     const fd = f <= 5 ? 0.03 * f : f <= 9 ? 0.25 : f <= 12 ? 0.4 : 0.5;
-    const bonus = f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0;
-    d = clamp(0.55 * sd + 0.45 * fd - bonus, 0, 1);
+    d = clamp(0.55 * sd + 0.45 * fd - markerBonus(f), 0, 1);
     this.diffCache.set(key, d);
     return d;
   }
@@ -530,7 +531,9 @@ export class Scheduler {
 
   // Played before, a starter cell, or next to something already known.
   isReachable(s, f, snap) {
-    if (snap.mastery.has(s + ':' + f) || this.cellDifficulty(s, f) <= STARTER_DIFF) return true;
+    // the starter region ignores the marker bonus: one run of frets from the nut on each string,
+    // not a scatter of marker frets
+    if (snap.mastery.has(s + ':' + f) || this.cellDifficulty(s, f) + markerBonus(f) <= STARTER_DIFF) return true;
     for (let ds = -1; ds <= 1; ds++) {
       for (let df = -2; df <= 2; df++) {
         if ((snap.mastery.get(s + ds + ':' + (f + df)) ?? 0) >= 0.5) return true;

@@ -67,7 +67,7 @@ Each effect adjusts both the chance of a right answer and the typical log time. 
 - **Octave shapes:** a never-played position's prior includes the same note on other strings within 4 frets, the shapes guitarists use to jump between strings, which cross the B string with a one-fret shift.
 - **Landmarks and naturals first:** inside a zone, new positions on landmark frets (open, 3, 5, 7, 9, 12…) come up more. On a string you have never played, accidentals come up less at first.
 - *Why:* this is the consensus of guitar teachers (JustinGuitar, Desi Serna), not tested in studies: learn the naturals on strings 6 and 5 anchored to the dots, then reach other strings through octave shapes. A blocked start followed by quick mixing also fits motor-learning results: interleaving helps less for novices (Brady 2004).
-- **Unlocking:** a zone is a candidate when at least half its positions are reachable: played, a starter position, next to a known one, or mirrored from a known string.
+- **Unlocking:** a zone is a candidate when at least half its positions are reachable: played, a starter position, next to a known one, or mirrored from a known string. A **starter position** has a built-in difficulty of at most 0.2 *without* the dot-marker bonus (open strings, frets 3, 5, 7, 9, 12, 15…), so the starting area is one run of frets from the nut on each string: on a 6-string guitar low E 0–12, A 0–4 and high e 0–9. With the bonus, a few marker frets beyond that (A 7 and 9, low E 15, high e 12, open D) used to start unlocked on their own, a scatter that made no sense on the board. The bonus still counts everywhere else (zone difficulty, the prior for unplayed positions).
 
 ### Instruments and tunings
 

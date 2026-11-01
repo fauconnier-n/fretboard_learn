@@ -170,6 +170,8 @@ export class Quiz {
   paintProgress() {
     const sch = this.getScheduler();
     if (!sch || !this.board.layers) return;
+    const map = !this.running && !(this.state === 'done' && this.run);
+    this.els.mapLegend.classList.toggle('hidden', !map);
     // during a run the board shows only the run: no knowledge colours
     if (this.running) return this.board.setHeat(() => null);
     // a finished run: its notes on the neck, with their progress rings
