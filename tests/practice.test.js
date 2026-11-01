@@ -63,3 +63,44 @@ test('knowledge map: note names, and clouds bigger and denser with more question
   const unplayed = mapCell(sch, sch.snapshot(), 0, 1, true);
   assert.deepEqual([unplayed.label, unplayed.faint], ['F', true]);
 });
+
+test('zone outline: one closed contour around the rows, corners rounded', async () => {
+  const { zoneOutline } = await import('../js/fretboard.js');
+  // a staircase: row 1 frets x 0-40, row 2 x 0-20 (cells 10 wide, 30 high)
+  const cell = (x, y) => ({ x, y, width: 10, height: 30 });
+  const rects = [cell(0, 0), cell(10, 0), cell(20, 0), cell(30, 0), cell(0, 30), cell(10, 30)];
+  const d = zoneOutline(rects);
+  assert.ok(d.startsWith('M') && d.endsWith('Z'));
+  assert.equal((d.match(/Q/g) || []).length, 6, 'six corners: four outer, two at the step');
+  assert.ok(!/NaN/.test(d));
+  // a single row is a rounded rectangle
+  assert.equal((zoneOutline([cell(0, 0), cell(10, 0)]).match(/Q/g) || []).length, 4);
+});
+
+test('progress helpers: rolling mean and the last week against the one before', async () => {
+  const { rolling, weekOverWeek } = await import('../js/progress.js');
+  assert.deepEqual(rolling([1, 3, 5, 7], 2), [1, 2, 4, 6]);
+  const now = Date.parse('2026-11-01T12:00:00Z');
+  const w = weekOverWeek([
+    { day: '2026-11-01', n: 10, acc: 0.9, med: 700 },
+    { day: '2026-10-30', n: 10, acc: 0.7, med: 900 },
+    { day: '2026-10-22', n: 20, acc: 0.5, med: 1200 }, // 10 days ago: the week before
+    { day: '2026-10-01', n: 99, acc: 0, med: 0 }, // too old
+  ], now);
+  assert.equal(w.now.n, 20);
+  assert.ok(Math.abs(w.now.acc - 0.8) < 1e-9);
+  assert.equal(w.before.n, 20);
+  assert.equal(w.before.acc, 0.5);
+});
+
+test('notes by octave: a note name splits into the octaves it was asked in', async () => {
+  const { octaveRows } = await import('../js/stats.js');
+  const sch = new Scheduler(newModel(), strings, 15);
+  const desc = { type: 'string', sk: '0', cs: 0, cf: 5.5, span: 12 };
+  const low = lowE.cells.find((c) => c.f === 5); // A2
+  sch.record(desc, low, 'n', true, 800, Date.now());
+  sch.record(desc, { s: 3, f: 2, midi: 57, pc: 9, key: '3:2' }, 'n', false, 3000, Date.now()); // A3 on the G string
+  const rows = octaveRows(sch, 'A');
+  assert.deepEqual(rows.map((r) => r.label), ['A2', 'A3']);
+  assert.ok(rows[0].acc > rows[1].acc);
+});

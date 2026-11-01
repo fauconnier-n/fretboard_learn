@@ -83,7 +83,9 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - The model rebuilds from the answer log when its format changes or when answers come back from the disk copy.
 
 ## Stats
-- **Knowledge map** of the neck (Stats page, and the practice board between runs): each played position is a soft **pill-shaped cloud** whose colour goes red (weak) → orange → yellow → green (mastered), like the note bars below it, and which is **bigger and denser the more often it was asked** (growing mostly along the string), thinning out gradually towards its top and bottom. **Every position shows its note name**; unlocked positions not played yet have a dashed ring and a pale name.
+- **Knowledge map** of the neck (Stats page, and the practice board between runs): each played position is a soft **pill-shaped cloud** with no hard edge, whose colour goes red (weak) → orange → yellow → green (mastered), like the note bars below it. It is **bigger and much denser the more often it was asked** (growing mostly along the string): a well-practised position is a solid band. **Every position shows its note name**; unlocked positions not played yet have a dashed ring and a pale name.
+- **Notes:** accuracy and typical time per note name; open a note to see it **per octave** (C2, C3, C4…), from the positions of that name in each octave.
+- **Progress** (full width): answers in the last 7 days, right-first-time and typical answer time against the 7 days before (▲▼ coloured by whether it is better), and four charts: right first time per run and median answer time per run (each dot a run, the line the mean of the last 8), answers per day over 30 days, and positions answered right at least once over 30 days. Note-position quizzes on the current strings.
 - Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
 - Slowest positions, marked erratic or steady, and per-note figures.
 
@@ -119,6 +121,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — The zone is drawn as one thin contour with rounded corners, no fill. Clouds: soft edges, a wider solid band, much denser when practised. Stats: notes open per octave, a full-width Progress tile; "Hardest unlocked zones" and "Recent runs" removed.
 - **2026-11-01** — Pill-shaped clouds with a gradual vertical fade. After a run: Done, menu, then the run's notes on the neck (progress rings with names), then the details.
 - **2026-11-01** — Confusion boxes removed. Knowledge-map clouds: red → orange → yellow → green like the note bars, rounder, soft progressive edges, size and density by questions asked; note names on the Stats map and on the practice board after a run. A finished run shows its results first. (#10 restored #6–#9, which had been merged into their stacked branches instead of main.)
 - **2026-11-01** — Stats map: cloud shapes (yellow → green, size by questions asked, density by freshness) and confusion boxes for neighbouring notes. `tools/browser-check.mjs` records animated GIFs (`tools/gif.mjs`, no dependency).
