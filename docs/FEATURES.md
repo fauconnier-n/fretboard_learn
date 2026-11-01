@@ -36,7 +36,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - Run length: a number of prompts, or a sprint in seconds.
 - Run types, each either all guitar or all without guitar:
   - guitar: **Play the note** (you play the note named) and **Mix-ups** (a zone and prompts built from notes you have confused and the notes you played instead);
-  - no guitar: **Name the note** (a position is marked; type its letter or click one of the 12 name buttons; both spellings of a sharp/flat count) and **True or false** (a position is marked with a name, right half the time; answer Yes or No with the buttons, Y/N or the arrow keys).
+  - no guitar: **Name the note** (a position is marked; type its letter or click one of the 12 name buttons, laid out like a piano with the sharps or flats on top, centred between their naturals; the buttons show sharps or flats as set in Settings → Practice, and both spellings of a sharp/flat count) and **True or false** (a position is marked with a name, right half the time; answer Yes or No with the buttons, Y/N or the arrow keys).
 - **Zone choice:** before a run, the picked zone plus up to two other, different-looking zones are offered on the open-string menu.
 - **Guitar-only control:**
   - a **muted strum** (strings damped by the fretting hand) takes the next step: new run, then start it; during a run it skips the wait after a miss, and two quick muted strums stop the run;
@@ -55,8 +55,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Between runs** the practice board shows each played position coloured by mastery, with fog over positions not unlocked yet.
 - After a miss with the play-along setting on, the run moves on by itself after 6 s if you do not play the note.
 - Green on a right answer, red at the played position on a wrong one, with the kind of mistake (octave, one or two frets off). **Answer animation:** green confetti thrown out of the asked note on a right answer, red fireworks on a wrong one.
-- **During a run the board zooms in on the zone** (up to 2×, keeping its size on the page), and the circles and note names on it are a little bigger.
-- **On phones, during a run** the header and the run settings slide away, leaving Stop, the score ring and the progress; held sideways, the text, timer and Show me sit beside the note, so the board fits on screen.
+- **During a run the board zooms in on the zone** (up to 2×), and the circles and note names on it are a little bigger. The view is at most six strings high, so on a 7–9-string guitar it frames the strings around the zone.
+- **On phones, during a run** the header, banners and run settings slide away, leaving Stop, the score ring and the progress; held sideways, the text and timer sit beside the note, Show me under it and the answer buttons next to Show me, so the board fits on screen (checked for every run type with 6 and 9 strings).
 - The board never moves during a run: "Show me" keeps its place when hidden, and the text under the note has room for two lines.
 - **After a miss:** the answer is revealed with a structural hint (nearest landmark, octave shape, B-string shift), optionally played once ungraded, then re-tested 3–8 prompts later.
 - **Answer shown automatically** after about 2.5× your expected time for that note (4–8 s, capped by the "Longest wait" setting). **Show me** (or H) shows it at any time. Both count as a miss.
@@ -124,6 +124,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Checked with a 9-string guitar: during a run the view is at most six strings high, so the board fits a phone held sideways; banners hide during runs on phones. Name the note: piano-style buttons of one size, sharps or flats as set in Settings → Practice (hints after a miss follow it).
 - **2026-11-01** — Answer animation settled: green confetti when right, red fireworks when wrong (the style setting is gone). The board zooms in on the zone during a run; bigger circles and names on it. On phones the header and run settings slide away during a run. Headless screenshot runs are muted.
 - **2026-11-01** — The answer flash is replaced by shapes thrown out of the asked note (fireworks, splat, confetti or stars; Settings → Practice). The zone's thicker bottom and right edges are now a filled shadow of its shape, like the buttons', with no seam. The board no longer moves when "Show me" or a hint appears.
 - **2026-11-01** — Clouds a bit less dense, with a softer, more gradual edge and less pill-like corners. The zone contour gets a button-like offset line, so its bottom and right edges look thicker.
