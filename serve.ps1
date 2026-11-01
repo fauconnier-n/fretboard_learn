@@ -1,11 +1,12 @@
 # Minimal static file server for Fretboard Trainer on http://localhost (no admin needed).
-# It also keeps the disk copy of each user's data in data\<user>\ (see js/disk.js):
-#   GET  /api/disk                          where the disk copy lives
-#   GET  /api/data/<user>/<file>            read kv.json, attempts.jsonl or runs.jsonl (empty if none)
-#   POST /api/data/<user>/<file>.jsonl      append lines
-#   PUT  /api/data/<user>/<file>            replace the whole file (old one kept as .bak)
+# It also keeps the disk copy of each profile's data in data<name> (see js/disk.js, js/disklayout.js):
+#   GET    /api/disk                              where the disk copy lives
+#   GET    /api/data/<name>/kv.json|profile.json  read a file (empty if none);  PUT replaces it (old one kept as .bak)
+#   GET    /api/data/<name>/attempts|runs         every run file of that kind, plus the flat file of earlier versions
+#   POST   /api/data/<name>/attempts|runs/<file>.jsonl   append lines to one run file
+#   DELETE /api/data/<name>/attempts|runs         keep the files aside as <kind>.bak-<stamp> (reset, import)
 # Writes go straight through to the disk (write-through + flush) before the reply.
-param([int]$Port = 8137, [switch]$Open)
+param([int]$Port = 8137, [switch]$Open, [switch]$NoApi) # -NoApi: a plain static host, like GitHub Pages
 
 $root = (Resolve-Path (Split-Path -Parent $MyInvocation.MyCommand.Path)).Path.TrimEnd('\') + '\'
 $dataDir = Join-Path $root 'data'
@@ -68,26 +69,59 @@ function Read-Body($req) {
 }
 
 function Invoke-Api($req, [string]$path) {
+  if ($NoApi) { return Text 404 'No disk API' }
   if ($path -eq '/api/disk') {
     return Reply 200 'application/json' $utf8.GetBytes('{"dir":' + (ConvertTo-Json $dataDir) + '}')
   }
-  if ($path -notmatch '^/api/data/([a-z0-9_-]{1,32})/(kv\.json|attempts\.jsonl|runs\.jsonl)$') { return Text 404 'Unknown API path' }
+  if ($path -notmatch '^/api/data/([a-z0-9_-]{1,32})/(kv\.json|profile\.json|attempts|runs)(?:/((\d{8}-\d{6}-[a-z0-9]{1,16}|other)\.jsonl))?$') { return Text 404 'Unknown API path' }
   $dir = Join-Path $dataDir $Matches[1]
-  $file = $Matches[2]
-  $full = Join-Path $dir $file
+  $kind = $Matches[2]
+  $file = $Matches[3]
+  $isJson = $kind.EndsWith('.json')
   switch ($req.HttpMethod) {
     'GET' {
+      if ($file) { return Text 405 'Read a kind as a whole' }
       # a file not written yet reads as empty
-      if (Test-Path -LiteralPath $full) { return Reply 200 'text/plain; charset=utf-8' ([IO.File]::ReadAllBytes($full)) }
-      return Text 200 ''
+      if ($isJson) {
+        $full = Join-Path $dir $kind
+        if (Test-Path -LiteralPath $full) { return Reply 200 'text/plain; charset=utf-8' ([IO.File]::ReadAllBytes($full)) }
+        return Text 200 ''
+      }
+      # the flat file of earlier versions first, then one file per run, each ending in a newline
+      $parts = @("$dir\$kind.jsonl") + @(Get-ChildItem -LiteralPath "$dir\$kind" -Filter '*.jsonl' -File -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { $_.FullName })
+      $ms = New-Object IO.MemoryStream
+      foreach ($p in $parts) {
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        $b = [IO.File]::ReadAllBytes($p)
+        $ms.Write($b, 0, $b.Length)
+        if ($b.Length -gt 0 -and $b[$b.Length - 1] -ne 10) { $ms.WriteByte(10) }
+      }
+      return Reply 200 'text/plain; charset=utf-8' $ms.ToArray()
     }
-    { $_ -in 'POST', 'PUT' } {
-      if ($req.HttpMethod -eq 'POST' -and $file -notlike '*.jsonl') { return Text 405 'Only .jsonl files can be appended to' }
+    'PUT' {
+      if (-not $isJson) { return Text 405 'Only the .json files are replaced whole' }
       $body = Read-Body $req
       if ($null -eq $body) { return Text 413 'Too large' }
       [void][IO.Directory]::CreateDirectory($dir)
-      if ($req.HttpMethod -eq 'POST') { Append-Lines $full $body } else { Replace-File $full $body }
+      Replace-File (Join-Path $dir $kind) $body
       return Text 200 'saved'
+    }
+    'POST' {
+      if (-not $file) { return Text 405 'Append to a run file' }
+      $body = Read-Body $req
+      if ($null -eq $body) { return Text 413 'Too large' }
+      [void][IO.Directory]::CreateDirectory("$dir\$kind")
+      Append-Lines "$dir\$kind\$file" $body
+      return Text 200 'saved'
+    }
+    'DELETE' {
+      # a reset or an import: the run files and the flat file are kept aside, the newest set only
+      if ($isJson -or $file) { return Text 405 'Delete a kind as a whole' }
+      Get-ChildItem -LiteralPath $dir -Filter "$kind.bak-*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+      $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+      if (Test-Path -LiteralPath "$dir\$kind") { Move-Item -LiteralPath "$dir\$kind" "$dir\$kind.bak-$stamp" }
+      if (Test-Path -LiteralPath "$dir\$kind.jsonl") { Move-Item -LiteralPath "$dir\$kind.jsonl" "$dir\$kind.jsonl.bak-$stamp" -Force }
+      return Text 200 'cleared'
     }
   }
   Text 405 'Method not allowed'
