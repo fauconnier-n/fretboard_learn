@@ -680,7 +680,6 @@ function bindUsers(db) {
     sel.value = db.user;
     showWelcome('new').then(() => location.reload());
   };
-  document.body.classList.toggle('test-user', db.user === 'test');
   renderDbStatus();
 }
 
