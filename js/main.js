@@ -40,6 +40,7 @@ const DEFAULTS = {
   beat: false,
   strumLevel: 4, // muted strum: a burst this many times above the noise gate
   cueMode: 'fade',
+  nameAccidentals: 'sharps',
   runTask: 'play',
   plan: '',
   sound: true,

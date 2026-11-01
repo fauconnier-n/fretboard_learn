@@ -3,6 +3,7 @@
 const NS = 'http://www.w3.org/2000/svg';
 const INLAYS = [3, 5, 7, 9, 15, 17, 19, 21];
 const MAX_ZOOM = 2;
+const RUN_STRINGS = 6; // during a run the view is at most this many strings high, so 7–9 strings fit a phone
 const ZOOM_MS = 450;
 let uid = 0;
 
@@ -185,8 +186,9 @@ export class Fretboard {
     dim.setAttribute('visibility', 'visible');
   }
 
-  // During a run the view closes in on the zone's cells (null: the whole neck). The board keeps
-  // its shape on the page, so nothing around it moves; the zone grows at most MAX_ZOOM times.
+  // During a run the view closes in on the zone's cells (null: the whole neck). The view keeps
+  // the shape of a RUN_STRINGS-string board (the board's own shape when it has fewer strings),
+  // so nothing around it moves; the zone grows at most MAX_ZOOM times.
   zoomTo(cells) {
     let to = [0, 0, this.W, this.H];
     if (cells?.length) {
@@ -195,9 +197,9 @@ export class Fretboard {
       const x1 = Math.max(...rs.map((r) => r.x + r.width)) + 40;
       const y0 = Math.min(...rs.map((r) => r.y)) - this.sp * 0.6;
       const y1 = Math.max(...rs.map((r) => r.y + r.height)) + this.sp * 0.6;
-      const z = Math.max(1, Math.min(MAX_ZOOM, this.W / (x1 - x0), this.H / (y1 - y0)));
-      const w = this.W / z;
-      const h = this.H / z;
+      const aspect = this.W / Math.min(this.H, this.H - (this.strings.length - RUN_STRINGS) * this.sp);
+      const w = Math.min(this.W, Math.max(this.W / MAX_ZOOM, x1 - x0, (y1 - y0) * aspect));
+      const h = w / aspect;
       const inside = (v, size, max) => Math.min(max - size, Math.max(0, v));
       to = [inside((x0 + x1 - w) / 2, w, this.W), inside((y0 + y1 - h) / 2, h, this.H), w, h];
     }

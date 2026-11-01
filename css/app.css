@@ -284,8 +284,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .legend i.cloud-small { width: 14px; height: 10px; border-radius: 999px; background: linear-gradient(transparent, var(--green), transparent); opacity: .35; }
 .legend i.cloud-big { width: 26px; height: 13px; border-radius: 999px; background: linear-gradient(transparent, var(--green) 35%, var(--green) 65%, transparent); }
 .show-me { margin-top: 6px; }
-.name-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
-.name-buttons .btn { min-width: 58px; }
+/* like a piano: 14 half-button columns, each button two wide, sharps or flats on the top row */
+.name-buttons { display: grid; grid-template-columns: repeat(14, 27px); justify-content: center; row-gap: 6px; margin-top: 10px; }
+.name-buttons .btn { margin: 0 3px; padding-left: 0; padding-right: 0; min-width: 0; justify-content: center; }
 .fb-mark.ask .dot { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; animation: pulse 1s ease-in-out infinite; }
 .fb-mark.ask .lbl { fill: var(--ink); }
 .tomorrow { margin: 0 0 12px; font-size: 14px; }
@@ -374,15 +375,23 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
   .top { max-height: 160px; overflow: hidden; transition: max-height .3s ease, padding .3s ease; }
   body.in-run .top { max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; box-shadow: none; }
   /* and the run settings too: only Stop, the score ring and the progress stay */
-  body.in-run #practiceNav, body.in-run .practice-bar > .seg, body.in-run .practice-bar > .run-len { display: none; }
+  body.in-run .banner, body.in-run #practiceNav, body.in-run .practice-bar > .seg, body.in-run .practice-bar > .run-len { display: none; }
   body.in-run main { padding-top: 8px; }
   body.in-run .prompt-area { padding-top: 4px; margin-bottom: 6px; }
 }
-/* phones held sideways: the note on the left, its text, timer and Show me beside it */
+/* phones held sideways: the note with Show me under it on the left, its text, timer and answer
+   buttons (in one row) beside it */
 @media (max-height: 500px) {
   body.in-run .prompt-area { display: grid; grid-template-columns: auto auto; justify-content: center; column-gap: 28px; align-items: center; text-align: left; }
-  body.in-run .prompt-note { grid-row: span 6; font-size: 60px; }
-  body.in-run .prompt-area .show-me { justify-self: start; }
+  body.in-run .prompt-area > * { grid-column: 2; }
+  body.in-run .prompt-note { grid-column: 1; grid-row: 1 / span 3; font-size: 56px; }
+  body.in-run .prompt-area .show-me { grid-column: 1; grid-row: 4; justify-self: center; margin-top: 2px; }
+  body.in-run .prompt-area .name-buttons, body.in-run .prompt-area .tf-buttons { grid-column: 2; grid-row: 4; justify-content: start; margin-top: 2px; }
+  body.in-run .name-buttons { row-gap: 4px; }
+  body.in-run .name-buttons .btn { padding-top: 3px; padding-bottom: 3px; }
+  body.in-run .prompt-queue:empty { display: none; }
+  body.in-run .progress { margin: 6px 0; }
+  body.in-run .tf-buttons .btn { font-size: 14px; padding: 5px 12px; }
 }
 
 /* progress on the practice board: mastery colours, and white fog over positions not unlocked yet */
