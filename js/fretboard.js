@@ -297,6 +297,11 @@ export class Fretboard {
     const h = this.layers.heat;
     h.innerHTML = '';
     const defs = el('defs', {}, h);
+    // all clouds in one blurred group (one filter pass per repaint instead of one per cloud), their
+    // names in a group above; gradients shared between clouds of the same colour and core
+    const clouds = el('g', { class: 'fb-clouds', filter: `url(#${this.id}-soft)` }, h);
+    const gradients = new Map();
+    const labels = [];
     for (let s = 0; s < this.strings.length; s++) {
       for (let f = 0; f <= this.frets; f++) {
         const v = fn(s, f);
@@ -305,21 +310,26 @@ export class Fretboard {
           el('rect', { ...this.cellRect(s, f), class: 'fb-fog' }, h);
           continue;
         }
-        const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
         if (v.cloud) {
-          const id = `${this.id}-c${s}-${f}`;
-          const grad = el('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
           // a pill, solid across a middle band (wider when practised more), fading at top and bottom
           const half = 0.1 + 0.16 * (v.cloud.core ?? 0.5);
-          for (const [o, a] of [[0, 0], [0.5 - half - 0.26, 0.3], [0.5 - half - 0.12, 0.7], [0.5 - half, 1], [0.5 + half, 1], [0.5 + half + 0.12, 0.7], [0.5 + half + 0.26, 0.3], [1, 0]]) {
-            el('stop', { offset: Math.max(0, Math.min(1, o)).toFixed(3), 'stop-color': v.fill, 'stop-opacity': a }, grad);
+          const gkey = `${v.fill}|${half.toFixed(3)}`;
+          let id = gradients.get(gkey);
+          if (!id) {
+            id = `${this.id}-c${gradients.size}`;
+            gradients.set(gkey, id);
+            const grad = el('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+            for (const [o, a] of [[0, 0], [0.5 - half - 0.26, 0.3], [0.5 - half - 0.12, 0.7], [0.5 - half, 1], [0.5 + half, 1], [0.5 + half + 0.12, 0.7], [0.5 + half + 0.26, 0.3], [1, 0]]) {
+              el('stop', { offset: Math.max(0, Math.min(1, o)).toFixed(3), 'stop-color': v.fill, 'stop-opacity': a }, grad);
+            }
           }
           const ry = (this.sp / 2) * v.cloud.h;
           const rx = Math.max(ry, (this.cw(f) / 2) * v.cloud.w);
-          el('rect', { x: (-rx).toFixed(1), y: (-ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: (ry * 0.7).toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), filter: `url(#${this.id}-soft)`, class: 'fb-cloud' }, g);
-          if (v.label) el('text', { y: 3.5, class: 'fb-heat-lbl' }, g).textContent = v.label;
+          el('rect', { x: (this.cx(f) - rx).toFixed(1), y: (this.cy(s) - ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: (ry * 0.7).toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), class: 'fb-cloud' }, clouds);
+          if (v.label) labels.push([s, f, v.label]);
           continue;
         }
+        const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
         if (v.rings) {
           // a note of the last run: rings known (outer), fast (middle), automatic (inner), name in front
           for (const [r, k] of [[12.5, 'known'], [9, 'fast'], [5.5, 'auto']]) {
@@ -333,6 +343,10 @@ export class Fretboard {
         el('circle', { r: 11, class: 'fb-heat', fill: v.fill || 'none', stroke: v.stroke || 'none', 'stroke-width': v.fill && v.stroke ? 2.5 : 1.5, 'stroke-dasharray': v.dash || 'none' }, g);
         if (v.label) el('text', { y: 3.5, class: 'fb-heat-lbl' + (v.faint ? ' faint' : '') }, g).textContent = v.label;
       }
+    }
+    if (labels.length) {
+      const lg = el('g', {}, h);
+      for (const [s, f, label] of labels) el('text', { x: this.cx(f), y: this.cy(s) + 3.5, class: 'fb-heat-lbl' }, lg).textContent = label;
     }
   }
 }

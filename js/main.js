@@ -743,7 +743,8 @@ async function init() {
       if (row.ended_at) await storage.flush();
     },
     onSave: saveModel,
-    onRunEnd: () => makeBackup('run'),
+    // after the summary has painted and the run's flush is through, not in the same frame
+    onRunEnd: () => setTimeout(() => makeBackup('run'), 1200),
     // the open-string menu changes the same settings as the practice bar
     actions: {
       setTask: (t) => { app.settings.runTask = t; saveSettings(); updateModeUI(); },

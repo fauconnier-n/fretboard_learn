@@ -111,7 +111,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Disk copy** through the local server in `data\<user>\` (`attempts.jsonl`, `runs.jsonl`, `kv.json`).
   - On start, data missing on either side is copied across, so a wiped browser refills itself.
   - Saves wait and retry while the server is down.
-- Automatic backups after each run (newest 10 plus the largest), restore from Settings, JSON export and import, reset.
+- Automatic backups after each run (newest 10 plus the largest), restore from Settings, JSON export and import, reset. The list of backups is read from their summaries; the full copies are opened only to restore one.
 - Settings → Database tables shows the newest rows of each table, with a description of every column.
 - Storage persistence is requested. A header badge shows saved / saved in browser only / NOT SAVED.
 
@@ -124,6 +124,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Lighter run end and Stats map: backups keep a summary next to each full copy, so listing them (every run end, every visit to Settings) no longer deserialises up to 11 full copies of the log, and the end-of-run backup is made just after the summary shows; on the mastery map all clouds share one blur filter (one pass per repaint instead of one per cloud) and clouds of the same colour and width share a gradient.
 - **2026-11-01** — Quicker New run and Stats: the mix-ups lookup is indexed once per pick instead of walking every logged mix-up for every cell of every zone; the prior of a position and its octave shapes are computed once per pick; zones and their descriptions are reused while strings, frets and shapes stay the same, and changing the A4 reference no longer rebuilds the board; the model check's AUC is rank-based (a 50k-answer log took seconds) and the decay fit yields between its seven replays; the Stats note list groups octaves in one pass and runs its first queries together. Nothing changes in what is asked or how answers count.
 - **2026-11-01** — Cheaper pitch detection: the McLeod detector runs in two stages (coarse at 12 kHz, refined at full rate around the peak and its half lag), giving the same pitch as before (tests on synthetic notes, 80–1300 Hz at 44.1/48/96 kHz, bass down to 30 Hz) in about a sixth of the time (1.8 → 0.3 ms per frame for a guitar, 5.3 → 0.5 ms for a bass, on a desktop). The audio context is pinned to 48 kHz. Please confirm the tuner with a real guitar.
 - **2026-11-01** — Calmer run loop: the answer timer and the progress bar are written only when their text or width changes (they were written every frame, which forced a layout per frame); the pulsing mark steps 8 times a second instead of repainting the board 60 times; the zone dim and shadow are plain geometry (one path with a hole, a clip) instead of masks rasterised at every repaint, so the dim's inner edge now follows the rounded zone contour; the tuner writes nothing while idle; pitch detection is skipped on Stats and in a hidden tab.
