@@ -466,6 +466,11 @@ async function replaceDisk() {
 
 const rows = (table) => table.toArray().map((r) => r.toJSON());
 
+// every [key, value] whose key starts with `prefix` (a constant, not user input)
+export async function entries(prefix) {
+  return rows(await conn.query(`SELECT key, value FROM kv WHERE key LIKE '${prefix}%' ORDER BY key`)).map((r) => [r.key, JSON.parse(r.value)]);
+}
+
 export async function get(key) {
   const r = rows(await stmts.getKv.query(key))[0];
   return r ? JSON.parse(r.value) : undefined;

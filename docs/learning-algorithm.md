@@ -250,4 +250,4 @@ Each prompt picks an open item at random, weighted towards new items (fewer than
 
 ## Changing the model
 
-The model is rebuilt from the answer log when its version changes (`MODEL_VERSION` in `js/srs.js`), so changes apply to all past answers. Settings → Data → "Rebuild model from log" does the same on demand. A rebuild keeps the target rate, the fitted decay and the run history, and replays confusions from the logged wrong notes.
+The model is rebuilt from the answer log when its version changes (`MODEL_VERSION` in `js/srs.js`), so changes apply to all past answers. Settings → Data → "Rebuild model from log" does the same on demand. A rebuild keeps the target rate, the fitted decay and the run history, and replays confusions from the logged wrong notes. Those kept fields (`meta`: target, speedPush, recent, last, best, decay) are the only part of a model that is stored (`persistedModel` in `main.js`), written at the end of a run; the cards, note stats, contexts and confusions are replayed from the answer log at every start, which happens anyway (`stale`).

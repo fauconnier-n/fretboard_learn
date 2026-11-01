@@ -100,7 +100,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Data and storage
 - Users: `user` for real progress, `test` for trying things (shown with a TEST DATA badge). More can be added.
 - DuckDB-WASM (core v2.0.0-dev) with one file per user in the browser's private file system (OPFS). The worker is patched so a checkpoint really reaches the disk. Data is flushed after writes, at the end of each run, and when the page is hidden or closed.
-- Tables: `kv` (settings and models), `attempts` (one row per prompt), `runs` (one row per run).
+- Tables: `kv` (settings, and per instrument the model's version and `meta`: target, run history, best runs, fitted decay; the cards themselves are replayed from the log at every start), `attempts` (one row per prompt), `runs` (one row per run).
 - `attempts` logs:
   - time to answer, time to the right note, each wrong note and when it was played;
   - the previous prompt;
@@ -124,6 +124,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Lighter answers: the model is no longer rewritten after every graded answer (100 KB to 1 MB of JSON to DuckDB, the safety copy and `kv.json` on disk each time); only its run-level `meta` is stored, at the end of a run, since everything else is replayed from the answer log at every start anyway. `kv.json` shrinks accordingly. Nothing changes in what is asked or how answers count.
 - **2026-11-01** — Faster start: the 34 MB DuckDB module is no longer downloaded and re-cached on every start (service worker cache first for `vendor/`, server `ETag`/304 and `immutable`), and the worker is patched to load it with a plain fetch so the browser keeps the compiled code; the longest module chain is preloaded from `index.html`. No change to what the app does.
 - **2026-11-01** — Performance measurement: `npm run perf` (`tools/perf.mjs`) times cold and warm starts, a run of answers and its writes, the run loop, Stats and the end-of-run backup in headless Edge, with timing marks in `main.js` and `storage.js`; `--compare` shows the change against a saved baseline. No change to the app itself.
 - **2026-11-01** — Checked with a 9-string guitar: during a run the view is at most six strings high, so the board fits a phone held sideways; banners hide during runs on phones. Name the note: piano-style buttons of one size, sharps or flats as set in Settings → Practice (hints after a miss follow it).
