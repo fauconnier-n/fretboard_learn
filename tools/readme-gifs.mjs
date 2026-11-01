@@ -1,6 +1,6 @@
 // Builds the README's pictures in media/ from a tools/readme.mjs capture:
 //   node tools/readme-gifs.mjs screenshots/readme
-// growth.gif: the mastery map before the first run and after each of the next eight.
+// growth.gif: the mastery map over a learner's first days (tools/seed-growth.mjs).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { encodeGif } from './gif.mjs';
