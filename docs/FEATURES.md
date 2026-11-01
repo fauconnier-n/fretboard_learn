@@ -128,6 +128,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Note position has no settings bar: the menu under the prompt holds run type, length (10–50 prompts or a 60–180 s sprint), beat mode and interval practice, and Ready offers *Back to the menu*. Ready shows only the zone, no knowledge bars. Position popups in detail: labelled bars with a mark where each stood before the run, the last 10 answers, and a time line with your fast end, your usual time and this run's answers. Side dots above the board, fret numbers below. The answer shown after a miss is green again, with a white contour. On phones a run starts at the top of the page.
+
 - **2026-11-01** — Every space on the neck is the same width, the open strings' too, so every position card is the same size; dots under the marker frets (two under 12). Fast and automatic bars fill only from right answers; the legends say what each bar means. The answer shown after a miss is written in ink on white. `tools/seed-test.mjs` makes varied practice data for the `test` profile (import it from Settings → Data).
 
 - **2026-11-01** — The knowledge map (Stats, All runs, the board between runs) uses the run results' cards instead of clouds: name and three bars, known red → green, fast light grey, automatic ink. The position of an open popup is highlighted and repeated at the top of the popup, which sits beside it on the board; popups close when the page changes.

@@ -62,7 +62,7 @@ try {
       // the element can still be laid out (a view switch or a zoom under way): wait until it has a size
       let r;
       for (let i = 0; i < 20; i++) {
-        r = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(st.gif.clip || 'body')}); if (!el) return null; el.scrollIntoView({ block: 'center' }); const b = el.getBoundingClientRect(); return { x: b.x + scrollX, y: b.y + scrollY, width: b.width, height: b.height }; })()`);
+        r = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(st.gif.clip || 'body')}); if (!el) return null; el.scrollIntoView({ block: el.offsetHeight > innerHeight ? 'start' : 'center' }); /* a tall element from its top */ const b = el.getBoundingClientRect(); return { x: b.x + scrollX, y: b.y + scrollY, width: b.width, height: b.height }; })()`);
         if (r?.width && r?.height) break;
         await sleep(100);
       }
