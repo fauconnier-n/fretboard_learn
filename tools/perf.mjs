@@ -72,14 +72,6 @@ async function traced(page, ms) {
 }
 
 async function startup(page, label) {
-  const wasm = { kb: 0, from: 'not seen' }; // the worker's requests are not always reported on the page
-  page.on('Network.responseReceived', (p) => {
-    if (!p.response.url.endsWith('.wasm')) return;
-    wasm.from = p.response.fromServiceWorker ? 'service worker' : p.response.fromDiskCache ? 'disk cache' : 'network';
-  });
-  page.on('Network.loadingFinished', (p) => { if (wasmRequests.has(p.requestId)) wasm.kb += p.encodedDataLength / 1024; });
-  const wasmRequests = new Set();
-  page.on('Network.requestWillBeSent', (p) => { if (p.request.url.endsWith('.wasm')) wasmRequests.add(p.requestId); });
   const ready = await openApp(page, { origin });
   await sleep(1200);
   const m = await page.evaluate(MARKS);
@@ -90,9 +82,6 @@ async function startup(page, label) {
   put(`${label}.apiMs`, m.apiMs);
   put(`${label}.heapMB`, m.heapMB);
   put(`${label}.resources`, m.resources);
-  put(`${label}.wasmTransferKB`, wasm.kb);
-  put(`${label}.wasmFrom`, wasm.from);
-  for (const ev of ['Network.responseReceived', 'Network.loadingFinished', 'Network.requestWillBeSent']) page.off(ev);
 }
 
 let browser;
@@ -131,7 +120,7 @@ try {
   console.log('warm starts…');
   await startup(page, 'warm1');
   await startup(page, 'warm');
-  put('attempts', await page.evaluate(`(async () => Number((await window.ft.sql('select count(*) as n from attempts'))[0].n))()`));
+  put('attempts', await page.evaluate(`window.ft.rows('attempts').length`));
 
   console.log('a run of answers…');
   // a run of keyboard answers: handler time, long tasks, saves, writes to the disk copy

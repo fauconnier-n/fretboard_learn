@@ -1,13 +1,10 @@
-// Offline support: app files network first (so edits show up straight away), cache as fallback;
-// the vendored DuckDB files (34 MB, version pinned) cache first, so a start does not fetch and
-// re-cache them every time. Bump CACHE when a vendored file or index.html's preload list changes.
-const CACHE = 'fretboard-trainer-v33';
+// Offline support: app files network first (so edits show up straight away), cache as fallback.
+// Bump CACHE when the list of files changes.
+const CACHE = 'fretboard-trainer-v34';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
   'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',
-  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/mirror.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js', 'js/burst.js', 'js/schema.js', 'js/disklayout.js', 'js/diskFolder.js', 'js/version.js',
-  'vendor/duckdb/duckdb-wasm.mjs', 'vendor/duckdb/apache-arrow.mjs', 'vendor/duckdb/flatbuffers.mjs',
-  'vendor/duckdb/tslib.mjs', 'vendor/duckdb/duckdb-browser-base.worker.js', 'vendor/duckdb/duckdb-base.wasm',
+  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/idb.js', 'js/logQueries.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js', 'js/burst.js', 'js/disklayout.js', 'js/diskFolder.js', 'js/version.js',
 ];
 
 self.addEventListener('install', (e) => {
@@ -33,9 +30,5 @@ self.addEventListener('fetch', (e) => {
     caches.open(CACHE).then((c) => c.put(req, copy));
     return res;
   });
-  if (url.pathname.includes('/vendor/')) {
-    e.respondWith(caches.match(req).then((r) => r || fetchAndCache()));
-    return;
-  }
   e.respondWith(fetchAndCache().catch(() => caches.match(req).then((r) => r || caches.match('index.html'))));
 });

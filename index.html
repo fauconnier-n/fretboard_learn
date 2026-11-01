@@ -9,12 +9,6 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
-  <!-- the longest import chain (main → storage → duckdb-wasm → apache-arrow → flatbuffers/tslib), fetched at once -->
-  <link rel="modulepreload" href="js/storage.js">
-  <link rel="modulepreload" href="vendor/duckdb/duckdb-wasm.mjs">
-  <link rel="modulepreload" href="vendor/duckdb/apache-arrow.mjs">
-  <link rel="modulepreload" href="vendor/duckdb/flatbuffers.mjs">
-  <link rel="modulepreload" href="vendor/duckdb/tslib.mjs">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
@@ -308,7 +302,7 @@
           <button class="btn small back" data-open="home">← Settings</button>
           <h2>Data &amp; backups</h2>
           <div class="panel spage-body">
-          <p class="muted small">Everything is kept in this browser, in a DuckDB database per profile, and copied as plain files to the profile's folder: one you picked, or the <code>data</code> folder next to the app when it runs from <code>start.bat</code>. If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it by hand.</p>
+          <p class="muted small">Everything is kept in this browser (IndexedDB), per profile, and copied as plain files to the profile's folder: one you picked, or the <code>data</code> folder next to the app when it runs from <code>start.bat</code>. If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it by hand.</p>
           <p class="small" id="dbInfo"></p>
           <h4 class="backups-head">Data folder <span class="btn-row">
             <button class="btn small primary hidden" id="folderReconnectBtn">Reconnect</button>
