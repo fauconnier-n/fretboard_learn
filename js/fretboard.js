@@ -2,6 +2,8 @@
 
 const NS = 'http://www.w3.org/2000/svg';
 const INLAYS = [3, 5, 7, 9, 15, 17, 19, 21];
+const MAX_ZOOM = 2;
+const ZOOM_MS = 450;
 let uid = 0;
 
 function el(tag, attrs = {}, parent) {
@@ -104,7 +106,9 @@ export class Fretboard {
     const svg = this.svg;
     const n = this.strings.length;
     svg.innerHTML = '';
-    svg.setAttribute('viewBox', `0 0 ${this.W} ${this.H}`);
+    cancelAnimationFrame(this.zoomRaf);
+    this.view = [0, 0, this.W, this.H];
+    svg.setAttribute('viewBox', this.view.join(' '));
     const defs = el('defs', {}, svg);
     this.mask = el('mask', { id: this.id + '-mask' }, defs);
     // a light blur so the clouds of the knowledge map have no hard edge
@@ -181,20 +185,50 @@ export class Fretboard {
     dim.setAttribute('visibility', 'visible');
   }
 
+  // During a run the view closes in on the zone's cells (null: the whole neck). The board keeps
+  // its shape on the page, so nothing around it moves; the zone grows at most MAX_ZOOM times.
+  zoomTo(cells) {
+    let to = [0, 0, this.W, this.H];
+    if (cells?.length) {
+      const rs = cells.map((c) => this.cellRect(c.s, c.f));
+      const x0 = Math.min(...rs.map((r) => r.x)) - 40;
+      const x1 = Math.max(...rs.map((r) => r.x + r.width)) + 40;
+      const y0 = Math.min(...rs.map((r) => r.y)) - this.sp * 0.6;
+      const y1 = Math.max(...rs.map((r) => r.y + r.height)) + this.sp * 0.6;
+      const z = Math.max(1, Math.min(MAX_ZOOM, this.W / (x1 - x0), this.H / (y1 - y0)));
+      const w = this.W / z;
+      const h = this.H / z;
+      const inside = (v, size, max) => Math.min(max - size, Math.max(0, v));
+      to = [inside((x0 + x1 - w) / 2, w, this.W), inside((y0 + y1 - h) / 2, h, this.H), w, h];
+    }
+    if (to.every((v, i) => Math.abs(v - this.view[i]) < 0.5)) return;
+    const from = this.view;
+    const t0 = performance.now();
+    cancelAnimationFrame(this.zoomRaf);
+    const frame = (now) => {
+      const t = Math.min(1, (now - t0) / ZOOM_MS);
+      const k = 1 - (1 - t) ** 3; // ease out
+      this.view = from.map((v, i) => v + (to[i] - v) * k);
+      this.svg.setAttribute('viewBox', this.view.map((v) => v.toFixed(1)).join(' '));
+      if (t < 1) this.zoomRaf = requestAnimationFrame(frame);
+    };
+    this.zoomRaf = requestAnimationFrame(frame);
+  }
+
   clearMarks() {
     this.layers.marks.innerHTML = '';
   }
 
   mark(s, f, cls, label) {
     const g = el('g', { class: 'fb-mark ' + cls, transform: `translate(${this.cx(f)},${this.cy(s)})` }, this.layers.marks);
-    el('circle', { r: 12.5, class: 'dot' }, g);
-    if (label) el('text', { y: 4, class: 'lbl' }, g).textContent = label;
+    el('circle', { r: 14, class: 'dot' }, g);
+    if (label) el('text', { y: 4.5, class: 'lbl' }, g).textContent = label;
     return g;
   }
 
   flash(s, f, kind, label) {
     const g = this.mark(s, f, kind, label);
-    const ring = el('circle', { r: 12.5, class: 'ripple' }, g);
+    const ring = el('circle', { r: 14, class: 'ripple' }, g);
     ring.addEventListener('animationend', () => ring.remove());
   }
 

@@ -178,7 +178,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-hit:hover { fill: rgba(63, 60, 55, .06); }
 .fb-marks, .fb-heat { pointer-events: none; }
 .fb-mark .dot { transform-box: fill-box; transform-origin: center; animation: pop .25s ease-out; stroke-width: 2; }
-.fb-mark .lbl { font-size: 10.5px; font-weight: 800; text-anchor: middle; fill: var(--ink); }
+.fb-mark .lbl { font-size: 12.5px; font-weight: 800; text-anchor: middle; fill: var(--ink); }
 .fb-mark.good .dot { fill: var(--green); stroke: #fff; filter: drop-shadow(0 0 6px var(--green)); }
 .fb-mark.bad .dot { fill: var(--red); stroke: #fff; filter: drop-shadow(0 0 6px var(--red)); }
 .fb-mark.bad .lbl { fill: #fff; }
@@ -367,6 +367,22 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
   .run-info { margin-left: 0; text-align: left; }
   .sum-lists { grid-template-columns: 1fr; }
   .fretboard { min-width: 640px; }
+}
+
+/* phones: during a run the header slides up out of the way, so the board fits on screen */
+@media (max-width: 720px), (max-height: 500px) {
+  .top { max-height: 160px; overflow: hidden; transition: max-height .3s ease, padding .3s ease; }
+  body.in-run .top { max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; box-shadow: none; }
+  /* and the run settings too: only Stop, the score ring and the progress stay */
+  body.in-run #practiceNav, body.in-run .practice-bar > .seg, body.in-run .practice-bar > .run-len { display: none; }
+  body.in-run main { padding-top: 8px; }
+  body.in-run .prompt-area { padding-top: 4px; margin-bottom: 6px; }
+}
+/* phones held sideways: the note on the left, its text, timer and Show me beside it */
+@media (max-height: 500px) {
+  body.in-run .prompt-area { display: grid; grid-template-columns: auto auto; justify-content: center; column-gap: 28px; align-items: center; text-align: left; }
+  body.in-run .prompt-note { grid-row: span 6; font-size: 60px; }
+  body.in-run .prompt-area .show-me { justify-self: start; }
 }
 
 /* progress on the practice board: mastery colours, and white fog over positions not unlocked yet */
