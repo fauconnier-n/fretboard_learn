@@ -457,6 +457,7 @@ body.in-run .ring-txt { font-size: 11.6px; }
 .gm-row.has-opt .gm-str { background: var(--yellow); color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
 .gm-row.has-opt:hover .gm-opt, .gm-row.has-opt:focus .gm-opt { background: var(--panel2); }
 .gm-row.active .gm-opt { background: var(--yellow); }
+.gm-row.primary .gm-opt { background: var(--accent); font-weight: 800; }
 
 /* Intervals tab */
 #ivFill { height: 100%; width: 0; background: var(--green); transition: width 120ms linear; }
@@ -498,7 +499,7 @@ body.in-run .ring-txt { font-size: 11.6px; }
    last answers, and a time line */
 .fb-tip { min-width: 250px; }
 .tip-title { font-weight: 800; margin-bottom: 4px; white-space: normal; }
-.tip-bar { display: grid; grid-template-columns: 66px 1fr 34px; align-items: center; gap: 6px; }
+.tip-bar { display: grid; grid-template-columns: 84px 1fr 34px; align-items: center; gap: 6px; }
 .tip-bar i { position: relative; height: 7px; border-radius: 4px; background: var(--panel2); }
 .tip-bar i b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
 .tip-bar i u { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); text-decoration: none; }
