@@ -1,19 +1,22 @@
 // @ts-check
-// Disk copy: every answer, run and setting is also saved in files on disk by the local
-// server (serve.ps1), under data/<user>/. Everything in the browser (the DuckDB file, the
-// IndexedDB safety copy, the backups) goes together on "clear site data", and is separate
-// for each browser and address; the disk copy survives that, and storage.js refills the
-// browser from it on start.
-//   attempts.jsonl  one answer per line, append-only (same fields as the safety copy)
-//   runs.jsonl      one run row per line, append-only; the last line for a run_id wins
-//   kv.json         settings and models, {key: JSON text}, replaced whole
-// The app works without it (a static host, or the server is down): writes then wait in
-// memory and the next start or the next reachable save catches the disk up.
+// The disk copy of a profile's data, laid out as in js/disklayout.js and kept by one of two
+// transports: a folder the user picked (js/diskFolder.js) or, on localhost, the local server's
+// data/<name>/ (serve.ps1). storage.js writes through here after every change and merges from
+// here on start, so a wiped browser refills itself. With neither (a static host such as GitHub
+// Pages and no folder chosen) configured() is false and everything stays in the browser.
+import { fold, groupByRun, profileFolder, toJsonl } from './disklayout.js';
+import * as folder from './diskFolder.js';
 
-const API = 'api/data/';
+const LOCAL = typeof location !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+const KEEPALIVE_MAX = 60000; // fetch keepalive (used while the page closes) is limited to 64 KB
 const DOWN = 'local server not reachable (run start.bat)';
 
-// fetch, with a readable message when the server is not running
+let transport = null;
+let handle = null; // the folder, when mode is 'folder'
+const state = { mode: 'none', local: LOCAL, name: '', needsPermission: false };
+
+// ---------- the local server ----------
+
 async function call(url, opts) {
   try {
     return await fetch(url, opts);
@@ -21,58 +24,126 @@ async function call(url, opts) {
     throw new Error(DOWN);
   }
 }
-const KEEPALIVE_MAX = 60000; // fetch keepalive (used while the page closes) is limited to 64 KB
 
-// The disk folder, or null when there is no server with the disk API.
-export async function probe() {
+async function getText(url) {
+  const r = await call(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`disk copy: ${url} ${r.status}`);
+  return r.text();
+}
+
+async function send(url, method, body, keepalive) {
+  const r = await call(url, { method, body, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, keepalive: keepalive && body.length < KEEPALIVE_MAX });
+  if (!r.ok) throw new Error(`disk copy: ${method} ${url} failed (${r.status})`);
+}
+
+const server = (name) => {
+  const base = 'api/data/' + name + '/';
+  return {
+    readKv: () => getText(base + 'kv.json'),
+    readAll: async (kind) => [await getText(base + kind)],
+    appendFile: (kind, file, text, keepalive) => send(base + kind + '/' + file, 'POST', text, keepalive),
+    clear: (kind) => send(base + kind, 'DELETE', ''),
+    putKv: (text, keepalive) => send(base + 'kv.json', 'PUT', text, keepalive),
+    putProfile: (text) => send(base + 'profile.json', 'PUT', text),
+  };
+};
+
+async function serverDir() {
   try {
     const r = await fetch('api/disk', { cache: 'no-store' });
-    if (!r.ok) return null;
-    return (await r.json()).dir || null;
+    return r.ok ? (await r.json()).dir || null : null;
   } catch {
     return null;
   }
 }
 
-async function getText(user, file) {
-  const r = await call(API + user + '/' + file, { cache: 'no-store' });
-  if (r.status === 404) return '';
-  if (!r.ok) throw new Error(`disk copy: ${file} ${r.status}`);
-  return r.text();
+// ---------- choice of transport ----------
+
+export const supportsFolder = () => typeof window !== 'undefined' && 'showDirectoryPicker' in window && window.isSecureContext;
+export const status = () => ({ ...state, supported: supportsFolder() });
+// a copy is wanted and can be written (the server may still be down: that is retried)
+export const configured = () => state.mode !== 'none' && !state.needsPermission;
+
+async function checkFolder(ask) {
+  state.needsPermission = (await folder.permission(handle, ask)) !== 'granted';
+  transport = state.needsPermission ? null : new folder.FolderTransport(handle);
+  return !state.needsPermission;
 }
 
-// a line cut short by a crash is skipped
-const lines = (text) => text.split('\n').flatMap((l) => {
-  if (!l.trim()) return [];
-  try {
-    return [JSON.parse(l)];
-  } catch {
-    return [];
+// The profile's stored folder first; else the local server, on localhost, unless the profile
+// was made browser-only; else none.
+export async function start(name, store) {
+  transport = null;
+  handle = await folder.loadHandle(name).catch(() => null);
+  Object.assign(state, { mode: 'none', name: '', needsPermission: false });
+  if (handle) {
+    Object.assign(state, { mode: 'folder', name: handle.name });
+    await checkFolder(false);
+  } else if (LOCAL && store !== 'browser') {
+    state.mode = 'server';
+    transport = server(name);
   }
-});
+  return status();
+}
+
+// The label of a copy that can be reached right now, or null (storage keeps it as info.disk.dir).
+export async function probe() {
+  if (state.mode === 'folder') return transport || (await checkFolder(false)) ? handle.name : null;
+  if (state.mode === 'server') {
+    const dir = await serverDir();
+    if (dir) state.name = dir;
+    return dir;
+  }
+  return null;
+}
+
+function active() {
+  if (!transport) throw new Error(state.needsPermission ? 'the data folder needs permission again' : 'no disk copy');
+  return transport;
+}
 
 // {kv: {key: jsonText}, attempts: [...], runs: {run_id: row}}
-export async function load(user) {
-  const [kvText, attemptsText, runsText] = await Promise.all(['kv.json', 'attempts.jsonl', 'runs.jsonl'].map((f) => getText(user, f)));
-  let kv = {};
-  try {
-    kv = kvText ? JSON.parse(kvText) : {};
-  } catch {}
-  const runs = {};
-  for (const r of lines(runsText)) if (r?.run_id) runs[r.run_id] = r;
-  return { kv, attempts: lines(attemptsText).filter((a) => typeof a?.t === 'number' && a.desc), runs };
+export async function load() {
+  const t = active();
+  const [kv, attempts, runs] = await Promise.all([t.readKv(), t.readAll('attempts'), t.readAll('runs')]);
+  return fold(kv, attempts, runs);
 }
 
-async function send(user, file, method, body, keepalive) {
-  const r = await call(API + user + '/' + file, {
-    method, body, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    keepalive: keepalive && body.length < KEEPALIVE_MAX,
-  });
-  if (!r.ok) throw new Error(`disk copy: saving ${file} failed (${r.status})`);
+// kind: 'attempts' | 'runs'; one append per run file
+export async function append(kind, items, keepalive) {
+  for (const [file, list] of Object.entries(groupByRun(kind, items))) await active().appendFile(kind, file, toJsonl(list), keepalive);
 }
 
-const jsonl = (items) => items.map((x) => JSON.stringify(x) + '\n').join('');
+export async function replaceLines(kind, items) {
+  await active().clear(kind);
+  await append(kind, items);
+}
 
-export const append = (user, file, items, keepalive) => send(user, file, 'POST', jsonl(items), keepalive);
-export const replaceLines = (user, file, items) => send(user, file, 'PUT', jsonl(items));
-export const putKv = (user, kvText, keepalive) => send(user, 'kv.json', 'PUT', JSON.stringify(kvText), keepalive);
+export const putKv = (kv, keepalive) => active().putKv(JSON.stringify(kv), keepalive);
+
+// ---------- folders (each needs a click, except forget) ----------
+
+// an existing profile folder, with the name found inside it
+export async function openFolder() {
+  const h = await folder.pick();
+  return { handle: h, name: await folder.profileName(h) };
+}
+
+export async function useFolder(name, h) {
+  await folder.saveHandle(name, h);
+  await start(name);
+}
+
+// a new fretboard-<name> folder in a location the user picks (an existing one is reused)
+export async function createFolder(name) {
+  const h = await folder.createIn(await folder.pick(), profileFolder(name));
+  await new folder.FolderTransport(h).putProfile(JSON.stringify({ name, created: new Date().toISOString() }));
+  await useFolder(name, h);
+}
+
+export const reconnect = () => (handle ? checkFolder(true) : Promise.resolve(false));
+
+export async function forget(name, store) {
+  await folder.forgetHandle(name);
+  await start(name, store);
+}

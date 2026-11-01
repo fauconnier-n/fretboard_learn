@@ -1,5 +1,5 @@
 # Minimal static file server for Fretboard Trainer on http://localhost (no admin needed).
-# It also keeps the disk copy of each profile's data in data<name> (see js/disk.js, js/disklayout.js):
+# It also keeps the disk copy of each profile's data in data\<name>\ (see js/disk.js, js/disklayout.js):
 #   GET    /api/disk                              where the disk copy lives
 #   GET    /api/data/<name>/kv.json|profile.json  read a file (empty if none);  PUT replaces it (old one kept as .bak)
 #   GET    /api/data/<name>/attempts|runs         every run file of that kind, plus the flat file of earlier versions
