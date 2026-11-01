@@ -237,6 +237,7 @@ export class Quiz {
     const { zone } = pick;
     this.run = {
       id: Date.now().toString(36),
+      pick,
       zone,
       desc: describe(zone),
       review: pick.review,
@@ -625,6 +626,15 @@ export class Quiz {
       })), { label: 'Back to the menu', act: () => this.reset() }], 'back to the menu');
     }
     this.menuSub = sub;
+    // a run stopped by hand: resume it (low string), restart it, or drop it (high string)
+    if (this.state === 'done' && this.run?.stoppedAt) {
+      const n = this.getStrings().length;
+      const opts = Array(n);
+      opts[0] = { label: 'Resume the run', primary: true, act: () => this.resume() };
+      opts[1] = { label: 'Restart the run', act: () => this.restart() };
+      opts[n - 1] = { label: 'Cancel the run, back to the menu', act: () => this.reset() };
+      return this.menu.show('Stopped', opts, 'resume the run');
+    }
     if (sub === 'type') {
       return this.menu.show('Run type', [
         ...RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),
@@ -658,6 +668,7 @@ export class Quiz {
       return;
     }
     if (n !== 2) return;
+    if (this.state === 'done' && this.run?.stoppedAt) return this.resume();
     if (this.state === 'preview') return this.reset();
     if (this.menuSub) this.showMenu();
   }
@@ -852,6 +863,8 @@ export class Quiz {
     this.state = 'done';
     this.boardView = 'run';
     this.cur = null;
+    // stopped by hand: it can be resumed (the time it stood still is not counted in a sprint)
+    run.stoppedAt = reason === 'stopped' || reason === 'strum_stop' ? performance.now() : null;
     this.ring();
     this.paintProgress();
     this.els.area.style.setProperty('--glow', '0');
@@ -883,10 +896,38 @@ export class Quiz {
       return;
     }
     e.note.textContent = reason === 'stopped' || reason === 'strum_stop' ? 'Stopped' : 'Done';
-    e.sub.textContent = 'Press New run or Enter to keep going';
+    e.sub.textContent = run.stoppedAt ? 'Resume, restart or cancel it below' : 'Press New run or Enter to keep going';
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
     this.showMenu();
+    // phones: the menu sits under the result; bring it into view
+    if (matchMedia('(max-width: 720px), (max-height: 500px)').matches) e.menu.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // A run stopped by hand goes on where it was: same zone, same answers so far, next prompt.
+  // Its row is saved again when it ends, replacing the stopped one.
+  resume() {
+    const run = this.run;
+    if (this.state !== 'done' || !run?.stoppedAt) return;
+    if (run.endsAt) run.endsAt += performance.now() - run.stoppedAt;
+    run.stoppedAt = null;
+    this.els.summary.classList.add('hidden');
+    this.menu.hide();
+    this.state = 'feedback';
+    this.updateButton();
+    this.ring();
+    this.paintProgress();
+    this.tick();
+    if (run.beat) this.startBeat();
+    this.next();
+  }
+
+  // The stopped run again from the start, on the same zone.
+  restart() {
+    const pick = this.run?.pick;
+    if (!pick) return this.prepare();
+    this.prepare(pick);
+    this.begin();
   }
 
   // A finished prompts run: one note from perfect, one short of your best on this zone and

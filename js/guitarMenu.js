@@ -29,7 +29,7 @@ export class GuitarMenu {
   /**
    * @param {string} title
    * @param {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} options at most one per string (primary: the main step, green)
-   * @param {string} [strumHint] what two muted strums do here (go back), if anything
+   * @param {string} [strumHint] what two muted strums do here, if anything
    */
   show(title, options, strumHint = '', page = 0) {
     const strings = this.getStrings();
