@@ -12,6 +12,7 @@ import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
 import { detailHtml, mapCell } from './stats.js';
 import { burst } from './burst.js';
+import { median } from './logQueries.js';
 
 const DAY = 86400000;
 const PROBE_EVERY = 10; // every 10th prompt is a random check-up, not picked by the model
@@ -61,12 +62,6 @@ export const RUN_TYPES = [
   ['name', 'Name the note (buttons)'],
   ['truefalse', 'True or false (buttons)'],
 ];
-const median = (xs) => {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  return s[s.length >> 1];
-};
-
 const write = (el, text) => { if (el.textContent !== text) el.textContent = text; };
 
 export class Quiz {

@@ -106,11 +106,6 @@ export function accuracy(st) {
   return sum / tot;
 }
 
-export function medianMs(st) {
-  const xs = (st?.results || []).filter((r) => r.correct).map((r) => r.ms).sort((a, b) => a - b);
-  return xs.length ? xs[xs.length >> 1] : null;
-}
-
 export const isKnown = (st) => !!st && st.n >= KNOWN_MIN && accuracy(st) >= KNOWN_ACC;
 
 // Groups are unlocked in order; the next one opens once every item so far has been known.
