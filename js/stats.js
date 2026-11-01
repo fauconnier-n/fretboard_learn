@@ -9,19 +9,17 @@ const pct = (x) => Math.round(x * 100) + '%';
 const secs = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(2) + ' s');
 
 // One position on a knowledge map (the Stats page, and the practice board between runs):
-// a soft cloud coloured by mastery, red → orange → yellow → green like the note bars, bigger
-// (mostly along the string) and denser the more often it was asked, with its note name; a
-// dashed ring and a pale name when unlocked but not played yet; nothing when still locked.
+// like after a run, its name and three bars (known, fast, automatic) over all runs; a dashed
+// ring and a pale name when unlocked but not played yet; nothing when still locked.
 export function mapCell(scheduler, snap, s, f, flats) {
   const midi = scheduler.strings[s] + f;
   const label = noteName(midi, flats);
-  const m = snap.mastery.get(s + ':' + f);
-  if (m !== undefined) {
+  if (snap.mastery.has(s + ':' + f)) {
     const key = s + ':' + f;
-    const asked = spellingsOf(pcOf(midi)).reduce((t, sp) => t + (scheduler.model.cards[sp === 'n' ? key : key + ':' + sp]?.seen || 0), 0);
-    const t = Math.min(1, Math.log2(1 + asked) / Math.log2(41)); // 40 questions or more: full size
-    // density rises fast: a well-practised position is a solid band of colour
-    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t, core: t }, fill: masteryColor(m), opacity: Math.min(0.85, 0.2 + 0.95 * t), label, tip: positionTip(scheduler, s, f, label) };
+    // the spelling played most stands for the position
+    const keys = spellingsOf(pcOf(midi)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
+    const most = keys.sort((a, b) => scheduler.model.cards[b].seen - scheduler.model.cards[a].seen)[0] ?? key;
+    return { bars: scheduler.noteRings(most), label, tip: positionTip(scheduler, s, f, label) };
   }
   if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true, tip: `${label} · fret ${f}\nNot played yet` };
   return null;
