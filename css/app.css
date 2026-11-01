@@ -198,11 +198,6 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .fb-mark.bad .ripple { stroke: var(--red); }
 .fb-heat-lbl { font-size: 10px; text-anchor: middle; fill: var(--ink); font-weight: 800; }
 .fb-heat-lbl.faint { fill: var(--steel); font-weight: 600; }
-.run-neck-legend { text-align: center; margin: 4px 0 0; }
-.fb-ring-bg { fill: rgba(255, 255, 255, .85); stroke: var(--panel2); stroke-width: 2.6; }
-.fb-ring { fill: none; stroke-width: 2.6; stroke-linecap: round; }
-.fb-ring-lbl { font-size: 10.5px; font-weight: 900; text-anchor: middle; fill: var(--ink); stroke: #fff; stroke-width: 3px; paint-order: stroke; }
-.fb-ring-lbl.missed { fill: var(--red); }
 @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 @keyframes ripple { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
 /* in steps: a pulsing mark inside the SVG repaints the board at every change, 8 times a second instead of 60 */
@@ -382,26 +377,31 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
   .fretboard { min-width: 640px; }
 }
 
-/* phones: during a run the header slides up out of the way, so the board fits on screen */
+/* during a run the run settings step aside (they are the menu before a run): only Stop, the
+   score ring and the progress stay */
+body.in-run #practiceNav, body.in-run .practice-bar > .seg, body.in-run .practice-bar > .run-len { display: none; }
+/* during a run: two invisible boxes, the note and Show me on the left (aligned right), the texts
+   and answer buttons on the right (aligned left), so a long text never moves the note */
+body.in-run .prompt-area { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: center; text-align: left; }
+body.in-run .prompt-area > * { grid-column: 2; }
+body.in-run .prompt-note { grid-column: 1; grid-row: 1 / span 3; justify-self: end; }
+body.in-run .prompt-area .show-me { grid-column: 1; grid-row: 4; justify-self: end; margin-top: 2px; }
+body.in-run .prompt-area .name-buttons, body.in-run .prompt-area .tf-buttons { grid-column: 2; grid-row: 4; justify-content: start; margin-top: 2px; }
+body.in-run .prompt-queue:empty { display: none; }
+
+/* phones: during a run the header and banners slide up out of the way, so the board fits */
 @media (max-width: 720px), (max-height: 500px) {
   .top { max-height: 160px; overflow: hidden; transition: max-height .3s ease, padding .3s ease; }
   body.in-run .top { max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; box-shadow: none; }
-  /* and the run settings too: only Stop, the score ring and the progress stay */
-  body.in-run .banner, body.in-run #practiceNav, body.in-run .practice-bar > .seg, body.in-run .practice-bar > .run-len { display: none; }
+  body.in-run .banner { display: none; }
   body.in-run main { padding-top: 8px; }
   body.in-run .prompt-area { padding-top: 4px; margin-bottom: 6px; }
 }
-/* phones held sideways: the note with Show me under it on the left, its text, timer and answer
-   buttons (in one row) beside it */
+/* phones held sideways: smaller note and buttons */
 @media (max-height: 500px) {
-  body.in-run .prompt-area { display: grid; grid-template-columns: auto auto; justify-content: center; column-gap: 28px; align-items: center; text-align: left; }
-  body.in-run .prompt-area > * { grid-column: 2; }
-  body.in-run .prompt-note { grid-column: 1; grid-row: 1 / span 3; font-size: 56px; }
-  body.in-run .prompt-area .show-me { grid-column: 1; grid-row: 4; justify-self: center; margin-top: 2px; }
-  body.in-run .prompt-area .name-buttons, body.in-run .prompt-area .tf-buttons { grid-column: 2; grid-row: 4; justify-content: start; margin-top: 2px; }
+  body.in-run .prompt-note { font-size: 56px; }
   body.in-run .name-buttons { row-gap: 4px; }
   body.in-run .name-buttons .btn { padding-top: 3px; padding-bottom: 3px; }
-  body.in-run .prompt-queue:empty { display: none; }
   body.in-run .progress { margin: 6px 0; }
   body.in-run .tf-buttons .btn { font-size: 14px; padding: 5px 12px; }
 }
@@ -426,9 +426,6 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
 .ring-bg { fill: none; stroke: var(--panel2); stroke-width: 3.5; }
 .ring-fg { fill: none; stroke: var(--green); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray .4s ease; }
 .ring-txt { font-size: 11px; font-weight: 800; text-anchor: middle; fill: var(--text); }
-.nr-known { stroke: var(--green); }
-.nr-fast { stroke: var(--blue); }
-.nr-auto { stroke: var(--yellow); }
 
 /* run types in the practice bar: guitar runs, then no-guitar runs */
 .seg-label { align-self: center; font-size: 11px; font-weight: 800; color: var(--muted); padding: 0 4px 0 8px; text-transform: uppercase; letter-spacing: .06em; }
@@ -464,3 +461,20 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
 .iv-items li.iv-locked { opacity: .45; }
 .iv-items li.iv-known span:first-child { color: var(--good); }
 @media (max-width: 720px) { .iv-title { font-size: 32px; } }
+
+/* run results on the neck: name and three bars; known green, fast yellow, automatic ink */
+.fb-bars-bg { fill: #fff; opacity: .9; stroke: var(--line); }
+.fb-bars-lbl { font-size: 14px; font-weight: 900; fill: var(--ink); }
+.fb-bars-lbl.missed { fill: var(--red); }
+.fb-bar-track { fill: var(--panel2); }
+.nb-known { fill: var(--green); }
+.nb-fast { fill: var(--yellow-ink); }
+.nb-auto { fill: var(--ink); }
+.legend i.bar-known, .legend i.bar-fast, .legend i.bar-auto { width: 22px; height: 5px; border-radius: 2px; }
+.legend i.bar-known { background: var(--green); }
+.legend i.bar-fast { background: var(--yellow-ink); }
+.legend i.bar-auto { background: var(--ink); }
+.legend .missed-name { color: var(--red); font-weight: 900; }
+.board-view { margin: 0 0 8px; }
+/* a position's details on hover */
+.fb-tip { position: fixed; z-index: 60; max-width: 300px; padding: 7px 10px; border: 2px solid var(--ink); border-radius: 10px; box-shadow: 2px 2px 0 var(--ink); background: #fff; color: var(--ink); font-size: 12.5px; line-height: 1.45; white-space: pre-line; pointer-events: none; }
