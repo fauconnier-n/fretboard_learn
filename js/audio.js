@@ -25,7 +25,15 @@ export class AudioInput {
   async start({ deviceId, channel = 0, gain = 1 }) {
     this.stop();
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Audio input needs http://localhost or https');
-    if (!this.ctx) this.ctx = new AudioContext({ latencyHint: 'interactive' });
+    // 48 kHz whatever the interface runs at: detection cost grows with the sample rate (a 96 kHz
+    // interface would double it) and the browser resamples for free
+    if (!this.ctx) {
+      try {
+        this.ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+      } catch {
+        this.ctx = new AudioContext({ latencyHint: 'interactive' });
+      }
+    }
     await this.ctx.resume();
     // raw signal: no voice processing on a DI
     const audio = {
