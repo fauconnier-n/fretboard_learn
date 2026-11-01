@@ -59,7 +59,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Answer shown automatically** after about 2.5× your expected time for that note (4–8 s, capped by the "Longest wait" setting). **Show me** (or H) shows it at any time. Both count as a miss.
 - **Check-up prompts:** every 10th prompt is a random position of the zone, with no names shown, as an honest measure.
 - **Before a run:** welcome back after a break, number of fading notes, and your practice plan if you wrote one.
-- **Run summary:** right first time, median vs your usual time, check-up results, how often the answer's own name was showing, a dot plot of answer times on a log scale, faster-than-usual and needs-work lists, notes due tomorrow, three rings per note asked (known, fast, automatic), a near-miss line (one note from perfect, one short of your best on this zone and length, or a new best) and the tempo change in beat mode.
+- **After a run**, in this order: **Done**, the open-string **menu**, the **neck with the run's notes** (each position asked shows three progress rings — known, fast, automatic — with its name in front, in red if it was missed in this run), then the details: right first time, median vs usual time, check-ups, cued prompts, notes due tomorrow, a dot plot of answer times, faster-than-usual and needs-work lists, a near-miss line and the tempo change in beat mode.
 - Keyboard and click fallback for playing without a guitar.
 
 ## Intervals
@@ -83,7 +83,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - The model rebuilds from the answer log when its format changes or when answers come back from the disk copy.
 
 ## Stats
-- **Knowledge map** of the neck (Stats page, and the practice board between runs): each played position is a soft, round **cloud** whose colour goes red (weak) → orange → yellow → green (mastered), like the note bars below it, and which is **bigger and denser the more often it was asked** (growing mostly along the string), fading out gradually at its edge. **Every position shows its note name**; unlocked positions not played yet have a dashed ring and a pale name.
+- **Knowledge map** of the neck (Stats page, and the practice board between runs): each played position is a soft **pill-shaped cloud** whose colour goes red (weak) → orange → yellow → green (mastered), like the note bars below it, and which is **bigger and denser the more often it was asked** (growing mostly along the string), thinning out gradually towards its top and bottom. **Every position shows its note name**; unlocked positions not played yet have a dashed ring and a pale name.
 - Cards: mastered, fading/due, typical answer time, your fast end, days practised this week, check-up accuracy, Name-the-note accuracy.
 - Slowest positions, marked erratic or steady, and per-note figures.
 
@@ -119,6 +119,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Pill-shaped clouds with a gradual vertical fade. After a run: Done, menu, then the run's notes on the neck (progress rings with names), then the details.
 - **2026-11-01** — Confusion boxes removed. Knowledge-map clouds: red → orange → yellow → green like the note bars, rounder, soft progressive edges, size and density by questions asked; note names on the Stats map and on the practice board after a run. A finished run shows its results first. (#10 restored #6–#9, which had been merged into their stacked branches instead of main.)
 - **2026-11-01** — Stats map: cloud shapes (yellow → green, size by questions asked, density by freshness) and confusion boxes for neighbouring notes. `tools/browser-check.mjs` records animated GIFs (`tools/gif.mjs`, no dependency).
 - **2026-11-01** — Settings split into pages (custom tuning one level deeper); Practice tab with Note position / Interval inside; tuning as a Standard/Drop switch plus a semitone slider; vibrant greens (option 3: `#6fd94c`, `#3cbd2b`, `#27871a`). Fix: answers were saved with misaligned columns after the instrument columns were added (rows are now built by column name, with a start-up check).

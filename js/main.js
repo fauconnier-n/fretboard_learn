@@ -677,7 +677,7 @@ async function init() {
       area: $('promptArea'), note: $('promptNote'), sub: $('promptSub'), timer: $('promptTimer'),
       zone: $('zoneLabel'), progress: $('progressLabel'), fill: $('progressFill'),
       feedback: $('feedback'), summary: $('summary'), queue: $('promptQueue'), startBtn: $('startBtn'), showMe: $('showMeBtn'), names: $('nameButtons'),
-      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'),
+      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'), neckLegend: $('runNeckLegend'),
     },
     getSettings: () => app.settings,
     getScheduler: () => app.scheduler,

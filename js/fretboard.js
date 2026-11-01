@@ -211,6 +211,7 @@ export class Fretboard {
   //   | { cloud: { w, h }, fill, opacity, label }: a soft round cloud w × half the fret width
   //     wide and h × half the string spacing high, fading out gradually towards its edge
   //   | { stroke, dash, label, faint }: a ring with a (pale) name
+  //   | { rings: { known, fast, auto }, label, missed }: three progress rings with the name in front
   setHeat(fn) {
     const h = this.layers.heat;
     h.innerHTML = '';
@@ -226,11 +227,23 @@ export class Fretboard {
         const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
         if (v.cloud) {
           const id = `${this.id}-c${s}-${f}`;
-          const grad = el('radialGradient', { id }, defs);
-          // dense in the middle, thinning out progressively to nothing at the edge
-          for (const [o, a] of [[0, 1], [0.35, 0.92], [0.6, 0.6], [0.82, 0.25], [1, 0]]) el('stop', { offset: o, 'stop-color': v.fill, 'stop-opacity': a }, grad);
-          el('ellipse', { rx: ((this.cw(f) / 2) * v.cloud.w).toFixed(1), ry: ((this.sp / 2) * v.cloud.h).toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), class: 'fb-cloud' }, g);
+          const grad = el('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+          // a pill, dense along its middle line and thinning out gradually towards top and bottom
+          for (const [o, a] of [[0, 0], [0.16, 0.22], [0.32, 0.62], [0.5, 1], [0.68, 0.62], [0.84, 0.22], [1, 0]]) el('stop', { offset: o, 'stop-color': v.fill, 'stop-opacity': a }, grad);
+          const ry = (this.sp / 2) * v.cloud.h;
+          const rx = Math.max(ry, (this.cw(f) / 2) * v.cloud.w);
+          el('rect', { x: (-rx).toFixed(1), y: (-ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: ry.toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), class: 'fb-cloud' }, g);
           if (v.label) el('text', { y: 3.5, class: 'fb-heat-lbl' }, g).textContent = v.label;
+          continue;
+        }
+        if (v.rings) {
+          // a note of the last run: rings known (outer), fast (middle), automatic (inner), name in front
+          for (const [r, k] of [[12.5, 'known'], [9, 'fast'], [5.5, 'auto']]) {
+            const C = 2 * Math.PI * r;
+            el('circle', { r, class: 'fb-ring-bg' }, g);
+            el('circle', { r, class: 'fb-ring nr-' + k, 'stroke-dasharray': `${(v.rings[k] * C).toFixed(1)} ${C.toFixed(1)}`, transform: 'rotate(-90)' }, g);
+          }
+          el('text', { y: 3.5, class: 'fb-ring-lbl' + (v.missed ? ' missed' : '') }, g).textContent = v.label;
           continue;
         }
         el('circle', { r: 11, class: 'fb-heat', fill: v.fill || 'none', stroke: v.stroke || 'none', 'stroke-width': v.fill && v.stroke ? 2.5 : 1.5, 'stroke-dasharray': v.dash || 'none' }, g);

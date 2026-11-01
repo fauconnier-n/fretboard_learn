@@ -184,7 +184,11 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-mark.bad .ripple { stroke: var(--red); }
 .fb-heat-lbl { font-size: 10px; text-anchor: middle; fill: var(--ink); font-weight: 800; }
 .fb-heat-lbl.faint { fill: var(--steel); font-weight: 600; }
-.summary { margin: 0 0 16px; }
+.run-neck-legend { text-align: center; margin: 4px 0 0; }
+.fb-ring-bg { fill: rgba(255, 255, 255, .85); stroke: var(--panel2); stroke-width: 2.6; }
+.fb-ring { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.fb-ring-lbl { font-size: 10.5px; font-weight: 900; text-anchor: middle; fill: var(--ink); stroke: #fff; stroke-width: 3px; paint-order: stroke; }
+.fb-ring-lbl.missed { fill: var(--red); }
 @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 @keyframes ripple { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
 @keyframes pulse { 50% { opacity: .4; } }
@@ -271,9 +275,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .legend i.lv-weak { background: var(--red); }
 .legend i.lv-mid { background: var(--yellow); }
 .legend i.lv-done { background: var(--green); }
-.legend i.cloud { width: 34px; height: 13px; border-radius: 50%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
-.legend i.cloud-small { width: 13px; height: 11px; background: radial-gradient(var(--green) 30%, transparent 72%); opacity: .35; }
-.legend i.cloud-big { width: 24px; height: 14px; background: radial-gradient(var(--green) 40%, transparent 72%); }
+.legend i.cloud { width: 34px; height: 12px; border-radius: 999px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
+.legend i.cloud-small { width: 14px; height: 10px; border-radius: 999px; background: linear-gradient(transparent, var(--green), transparent); opacity: .35; }
+.legend i.cloud-big { width: 26px; height: 13px; border-radius: 999px; background: linear-gradient(transparent, var(--green) 35%, var(--green) 65%, transparent); }
 .show-me { margin-top: 6px; }
 .name-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
 .name-buttons .btn { min-width: 58px; }
@@ -351,14 +355,9 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
 
 /* live accuracy ring and per-note rings */
 .acc-ring { width: 36px; height: 36px; }
-.ring-bg, .nr-bg { fill: none; stroke: var(--panel2); stroke-width: 3.5; }
+.ring-bg { fill: none; stroke: var(--panel2); stroke-width: 3.5; }
 .ring-fg { fill: none; stroke: var(--green); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray .4s ease; }
 .ring-txt { font-size: 11px; font-weight: 800; text-anchor: middle; fill: var(--text); }
-.ring-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.ring-list li { display: flex; align-items: center; gap: 6px; }
-.note-rings { width: 28px; height: 28px; }
-.note-rings circle:not(.nr-bg) { fill: none; stroke-width: 2.6; stroke-linecap: round; }
-.note-rings .nr-bg { stroke-width: 2.6; }
 .nr-known { stroke: var(--green); }
 .nr-fast { stroke: var(--blue); }
 .nr-auto { stroke: var(--yellow); }
