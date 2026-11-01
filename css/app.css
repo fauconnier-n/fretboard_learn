@@ -52,6 +52,8 @@ body {
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 .hidden { display: none !important; }
+/* hidden but keeping its place, so nothing below it moves */
+.invisible { visibility: hidden; }
 h3 { font-size: 15px; margin: 18px 0 8px; }
 h4 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 700; }
 
@@ -139,13 +141,13 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 }
 .prompt-note { font-size: 84px; line-height: 1; font-weight: 900; letter-spacing: -2px; color: var(--ink); }
 .prompt-note.pop { animation: notePop .25s ease-out; }
-.prompt-sub { color: var(--muted); margin-top: 6px; min-height: 1.4em; }
+/* room for two lines (a hint after a miss), so the board below does not move */
+.prompt-sub { color: var(--muted); margin-top: 6px; min-height: 2.9em; }
 .prompt-timer { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-height: 1.4em; }
-.prompt-area.flash-good { animation: glowGood .6s ease-out; }
-.prompt-area.flash-bad { animation: glowBad .6s ease-out; }
 @keyframes notePop { from { transform: scale(.8); opacity: .3; } to { transform: scale(1); opacity: 1; } }
-@keyframes glowGood { from { background-color: rgba(60, 189, 43, .28); } to { background-color: transparent; } }
-@keyframes glowBad { from { background-color: rgba(229, 37, 47, .2); } to { background-color: transparent; } }
+/* the answer animation (js/burst.js): a layer at the asked note's centre, above everything */
+.burst { position: fixed; width: 0; height: 0; z-index: 50; pointer-events: none; }
+.burst span { position: absolute; left: 0; top: 0; }
 
 .feedback { text-align: center; font-weight: 700; min-height: 1.5em; margin-top: 8px; }
 .feedback.good { color: var(--good); }
@@ -170,6 +172,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 /* outside the zone the board fades into the white page */
 .fb-dim { fill: rgba(255, 255, 255, .6); pointer-events: none; }
 /* the zone: only its contour, rounded like the buttons, no fill */
+.fb-zone-shadow { fill: var(--yellow-ink); pointer-events: none; }
 .fb-zone { fill: none; stroke: var(--yellow-ink); stroke-width: 1.8; stroke-linejoin: round; pointer-events: none; }
 .fb-hit { fill: transparent; cursor: pointer; }
 .fb-hit:hover { fill: rgba(63, 60, 55, .06); }

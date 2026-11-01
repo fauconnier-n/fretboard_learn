@@ -1,9 +1,9 @@
 // Offline support: network first (so edits show up straight away), cache as fallback.
-const CACHE = 'fretboard-trainer-v26';
+const CACHE = 'fretboard-trainer-v28';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
   'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',
-  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/mirror.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js',
+  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/mirror.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js', 'js/burst.js',
   'vendor/duckdb/duckdb-wasm.mjs', 'vendor/duckdb/apache-arrow.mjs', 'vendor/duckdb/flatbuffers.mjs',
   'vendor/duckdb/tslib.mjs', 'vendor/duckdb/duckdb-browser-base.worker.js', 'vendor/duckdb/duckdb-base.wasm',
 ];
