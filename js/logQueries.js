@@ -3,8 +3,29 @@
 // filters over the rows in memory. Answers have the fields of storage.addAttempt, runs the
 // columns of the runs table.
 
-/** UTC day of a time, 'YYYY-MM-DD' (progress.js counts days the same way) @param {number} t */
-export const dayOf = (t) => new Date(t).toISOString().slice(0, 10);
+/** answers this far apart belong to different sessions (srs.js counts sessions the same way) */
+export const SESSION_GAP = 2 * 3600000;
+
+const pad = (n) => String(n).padStart(2, '0');
+/** local day of a time, 'YYYY-MM-DD' @param {number} t */
+export const dayOf = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+/**
+ * The day each answer counts on: the local day its session started, so a session that goes
+ * on past midnight counts on the day it began. Same order as `attempts`.
+ * @param {{ t: number }[]} attempts
+ */
+export function sessionDays(attempts) {
+  const out = new Array(attempts.length);
+  let prev = -Infinity;
+  let day = '';
+  for (const i of attempts.map((_, i) => i).sort((i, j) => attempts[i].t - attempts[j].t)) {
+    if (attempts[i].t - prev >= SESSION_GAP) day = dayOf(attempts[i].t);
+    prev = attempts[i].t;
+    out[i] = day;
+  }
+  return out;
+}
 
 /** middle value; the mean of the two middle ones for an even count @param {number[]} xs */
 export function median(xs) {
@@ -23,33 +44,34 @@ export const taskOf = (a) => a.task ?? 'play';
  */
 export const logStrings = (a, legacy) => a.strings ?? legacy[a.tuning ?? '']?.[1].join(',') ?? null;
 
-/** days with at least one answer since `since` @param {any[]} attempts @param {number} since */
-export const practisedDays = (attempts, since) => new Set(attempts.filter((a) => a.t >= since).map((a) => dayOf(a.t))).size;
+/** session days from the day of `since` on @param {any[]} attempts @param {number} since */
+export const practisedDays = (attempts, since) => new Set(sessionDays(attempts).filter((d) => d >= dayOf(since))).size;
 
 /** answers and the share right first time (0 when none) @param {any[]} list */
 export const rate = (list) => ({ n: list.length, acc: list.length ? list.filter((a) => a.correct).length / list.length : 0 });
 
-/** per day, oldest first: answers, share right and median time @param {any[]} attempts */
+/** per session day, oldest first: answers, share right and median time @param {any[]} attempts */
 export function perDay(attempts) {
   const days = new Map();
-  for (const a of attempts) {
-    const d = dayOf(a.t);
-    if (!days.has(d)) days.set(d, []);
-    days.get(d).push(a);
-  }
+  const ds = sessionDays(attempts);
+  attempts.forEach((a, i) => {
+    if (!days.has(ds[i])) days.set(ds[i], []);
+    days.get(ds[i]).push(a);
+  });
   return [...days.keys()].sort().map((day) => ({ day, ...rate(days.get(day)), med: median(days.get(day).map((a) => a.ms)) }));
 }
 
-/** positions answered right for the first time, per day, oldest first @param {any[]} attempts */
+/** positions answered right for the first time, per session day, oldest first @param {any[]} attempts */
 export function firstRightPerDay(attempts) {
   const first = new Map();
-  for (const a of attempts) {
-    if (!a.correct || taskOf(a) !== 'play') continue;
+  const ds = sessionDays(attempts);
+  attempts.forEach((a, i) => {
+    if (!a.correct || taskOf(a) !== 'play') return;
     const k = a.s + ':' + a.f;
-    if (!first.has(k) || a.t < first.get(k)) first.set(k, a.t);
-  }
+    if (!first.has(k) || a.t < first.get(k).t) first.set(k, { t: a.t, day: ds[i] });
+  });
   const n = new Map();
-  for (const t of first.values()) n.set(dayOf(t), (n.get(dayOf(t)) || 0) + 1);
+  for (const { day } of first.values()) n.set(day, (n.get(day) || 0) + 1);
   return [...n.keys()].sort().map((day) => ({ day, n: n.get(day) }));
 }
 
@@ -70,4 +92,3 @@ export function predictionRows(attempts) {
   }
   return out;
 }
-
