@@ -785,6 +785,8 @@ export class Scheduler {
       c.days ||= [];
       if (!c.days.includes(d)) c.days = [...c.days, d].slice(-5);
     }
+    // the last 10 answers, [right 0/1, ms], for the position's popup
+    c.hist = [...(c.hist || []), [ok, ms]].slice(-10);
 
     if (sp !== 'r') {
       const n = (notes[spellName(cell.midi, sp)] ||= { acc: 0.6, n: 0, time: newTime() });

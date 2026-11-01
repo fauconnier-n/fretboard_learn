@@ -25,18 +25,49 @@ export function mapCell(scheduler, snap, s, f, flats) {
   return null;
 }
 
-// The popup of a position over all runs on this instrument and tuning: how often it was asked,
-// right answers, usual time, and its known / fast / automatic levels.
+// The popup of a position over all runs on this instrument and tuning.
 export function positionTip(scheduler, s, f, label) {
   const key = s + ':' + f;
   const keys = spellingsOf(pcOf(scheduler.strings[s] + f)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
   if (!keys.length) return `${label} · fret ${f}\nNot played yet`;
-  const cards = keys.map((k) => scheduler.model.cards[k]);
+  const most = keys.sort((a, b) => scheduler.model.cards[b].seen - scheduler.model.cards[a].seen)[0];
+  return { html: detailHtml(scheduler, most, { title: `${label} · fret ${f} · all runs`, keys }) };
+}
+
+// Time line of the popup: 0.3 s to 10 s on a log scale, as a % from the left
+const timeX = (ms) => (100 * (Math.log(Math.min(10000, Math.max(300, ms))) - Math.log(300))) / (Math.log(10000) - Math.log(300));
+
+// A position's popup: its three bars, labelled, with a mark where each was before the run
+// (after a run); its last 10 answers (green right, red wrong, bigger when slower); a time line
+// with your fast end, your usual time for it and this run's answers; how often it was asked.
+// key: the spelling shown; keys: all spellings counted in the totals (default: key).
+export function detailHtml(scheduler, key, { title, before = null, runMs = [], keys = [key] }) {
+  const bars = scheduler.noteRings(key);
+  const row = (k, name) => {
+    const v = bars[k];
+    const color = k === 'known' ? masteryColor(v) : k === 'fast' ? PALETTE.steel : PALETTE.ink;
+    const mark = before ? `<u style="left:${(100 * before[k]).toFixed(0)}%" title="before this run"></u>` : '';
+    return `<div class="tip-bar"><span>${name}</span><i><b style="width:${(100 * v).toFixed(0)}%;background:${color}"></b>${mark}</i><em>${pct(v)}</em></div>`;
+  };
+  const card = scheduler.model.cards[key];
+  const hist = (card?.hist || []).map(([ok, ms]) => {
+    const d = (6 + 6 * Math.min(1, Math.log(Math.max(400, ms) / 400) / Math.log(20))).toFixed(1);
+    return `<span class="${ok ? 'ok' : 'miss'}" style="width:${d}px;height:${d}px" title="${(ms / 1000).toFixed(1)} s"></span>`;
+  }).join('');
+  const usual = card?.time?.n ? scheduler.expectedMs(key) : null;
+  const ticks = [500, 1000, 2000, 5000].map((ms) => `<s style="left:${timeX(ms)}%">${ms / 1000} s</s>`).join('');
+  const line = `<div class="tip-time"><i>${ticks}` +
+    `<em class="floor" style="left:${timeX(scheduler.floorMs())}%" title="your fast end"></em>` +
+    (usual ? `<em class="usual" style="left:${timeX(usual)}%" title="your usual time here"></em>` : '') +
+    runMs.map(([ok, ms]) => `<b class="${ok ? 'ok' : 'miss'}" style="left:${timeX(ms)}%" title="${(ms / 1000).toFixed(1)} s"></b>`).join('') +
+    '</i></div>';
+  const cards = keys.map((k) => scheduler.model.cards[k]).filter(Boolean);
   const seen = cards.reduce((t, c) => t + c.seen, 0);
   const acc = seen ? cards.reduce((t, c) => t + c.acc * c.seen, 0) / seen : 0;
-  const bars = scheduler.noteRings(keys[0]);
-  return `${label} · fret ${f} · all runs\nAsked ${seen}× · ${pct(acc)} right · usually ${(scheduler.expectedMs(keys[0]) / 1000).toFixed(1)} s\n` +
-    `Known ${pct(bars.known)} · fast ${pct(bars.fast)} · automatic ${pct(bars.auto)}`;
+  return `<div class="tip-title">${title}</div>${row('known', 'known')}${row('fast', 'fast')}${row('auto', 'automatic')}` +
+    `<div class="tip-hist"><span class="tip-lbl">last ${card?.hist?.length || 0}</span>${hist}</div>` +
+    `<div class="tip-lbl">time · <i class="floor"></i> fast end${usual ? ' · <i class="usual"></i> usual' : ''}${runMs.length ? ' · <i class="run"></i> this run' : ''}</div>${line}` +
+    `<div class="tip-foot">Asked ${seen}× · ${pct(acc)} right${usual ? ` · usually ${(usual / 1000).toFixed(1)} s` : ''}</div>`;
 }
 
 // Every note name (e.g. "C#") split by octave (C#2, C#3…): right answers and expected time of
