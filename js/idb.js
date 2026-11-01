@@ -1,10 +1,9 @@
-// Safety copy of every write, in IndexedDB. DuckDB stays the query engine, but its OPFS
-// file (DuckDB 2.0 dev build) has come back empty twice during testing. IndexedDB is the
-// browser's long-established transactional store, so each kv value and each answer is
-// written here too, and the DuckDB file is rebuilt from this copy whenever they disagree.
-//   kv        {user, key, value}   value is the JSON text stored in DuckDB
+// The profiles' data, in IndexedDB (storage.js holds the active one in memory). Until 1.1 this
+// was a safety copy next to a DuckDB file, hence the database name; the stores are unchanged,
+// so the data written then is read as it is.
+//   kv        {user, key, value}   value is JSON text
 //   attempts  {user, a}            a is one answer, as passed to storage.addAttempt
-//   runs      {user, run_id, row}  row is one run, as stored in the runs table
+//   runs      {user, run_id, row}  row is one run, by column name
 
 const DB_NAME = 'fretboard-mirror';
 const TX = { durability: 'strict' }; // flush to disk before the write counts as done
@@ -67,19 +66,6 @@ export async function putRun(user, row) {
 export async function countAttempts(user) {
   const tx = (await idb()).transaction('attempts');
   return result(tx.objectStore('attempts').index('user').count(userRange(user)));
-}
-
-// kv and runs only, for the start-up check (the answers are counted with countAttempts)
-export async function loadKvRuns(user) {
-  const tx = (await idb()).transaction(['kv', 'runs']);
-  const userKeys = IDBKeyRange.bound([user], [user, []]);
-  const kvRows = await result(tx.objectStore('kv').getAll(userKeys));
-  const runRows = await result(tx.objectStore('runs').getAll(userKeys));
-  const kv = {};
-  for (const r of kvRows) kv[r.key] = r.value;
-  const runs = {};
-  for (const r of runRows) runs[r.run_id] = r.row;
-  return { kv, runs };
 }
 
 // {kv: {key: jsonText}, attempts: [...] in insertion order, runs: {run_id: row}}
