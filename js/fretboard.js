@@ -144,7 +144,7 @@ export class Fretboard {
     this.strLines = [];
     for (let s = 0; s < n; s++) {
       const y = this.cy(s);
-      this.strLines.push(el('line', { x1: this.X(20), x2: xb, y1: y, y2: y, class: 'fb-string', 'stroke-width': (0.9 + (n - 1 - s) * 0.5).toFixed(2) }, this.strG));
+      this.strLines.push(el('line', { x1: this.X(2), x2: this.X(this.W - 2), y1: y, y2: y, class: 'fb-string', 'stroke-width': (0.9 + (n - 1 - s) * 0.5).toFixed(2) }, this.strG));
     }
     this.vibeLayer = el('g', { class: 'fb-vibes' }, g);
     this.vibes = new Map();

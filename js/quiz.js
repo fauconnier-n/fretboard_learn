@@ -647,16 +647,16 @@ export class Quiz {
     ]);
   }
 
-  // A muted strum. During a run a double strum stops it, and a single one skips the wait after
-  // a miss. Outside a run a double strum goes back to the previous menu (a single one does
-  // nothing, so a stray strum cannot start anything).
-  onStrum(double) {
+  // A muted strum, n the strums in a row so far. During a run three stop it (logged as
+  // 'strum_stop'), and a single one skips the wait after a miss. Outside a run two go back to the
+  // previous menu (a single one does nothing, so a stray strum cannot start anything).
+  onStrum(n) {
     if (this.running) {
-      if (double) return this.end('stopped');
-      if (this.state === 'await' && this.cur?.graded) this.advance(0);
+      if (n >= 3) return this.end('strum_stop');
+      if (n === 1 && this.state === 'await' && this.cur?.graded) this.advance(0);
       return;
     }
-    if (!double) return;
+    if (n !== 2) return;
     if (this.state === 'preview') return this.reset();
     if (this.menuSub) this.showMenu();
   }
@@ -839,7 +839,8 @@ export class Quiz {
     burst(e.note, kind);
   }
 
-  // reason: 'completed' | 'time_up' | 'stopped' (Stop button) | 'left' (view or board changed)
+  // reason: 'completed' | 'time_up' | 'stopped' (Stop button or Esc) | 'strum_stop' (three muted
+  // strums) | 'left' (view or board changed)
   end(reason, showSummary = true) {
     const run = this.run;
     if (!run || !this.running) return;
@@ -880,7 +881,7 @@ export class Quiz {
       this.showMenu();
       return;
     }
-    e.note.textContent = reason === 'stopped' ? 'Stopped' : 'Done';
+    e.note.textContent = reason === 'stopped' || reason === 'strum_stop' ? 'Stopped' : 'Done';
     e.sub.textContent = 'Press New run or Enter to keep going';
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
@@ -960,7 +961,7 @@ export class Quiz {
     const probes = run.results.filter((r) => r.probe);
     const tomorrow = `<p class="tomorrow">${dueTomorrow ? `<b>${dueTomorrow}</b> note${dueTomorrow === 1 ? '' : 's'} will be due for review tomorrow` : 'Nothing will be due tomorrow'}${dueNow ? ` (${dueNow} already today)` : ''}. A few short runs every day work better than one long session.</p>`;
 
-    const reasons = { completed: '', time_up: '', stopped: ' · stopped early' };
+    const reasons = { completed: '', time_up: '', stopped: ' · stopped early', strum_stop: ' · stopped early (muted strums)' };
     const e = this.els.summary;
     e.innerHTML = `
       <div class="sum-head">
