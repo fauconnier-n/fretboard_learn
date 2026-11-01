@@ -18,6 +18,7 @@ import { describe } from './zones.js';
 
 const SLOW_MS = 10000;
 const PRIOR_MS = 3000;
+const RECENT_N = 10; // the speed bar compares a position with your last 10 right answers
 const PRIOR_WEIGHT = 2; // how many answers a prior counts for before an item's own times take over
 const DEFAULT_FLOOR_MS = 800;
 
@@ -85,7 +86,7 @@ export function newModel() {
     version: MODEL_VERSION, cards: {}, notes: {}, ctx: {}, conf: {},
     meta: {
       target: 0.8, speedPush: 1, runsDone: 0, recent: [], last: null,
-      time: newTime(), floor: DEFAULT_FLOOR_MS, fx: { time: {}, acc: {}, g: { v: logit(0.7), n: 0 } },
+      time: newTime(), recentLog: [], floor: DEFAULT_FLOOR_MS, fx: { time: {}, acc: {}, g: { v: logit(0.7), n: 0 } },
       best: {}, // most right first answers per "zone label|run length", for the near-miss line
     },
   };
@@ -268,6 +269,12 @@ export class Scheduler {
   globalMu() {
     const t = this.model.meta.time;
     return t && t.n ? t.mu : Math.log(PRIOR_MS);
+  }
+
+  // Your typical time lately: the mean log time of your last RECENT_N right answers, any note.
+  recentMu() {
+    const r = this.model.meta.recentLog;
+    return r?.length ? r.reduce((a, b) => a + b, 0) / r.length : this.globalMu();
   }
 
   // Your own fastest typical times: a running estimate of the 10th percentile of right answers.
@@ -644,9 +651,9 @@ export class Scheduler {
     return {
       known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6),
       // your time from right answers only (the prior would fill the bar before any)
-      fast: c.time?.n ? Math.min(1, Math.exp(this.globalMu()) / this.expectedMs(key, now)) : 0,
-      // not mastered yet never shows a full ring
-      auto: this.isMastered(key, now) ? 1 : Math.min(0.95, 0.5 * Math.min(1, (c.days?.length || 0) / 2) + 0.5 * Math.min(1, this.itemMastery(key, now) / 0.7)),
+      fast: c.time?.n ? Math.min(1, Math.exp(this.recentMu()) / this.expectedMs(key, now)) : 0,
+      // empty until right and fast on two days; then towards mastered, full only once it is
+      auto: (c.days?.length || 0) < 2 ? 0 : this.isMastered(key, now) ? 1 : Math.min(0.95, this.itemMastery(key, now) / 0.7),
     };
   }
 
@@ -802,6 +809,7 @@ export class Scheduler {
       addTime(c.time, ms);
       if (sp !== 'r') {
         addTime((meta.time ||= newTime()), ms);
+        meta.recentLog = [...(meta.recentLog || []), Math.log(Math.max(100, ms))].slice(-RECENT_N);
         // running 10th percentile of right answers: step down 9× more often than up
         const q = Math.log(meta.floor || DEFAULT_FLOOR_MS);
         meta.floor = Math.exp(q + 0.05 * (ms < Math.exp(q) ? -0.9 : 0.1));
@@ -842,7 +850,7 @@ export class Scheduler {
   rebuild(attempts) {
     const fresh = newModel();
     for (const k of ['cards', 'notes', 'ctx', 'conf']) this.model[k] = fresh[k];
-    for (const k of ['time', 'floor', 'fx']) this.model.meta[k] = fresh.meta[k];
+    for (const k of ['time', 'recentLog', 'floor', 'fx']) this.model.meta[k] = fresh.meta[k];
     this.model.version = MODEL_VERSION;
     delete this.model.stale;
     this.needsRebuild = false;

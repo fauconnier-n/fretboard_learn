@@ -47,6 +47,21 @@ test('note rings: empty for an unseen note, full for a known fast mastered one',
   for (const v of Object.values(r)) assert.ok(v >= 0 && v <= 1);
 });
 
+test('note rings: automatic stays empty within one day; speed is against your last 10 right answers', () => {
+  const sch = new Scheduler(newModel(), strings, 15);
+  const desc = { type: 'string', sk: '0', cs: 0, cf: 5.5, span: 12 };
+  const at = (f) => lowE.cells.find((c) => c.f === f);
+  const t = Date.now() - 3600000;
+  for (let i = 0; i < 10; i++) sch.record(desc, at(5), 'n', true, 700, t + i * 1000);
+  assert.equal(sch.noteRings('0:5').auto, 0);
+  // slow answers long ago, then quick ones: the reference is the quick ones
+  const sch2 = new Scheduler(newModel(), strings, 15);
+  for (let i = 0; i < 40; i++) sch2.record(desc, at(3), 'n', true, 4000, t - 86400000 + i * 1000);
+  for (let i = 0; i < 10; i++) sch2.record(desc, at(7), 'n', true, 800, t + i * 1000);
+  assert.ok(Math.abs(sch2.recentMu() - Math.log(800)) < 1e-9);
+  assert.ok(sch2.noteRings('0:3').fast < 0.4, JSON.stringify(sch2.noteRings('0:3')));
+});
+
 
 test('knowledge map: note names, bars and a popup with how often it was asked', async () => {
   const { mapCell } = await import('../js/stats.js');
