@@ -10,6 +10,17 @@ const answer = `const PC = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F
 const nat = [0, 2, 4, 5, 7, 9, 11];
 const play = (n) => { const pc = PC[n]; const i = nat.indexOf(pc); if (i >= 0) key('CDEFGAB'[i]); else key('CDEFGAB'[nat.indexOf(pc - 1)], true); };`;
 
+// A run, recorded as a GIF: a note is asked, about a second later it is answered (the right
+// note, or a wrong one first when wrong), then the confirmation shows. Shared with other step
+// files: every set of screenshots includes one (CLAUDE.md).
+export const runGif = (name, { width = 1200, height = 900, mobile = false, wrong = false } = {}) => ({
+  name, width, height, mobile, gif: { clip: '#view-practice', ms: 3200, scale: mobile ? 0.8 : 0.6 },
+  js: `${wait} ${key} ${answer} ${tab('practice')} key('Escape'); await wait(300);
+    document.querySelector('[data-task=play]').click(); key('Enter'); await wait(500); key('Enter'); await wait(150);
+    const n = document.getElementById('promptNote').textContent;
+    setTimeout(() => { ${wrong ? "key(n[0] === 'C' ? 'D' : 'C'); setTimeout(() => play(n), 900);" : 'play(n);'} }, 1000);`,
+});
+
 export default [
   { name: '1-practice-idle', js: `${tab('practice')} document.querySelector('[data-task=play]').click(); document.querySelector('[data-mode=count]').click();` },
   { name: '2-practice-preview', js: `${wait} ${key} key('Enter'); await wait(600);` },
@@ -25,7 +36,9 @@ export default [
   { name: '9c-settings-custom', full: true, js: `${spage('custom')} return document.getElementById('customTuning').value;` },
   { name: '9d-settings-audio', full: true, js: `${spage('instrument')} document.querySelector('#tuneMode [data-mode=standard]').click(); await new Promise((r) => setTimeout(r, 900)); const sl = document.getElementById('tuneShift'); sl.value = 0; sl.dispatchEvent(new Event('change')); await new Promise((r) => setTimeout(r, 900)); ${spage('home')} ${spage('audio')} return document.getElementById('sumInstrument').textContent;` },
   // phones held sideways (landscape), the usual way to see the whole neck
-  { name: 'm1-phone-idle', width: 844, height: 390, mobile: true, js: `${tab('practice')}` },
+  runGif('run-answer'),
+  runGif('m0-phone-run-answer', { width: 844, height: 390, mobile: true }),
+  { name: 'm1-phone-idle', width: 844, height: 390, mobile: true, js: `${wait} ${key} key('Escape'); await wait(300); ${tab('practice')}` },
   { name: 'm2-phone-preview', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} key('Enter'); await wait(600);` },
   // a right answer: the string vibrates from the fret to the bridge (caught mid-wave)
   { name: 'm3-phone-run-vibrating', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} ${answer} key('Enter'); await wait(500); play(document.getElementById('promptNote').textContent);` },
