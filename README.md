@@ -6,7 +6,7 @@ Learn the guitar fretboard by playing. The app listens to your guitar (DI throug
 
 ## What a run looks like
 
-A run asks for about 20 notes inside one zone of the neck. Play each one (no guitar at hand: click it on the board). A right note turns green; a wrong one shows where the note was, and comes back a few prompts later.
+A run asks for about 20 notes inside one zone of the neck. Play each one (no guitar at hand: click it on the board). A right note turns green; a wrong one shows where the note was, and comes back a few prompts later. The bar on top has a step per answer: green when right, red when wrong.
 
 ![A run: notes asked, played, one missed and shown](media/run.gif)
 
@@ -16,7 +16,7 @@ A new fact fades within hours unless you recall it again. Each time you pull it 
 
 ## How it gets harder
 
-You start near the nut on the low strings. Zones next to what you know open as you master them, and the app picks zones you should get about 4 in 5 right: never too easy, never too hard. Below, the mastery map of a new profile before its first run and after each of its first eight (dashed circles: unlocked, not played yet; the bars: how surely you recall each note, your speed there, and how automatic it is).
+You start near the nut on the low strings. Zones next to what you know open as you master them, and the app picks zones you should get about 4 in 5 right: never too easy, never too hard. Below, the mastery map over a learner's first 24 days (mock data, two short runs a day): each position starts shaky (red) and slow, then turns green, quicker and more automatic with practice, while new positions open around it. Dashed circles: unlocked, not played yet; the three bars: how surely you recall the note, your speed there against your average, and how automatic it is.
 
 ![The mastery map growing over eight runs](media/growth.gif)
 
@@ -85,7 +85,7 @@ The app needs no build. Node is only used for dev checks (`npm install` once):
 - `npm test`: tests for the pure logic in `music.js`, `srs.js` and `zones.js` (Node's built-in runner, `tests/`).
 - `npm run lint`: ESLint.
 - `npm run typecheck`: type-checks the modules that start with `// @ts-check`.
-- `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as profile `test`, walks through the main screens and saves a screenshot of each (the server must be running). `tools/profiles.mjs` (with `--fresh --no-seed`) walks the welcome screen, the picker and the Data page; `tools/hosted.mjs` does the same against `node tools/static.mjs`, a plain static server, with `--host fretboard.test --secure` so the app behaves as on GitHub Pages. `tools/welcome.mjs` walks a beginner's first start. The README's GIFs: `tools/readme.mjs` (`--fresh --no-seed`) plays eight runs on a new profile, then `node tools/readme-gifs.mjs <folder>` writes `media/`.
+- `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as profile `test`, walks through the main screens and saves a screenshot of each (the server must be running). `tools/profiles.mjs` (with `--fresh --no-seed`) walks the welcome screen, the picker and the Data page; `tools/hosted.mjs` does the same against `node tools/static.mjs`, a plain static server, with `--host fretboard.test --secure` so the app behaves as on GitHub Pages. `tools/welcome.mjs` walks a beginner's first start. The README's GIFs: `node tools/seed-growth.mjs screenshots/growth-data` (mock data of a learner's first days), `tools/readme.mjs` (`--fresh --no-seed`) shows the mastery map at each and records a run, then `node tools/readme-gifs.mjs <folder>` writes `media/`.
 - The checks also run on GitHub for every pull request (`.github/workflows/pages.yml`).
 - `npm run perf` (`node tools/perf.mjs [--out file.json] [--compare baseline.json] [--seed k]`): measures the app headless as user `test`: cold and warm start (the `app:*` and `db:*` marks of `js/main.js` and `js/storage.js`, visible in the console with `performance.getEntriesByType('mark')`), a run of answers and what it writes, layouts and paints per second during a run, the Stats tab, the end-of-run backup. `--seed k` multiplies the test user's answer log k times first. `tools/cdp.mjs` holds the headless-browser plumbing shared by both tools.
 
