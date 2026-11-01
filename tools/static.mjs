@@ -13,10 +13,10 @@ const dir = resolve(opt('dir', '.'));
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 createServer((req, res) => {
-  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  const file = join(dir, normalize(path === '/' ? '/index.html' : path));
-  let st;
+  let st, file;
   try {
+    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname); // throws on a malformed URL
+    file = join(dir, normalize(path === '/' ? '/index.html' : path));
     st = file.startsWith(dir) && statSync(file);
   } catch {}
   if (!st || !st.isFile()) {
