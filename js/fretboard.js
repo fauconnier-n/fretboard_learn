@@ -14,9 +14,7 @@ function el(tag, attrs = {}, parent) {
 // The contour of a zone: its cells form one band of adjacent strings, each string a run of
 // frets, so the outline goes clockwise down the right ends of the rows and back up the left
 // ends. Corners are rounded like the app's buttons. rects: the cells' rectangles.
-// Returns d, the whole contour, and shade, only the edges facing right or down (with the
-// rounded corners between two of them): drawn shifted down and right, they make those edges
-// look thicker, like the buttons' shadow.
+// Returns the SVG path.
 export function zoneOutline(rects, radius = 9) {
   const rows = new Map();
   for (const r of rects) {
@@ -50,18 +48,7 @@ export function zoneOutline(rects, radius = 9) {
   const arc = (i) => `Q${xy(at(i))} ${xy(cut(i, at(i + 1)))} `;
   let d = '';
   for (let i = 0; i < n; i++) d += `${i ? 'L' : 'M'}${xy(cut(i, at(i - 1)))} ${arc(i)}`;
-  // going clockwise, an edge faces right when it goes down and faces down when it goes left
-  const thick = (i) => at(i + 1)[1] > at(i)[1] || at(i + 1)[0] < at(i)[0];
-  let shade = '';
-  const start = [...Array(n).keys()].find((i) => !thick(i)) ?? 0;
-  for (let k = 1; k <= n; k++) {
-    const i = start + k; // edge from corner i to corner i + 1
-    if (!thick(i)) continue;
-    if (!thick(i - 1)) shade += `M${xy(cut(i, at(i + 1)))} `;
-    shade += `L${xy(cut(i + 1, at(i)))} `;
-    if (thick(i + 1)) shade += arc(i + 1);
-  }
-  return { d: d + 'Z', shade };
+  return d + 'Z';
 }
 
 export class Fretboard {
@@ -182,10 +169,15 @@ export class Fretboard {
     }
     el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, this.mask);
     for (const c of cells) el('rect', { ...this.cellRect(c.s, c.f), fill: 'black' }, this.mask);
-    const { d, shade } = zoneOutline(cells.map((c) => this.cellRect(c.s, c.f)));
+    const d = zoneOutline(cells.map((c) => this.cellRect(c.s, c.f)));
+    // like the buttons' shadow: the zone's shape filled and shifted 2 px down and right, seen
+    // only outside the zone, so the edges facing right and down look thicker, with no seam
+    const outside = el('mask', { id: this.id + '-zone-out' }, zone);
+    el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, outside);
+    el('path', { d, fill: 'black' }, outside);
+    // the mask sits on an unshifted group: on the shifted path it would move with it
+    el('path', { d, class: 'fb-zone-shadow', transform: 'translate(2 2)' }, el('g', { mask: `url(#${this.id}-zone-out)` }, zone));
     el('path', { d, class: 'fb-zone' }, zone);
-    // like the buttons: the edges facing right or down are thicker
-    el('path', { d: shade, class: 'fb-zone', transform: 'translate(1.8 1.8)' }, zone);
     dim.setAttribute('visibility', 'visible');
   }
 

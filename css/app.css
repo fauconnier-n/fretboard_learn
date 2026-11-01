@@ -170,6 +170,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 /* outside the zone the board fades into the white page */
 .fb-dim { fill: rgba(255, 255, 255, .6); pointer-events: none; }
 /* the zone: only its contour, rounded like the buttons, no fill */
+.fb-zone-shadow { fill: var(--yellow-ink); pointer-events: none; }
 .fb-zone { fill: none; stroke: var(--yellow-ink); stroke-width: 1.8; stroke-linejoin: round; pointer-events: none; }
 .fb-hit { fill: transparent; cursor: pointer; }
 .fb-hit:hover { fill: rgba(63, 60, 55, .06); }
