@@ -40,7 +40,7 @@ The app also warns when it is opened at a local address other than <http://local
 - To query the active user's database from the browser console, run `await ft.sql("select fret, avg(ms) from attempts group by fret")`. Use it for reading only: changes made this way skip the safety copy and are undone at the next start.
 - **Settings → Data → Export JSON** makes a backup of the current user. Use it to move to another computer; on this one the disk copy already covers a lost browser.
 - Keep the app open in only one tab at a time. A database file can only be opened by one tab; if two tabs are open, the badge shows *NOT SAVED*.
-- To upgrade DuckDB, run `powershell -File vendor-duckdb.ps1 -Version <npm version>` and bump the cache name in `sw.js`.
+- To upgrade DuckDB, run `powershell -File vendor-duckdb.ps1 -Version <npm version>` and bump the cache name in `sw.js`. The script applies two patches to the worker: the fsync one above, and one that makes it load the wasm module with a plain `fetch`, so the browser can keep the compiled code between starts instead of compiling 34 MB every time. The service worker serves the vendored files from its cache first (they are version pinned), the app's own files network first; the server answers conditional requests with 304 and marks the vendored files immutable. Restart `start.bat` after changing `serve.ps1`.
 
 ## How it works
 

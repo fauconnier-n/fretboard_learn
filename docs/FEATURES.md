@@ -3,7 +3,7 @@
 Everything the app does today, grouped by area. Keep this file up to date: add a line whenever a feature is added, changed or removed, and a dated entry under [Changes](#changes). Why each learning feature works the way it does: [learning-algorithm.md](learning-algorithm.md). Ideas not built yet: [the report](../reports/Fretboard%20learning%20science%20ideas.md).
 
 ## Running the app
-- Static PWA with no build step, ES modules only. It installs from Chrome or Edge and works offline (service worker, network first, cache as fallback).
+- Static PWA with no build step, ES modules only. It installs from Chrome or Edge and works offline (service worker: the app's files network first with the cache as fallback; the vendored DuckDB files cache first, since they are version pinned and 34 MB).
 - `start.bat` starts `serve.ps1`, a small PowerShell server on <http://localhost:8137>, and opens the browser. If the server is already running, it just opens the browser.
 - The server keeps running through browser-cancelled requests and restarts its listener after any error.
 - At any other local address (another port), a banner links back to the usual one, since each address has its own, separate storage.
@@ -124,6 +124,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Faster start: the 34 MB DuckDB module is no longer downloaded and re-cached on every start (service worker cache first for `vendor/`, server `ETag`/304 and `immutable`), and the worker is patched to load it with a plain fetch so the browser keeps the compiled code; the longest module chain is preloaded from `index.html`. No change to what the app does.
 - **2026-11-01** — Performance measurement: `npm run perf` (`tools/perf.mjs`) times cold and warm starts, a run of answers and its writes, the run loop, Stats and the end-of-run backup in headless Edge, with timing marks in `main.js` and `storage.js`; `--compare` shows the change against a saved baseline. No change to the app itself.
 - **2026-11-01** — Checked with a 9-string guitar: during a run the view is at most six strings high, so the board fits a phone held sideways; banners hide during runs on phones. Name the note: piano-style buttons of one size, sharps or flats as set in Settings → Practice (hints after a miss follow it).
 - **2026-11-01** — Answer animation settled: green confetti when right, red fireworks when wrong (the style setting is gone). The board zooms in on the zone during a run; bigger circles and names on it. On phones the header and run settings slide away during a run. Headless screenshot runs are muted.
