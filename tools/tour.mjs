@@ -16,7 +16,7 @@ const play = (n) => { const pc = PC[n]; const i = nat.indexOf(pc); if (i >= 0) k
 export const runGif = (name, { width = 1200, height = 900, mobile = false, wrong = false } = {}) => ({
   name, width, height, mobile, gif: { clip: '#view-practice', ms: 3200, scale: mobile ? 0.8 : 0.6 },
   js: `${wait} ${key} ${answer} ${tab('practice')} key('Escape'); await wait(300);
-    document.querySelector('[data-task=play]').click(); key('Enter'); await wait(500); key('Enter'); await wait(150);
+    document.querySelector('[data-task=play]').click(); key('Enter'); await wait(500); key('Enter'); await wait(450); // after the header and zoom settle
     const n = document.getElementById('promptNote').textContent;
     setTimeout(() => { ${wrong ? "key(n[0] === 'C' ? 'D' : 'C'); setTimeout(() => play(n), 900);" : 'play(n);'} }, 1000);`,
 });
