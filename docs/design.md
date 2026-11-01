@@ -21,7 +21,9 @@ The values live in two places that must stay in step: the custom properties at t
 
 **Mastery scale** (note bars and knowledge maps): red → orange → yellow → green, from `masteryColor(m)` in `js/palette.js` (orange appears on the way from red to yellow).
 
-**Knowledge-map clouds** (Stats, and the practice board between runs; `mapCell` in `js/stats.js`): one round ellipse per position filled with a radial gradient that thins out progressively to nothing at its edge. With `t = log2(1 + questions asked) / log2(41)`: width 0.5–1.05 × half the fret width, height 0.8–1.05 × half the string spacing (so it grows mostly along the string), opacity 0.22–1. Each position carries its note name; unplayed unlocked ones a dashed ring and a pale name.
+**Knowledge-map clouds** (Stats, and the practice board between runs; `mapCell` in `js/stats.js`): one pill per position (a rectangle with fully rounded ends) filled with a vertical gradient, dense along its middle line and thinning out gradually to nothing at top and bottom. With `t = log2(1 + questions asked) / log2(41)`: width 0.5–1.05 × half the fret width (never narrower than its height), height 0.8–1.05 × half the string spacing (so it grows mostly along the string), opacity 0.22–1. Each position carries its note name; unplayed unlocked ones a dashed ring and a pale name.
+
+**Run results on the neck:** after a run, each position asked shows three progress rings (outer known = green, middle fast = blue, inner automatic = yellow) on a white disc, with its name in front (red if missed in the run).
 
 ## Rules
 
