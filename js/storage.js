@@ -12,7 +12,7 @@
 
 import * as idb from './idb.js';
 import * as disk from './disk.js';
-import { attemptKey, sanitizeUser } from './disklayout.js';
+import { attemptKey, mergePlan, sanitizeUser } from './disklayout.js';
 
 const PROFILES_KEY = 'ft:profiles';
 const ACTIVE_KEY = 'ft:activeUser';
@@ -289,7 +289,9 @@ export async function flush() {
 // and on the badge; the disk copy still gets it.
 const stored = (write) => {
   if (!info.persistent) return Promise.resolve();
-  return write().catch((e) => {
+  return write().then(() => {
+    info.storeError = '';
+  }, (e) => {
     info.storeError = e.message || String(e);
     console.error('IndexedDB write failed', e);
   });
@@ -303,19 +305,9 @@ function addToLog(list) {
 
 // ---------- disk copy ----------
 
-const runText = (r) => JSON.stringify(runValues(toRun(r)));
-// settings carry the time they were saved (main.js saveSettings), so the newer side wins
-const savedAt = (text) => {
-  try {
-    return JSON.parse(text)?.savedAt || 0;
-  } catch {
-    return 0;
-  }
-};
+const runText = (r) => JSON.stringify(toRun(r));
 
-// Copy whatever is missing across, both ways. Answers are matched by time and position,
-// runs by run_id (a finished run beats an open one, otherwise the browser's row wins),
-// settings and models by key (the browser's value wins, unless the disk's was saved later).
+// Copy whatever is missing across, both ways (disklayout.js mergePlan says what goes where).
 // New answers from the disk mark the models for a rebuild from the log.
 async function syncDisk() {
   diskTriedAt = Date.now();
@@ -327,26 +319,11 @@ async function syncDisk() {
     pending.attempts = [];
     pending.runs = [];
 
-    const have = new Set(mem.attempts.map(attemptKey));
-    const onDisk = new Set(remote.attempts.map(attemptKey));
-    const toLocal = [];
-    for (const a of remote.attempts) {
-      const k = attemptKey(a);
-      if (have.has(k)) continue;
-      have.add(k);
-      toLocal.push(toAttemptCopy(a));
-    }
-    const toDisk = mem.attempts.filter((a) => !onDisk.has(attemptKey(a)));
-
-    const localRuns = mem.runs;
-    const runsToLocal = Object.values(remote.runs).map(toRun)
-      .filter((r) => !localRuns[r.run_id] || (localRuns[r.run_id].ended_at == null && r.ended_at != null));
-    const runsToDisk = Object.values(localRuns)
-      .filter((r) => !remote.runs[r.run_id] || (runText(r) !== runText(remote.runs[r.run_id]) && !runsToLocal.some((x) => x.run_id === r.run_id)));
-
-    const localKv = mem.kv;
-    const kvToLocal = Object.entries(remote.kv).filter(([k, v]) => typeof v === 'string' && (!(k in localKv) || savedAt(v) > savedAt(localKv[k])));
-    if (toLocal.length) kvToLocal.push(...staleEntries({ ...localKv, ...Object.fromEntries(kvToLocal) }));
+    const plan = mergePlan(mem, remote, (a, b) => runText(a) === runText(b));
+    const { toDisk, runsToDisk, kvToLocal } = plan;
+    const toLocal = plan.toLocal.map(toAttemptCopy);
+    const runsToLocal = plan.runsToLocal.map(toRun);
+    if (toLocal.length) kvToLocal.push(...staleEntries({ ...mem.kv, ...Object.fromEntries(kvToLocal) }));
 
     if (toLocal.length || runsToLocal.length || kvToLocal.length) {
       addToLog(toLocal);
@@ -444,6 +421,14 @@ async function pushDisk(keepalive) {
   }
 }
 
+// Before a reset, an import or a removal: a disk copy that misses it would bring the old rows
+// back at the next sync, so nothing is replaced while the copy can't be reached.
+async function needDisk() {
+  if (!info.persistent || disk.status().mode === 'none') return;
+  info.disk.dir = await disk.probe();
+  if (!info.disk.dir) throw new Error('The disk copy is not reachable: reconnect it first');
+}
+
 // Replace the disk copy with what the profile holds now (after a reset or an import).
 async function replaceDisk() {
   if (!info.persistent || !info.disk.dir) return;
@@ -457,6 +442,7 @@ async function replaceDisk() {
     info.disk.error = '';
   } catch (e) {
     info.disk.error = e.message || String(e);
+    throw e;
   }
 }
 
@@ -548,6 +534,7 @@ export function origins() {
 }
 
 export async function removeOrigin(origin) {
+  await needDisk();
   await replaceAll(mem.kv, mem.attempts.filter((a) => a.origin !== origin), Object.fromEntries(Object.entries(mem.runs).filter(([, r]) => r.origin !== origin)));
   await replaceDisk();
   await staleModels();
@@ -599,7 +586,6 @@ const attemptRow = (a) => {
 // A run row is a plain object with the RUN_COLS fields. It is written when the run
 // starts and again when it ends.
 
-const runValues = (r) => RUN_COLS.map((c) => (r[c] === undefined ? null : r[c]));
 const RUN_INTS = new Set(['run_count', 'sprint_sec', 'zone_span', 'zone_fret_min', 'zone_fret_max', 'timeout_sec', 'prompts', 'correct', 'median_ms', 'due_at_start']);
 // every column, integers rounded, so copies compare equal
 const toRun = (r) => Object.fromEntries(RUN_COLS.map((c) => {
@@ -631,7 +617,7 @@ async function closeOpenRuns() {
 export async function addAttempt(a) {
   a = toAttemptCopy(a);
   addToLog([a]);
-  await stored(() => idb.addAttempt(info.user, a));
+  await stored(() => idb.addAttempts(info.user, [a]));
   queueDisk('attempts', a);
   markDirty();
 }
@@ -668,11 +654,12 @@ export const allAttempts = () => mem.attempts.slice();
 
 export const countAttempts = () => mem.attempts.length;
 
-// Every row of one of the TABLES by column name, oldest first (console: ft.rows('attempts')).
-export function rows(table) {
+// Every row of one of the TABLES by column name, oldest first (console: ft.rows('attempts')),
+// or only those of `list`.
+export function rows(table, list) {
   if (!TABLES[table]) throw new Error('Unknown table ' + table);
-  if (table === 'runs') return allRuns();
-  return mem.attempts.map((a) => {
+  if (table === 'runs') return list || allRuns();
+  return (list || mem.attempts).map((a) => {
     const r = attemptRow(a);
     return Object.fromEntries(ATTEMPT_COLS.map((c) => [c, r[c] ?? null]));
   });
@@ -680,8 +667,8 @@ export function rows(table) {
 
 // Newest rows of one of the TABLES, for the table viewer in Settings.
 export function tableRows(table, limit = 50) {
-  const list = rows(table);
-  return { total: list.length, rows: list.slice(-Math.round(limit)).reverse() };
+  const all = table === 'runs' ? allRuns() : mem.attempts;
+  return { total: all.length, rows: rows(table, all.slice(-Math.round(limit))).reverse() };
 }
 
 export function exportAll() {
@@ -691,6 +678,7 @@ export function exportAll() {
 }
 
 export async function clearAll() {
+  await needDisk();
   await replaceAll({}, [], {});
   await replaceDisk();
 }
@@ -699,6 +687,7 @@ export async function importAll(data) {
   if (data?.app !== 'fretboard-trainer') throw new Error('Not a Fretboard Trainer backup');
   const kvText = Object.fromEntries(Object.entries(data.kv || {}).map(([k, v]) => [k, JSON.stringify(v)]));
   const runs = Object.fromEntries((data.runs || []).map((r) => [r.run_id, r]));
+  await needDisk();
   await replaceAll(kvText, data.attempts || [], runs);
   await replaceDisk();
 }

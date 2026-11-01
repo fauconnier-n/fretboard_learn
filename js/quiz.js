@@ -12,6 +12,7 @@ import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
 import { detailHtml, mapCell } from './stats.js';
 import { burst } from './burst.js';
+import { median } from './logQueries.js';
 
 const DAY = 86400000;
 const PROBE_EVERY = 10; // every 10th prompt is a random check-up, not picked by the model
@@ -61,12 +62,6 @@ export const RUN_TYPES = [
   ['name', 'Name the note (buttons)'],
   ['truefalse', 'True or false (buttons)'],
 ];
-const median = (xs) => {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  return s[s.length >> 1];
-};
-
 const write = (el, text) => { if (el.textContent !== text) el.textContent = text; };
 
 export class Quiz {
@@ -164,6 +159,7 @@ export class Quiz {
     e.timer.textContent = '';
     e.queue.innerHTML = '';
     e.fill.style.width = '0%';
+    e.fill.style.background = this.fillBg = '';
     e.feedback.textContent = '';
     e.summary.classList.add('hidden');
     e.neckLegend.classList.add('hidden');
@@ -273,6 +269,7 @@ export class Quiz {
     e.queue.innerHTML = '';
     e.progress.textContent = s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`;
     e.fill.style.width = '0%';
+    e.fill.style.background = this.fillBg = '';
     this.paintProgress();
     this.updateButton();
     this.showMenu();
@@ -708,6 +705,10 @@ export class Quiz {
       write(e.progress, `${Math.ceil(left / 1000)} s · ${run.results.length} answered`);
     } else {
       fill = ((100 * run.results.length) / run.total).toFixed(1) + '%';
+      // one step per answer, green when right and red when wrong, a white gap between steps
+      const n = run.results.length;
+      const bg = n ? `linear-gradient(90deg, ${run.results.map((r, i) => `var(--${r.correct ? 'green' : 'red'}) ${(100 * i) / n}% calc(${(100 * (i + 1)) / n}% - 2px), var(--bg) 0 ${(100 * (i + 1)) / n}%`).join(', ')})` : '';
+      if (this.fillBg !== bg) e.fill.style.background = this.fillBg = bg; // the style reads back normalised
     }
     if (e.fill.style.width !== fill) e.fill.style.width = fill;
     if (left <= 0) return this.end('time_up');
@@ -723,7 +724,8 @@ export class Quiz {
       return;
     }
     const cur = this.cur;
-    if (this.state !== 'await' || !cur || cur.task === 'name') return;
+    // name and true/false prompts are answered by name or Y/N, never by a played note, a board click or a letter key
+    if (this.state !== 'await' || !cur || noGuitar(cur.task)) return;
     if (ev.t < cur.shownAt || ev.t < this.muteUntil) return;
     const s = this.s;
     const cell = cur.cell;
@@ -875,6 +877,11 @@ export class Quiz {
     if (reason === 'completed' || reason === 'time_up') {
       this.getScheduler().endRun({ acc, medianMs: med ?? 99999, desc: run.desc, review: run.review });
     }
+    // a resumed run keeps its id, so it is counted once
+    if (res.length && !run.counted) {
+      run.counted = true;
+      this.getScheduler().countRun();
+    }
     if (reason === 'completed') run.nearMiss = this.nearMiss(run, ok.length);
     this.onSave();
     this.onRun?.({ ...run.row, ended_at: Date.now(), end_reason: reason, prompts: res.length, correct: ok.length, median_ms: med, bpm_end: run.beat ? run.bpm : null });
@@ -908,7 +915,9 @@ export class Quiz {
   resume() {
     const run = this.run;
     if (this.state !== 'done' || !run?.stoppedAt) return;
-    if (run.endsAt) run.endsAt += performance.now() - run.stoppedAt;
+    const paused = performance.now() - run.stoppedAt;
+    // both ends move, so the time bar keeps its full length
+    if (run.endsAt) { run.endsAt += paused; run.startedAt += paused; }
     run.stoppedAt = null;
     this.els.summary.classList.add('hidden');
     this.menu.hide();
@@ -1070,11 +1079,13 @@ export class Quiz {
     if (e.key === 'Escape' && this.running) return this.end('stopped');
     // keys 1–6 pick a row of the open-string menu (1 = low E)
     if (!this.running && /^[1-6]$/.test(e.key)) return this.menu.pick(+e.key - 1);
-    if (e.key.length !== 1 || !this.run || !this.running) return;
+    if (!this.run || !this.running) return;
+    // before the one-character check: the arrows answer too
     if (this.cur?.task === 'truefalse') {
       if (e.key === 'y' || e.key === 'Y' || e.key === 'ArrowRight') return this.answerTF(true);
       if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowLeft') return this.answerTF(false);
     }
+    if (e.key.length !== 1) return;
     if (e.key.toLowerCase() === 'h') return this.giveUp('show');
     const idx = 'CDEFGAB'.indexOf(e.key.toUpperCase());
     if (idx < 0) return;

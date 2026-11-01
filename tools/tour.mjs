@@ -1,12 +1,19 @@
 // A tour of the main screens for tools/browser-check.mjs: node tools/browser-check.mjs tools/tour.mjs --out <dir>
-const wait = 'const wait = (ms) => new Promise((r) => setTimeout(r, ms));';
+// In-page snippets for the js of steps, shared with the other step files.
+export const wait = 'const wait = (ms) => new Promise((r) => setTimeout(r, ms));';
+export const until = `${wait} const until = async (f) => { for (let i = 0; i < 300 && !f(); i++) await wait(100); };`;
+// the app is open and the board drawn
+export const ready = `${until} await until(() => window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length); await wait(800);`;
+export const welcome = `${until} await until(() => !document.getElementById('welcome').classList.contains('hidden')); await wait(300);`;
+// Settings → Data (needs `wait`, e.g. from `ready`)
+export const dataPage = `document.querySelector('.tabs button[data-tab=settings]').click(); await wait(300); document.querySelector('[data-open=data]').click(); await wait(800);`;
 // top tabs; practice and intervals also pick the page inside Practice (the Practice tab alone reopens the last one)
-const tab = (name) => `document.querySelector('.tabs button[data-tab=${name === 'intervals' ? 'practice' : name}]').click(); document.querySelector('#practiceNav button[data-tab=${name}]')?.click(); await new Promise((r) => setTimeout(r, 700));`;
+export const tab = (name) => `document.querySelector('.tabs button[data-tab=${name === 'intervals' ? 'practice' : name}]').click(); document.querySelector('#practiceNav button[data-tab=${name}]')?.click(); await new Promise((r) => setTimeout(r, 700));`;
 // a settings page (home, audio, instrument, custom, board, practice, data, tables)
 const spage = (name) => `document.querySelector('[data-open=${name}]').click(); await new Promise((r) => setTimeout(r, 500));`;
-const key = 'const key = (k, shift) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true }));';
+export const key = 'const key = (k, shift) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true }));';
 // answers a play prompt from the zone's own note (keyboard fallback)
-const answer = `const PC = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+export const answer = `const PC = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 const nat = [0, 2, 4, 5, 7, 9, 11];
 const play = (n) => { const pc = PC[n]; const i = nat.indexOf(pc); if (i >= 0) key('CDEFGAB'[i]); else key('CDEFGAB'[nat.indexOf(pc - 1)], true); };`;
 

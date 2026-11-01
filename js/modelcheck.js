@@ -5,6 +5,7 @@
 // a constant baseline, AUC, calibration, split by the time since the item was last asked.
 
 import { DEFAULT_DECAY, Scheduler } from './srs.js';
+import { median } from './logQueries.js';
 
 const LAGS = [
   ['under 2 min', 0, 2 * 60e3],
@@ -146,12 +147,6 @@ export function fitCueReliance(rows) {
   active.forEach((j, a) => (terms[names[j]] = { b: w[a], se: se[a], count: data.filter((d) => d.x[j] > 0).length }));
   return { n: data.length, terms };
 }
-
-const median = (xs) => {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  return s[s.length >> 1];
-};
 
 const orText = (b, se) => {
   const fmt = (x) => (x > 50 ? '>50' : x.toFixed(1));

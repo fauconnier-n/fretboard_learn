@@ -7,7 +7,7 @@
 //            of the log) at every run end and every visit to Settings
 
 const DB_NAME = 'fretboard-backups';
-const KEEP = 10; // newest backups kept per user, plus the one with the most answers
+const KEEP = 10; // newest backups kept per user (one 'run' backup per day), plus the one with the most answers
 
 let dbPromise = null;
 
@@ -69,10 +69,20 @@ export async function save(user, data, reason) {
   return id;
 }
 
+// a day's newest 'run' backup replaces that day's earlier ones, so a busy day does not push
+// out the backups of the days before
 async function prune(user) {
   const items = await list(user);
   const largest = items.reduce((m, b) => (!m || b.attempts > m.attempts ? b : m), null);
-  const drop = items.slice(KEEP).filter((b) => b.id !== largest.id);
+  const runDays = new Set();
+  const kept = items.filter((b) => {
+    const day = new Date(b.t).toDateString();
+    if (b.reason !== 'run') return true;
+    if (runDays.has(day)) return false;
+    runDays.add(day);
+    return true;
+  }).slice(0, KEEP);
+  const drop = items.filter((b) => !kept.includes(b) && b.id !== largest.id);
   if (drop.length) {
     await tx('readwrite', (t) => {
       for (const b of drop) {

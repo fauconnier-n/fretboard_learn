@@ -87,7 +87,7 @@ async function startup(page, label) {
 let browser;
 try {
   browser = await launch({ port, profileName: `fretboard-perf-${port}`, fresh: true });
-  const page = browser;
+  let page = browser;
   await page.size(1200, 900);
   await page.send('Network.enable', { maxPostDataSize: 4 << 20 });
 
@@ -110,9 +110,9 @@ try {
     })()`);
     console.log(`seeded the test user with ${n} answers (x${seed})`);
     browser.close();
-    browser = await launch({ port, profileName: `fretboard-perf-${port}`, fresh: true });
-    await browser.size(1200, 900);
-    await browser.send('Network.enable', { maxPostDataSize: 4 << 20 });
+    page = browser = await launch({ port, profileName: `fretboard-perf-${port}`, fresh: true });
+    await page.size(1200, 900);
+    await page.send('Network.enable', { maxPostDataSize: 4 << 20 });
   }
 
   console.log('cold start…');

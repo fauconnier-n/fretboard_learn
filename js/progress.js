@@ -1,9 +1,11 @@
 // @ts-check
 // Stats → Progress: how you are doing over runs and days, as small SVG charts.
 // runs: [{ t, prompts, correct, median_ms }] oldest first (note-position runs on these strings)
-// days: [{ day: 'YYYY-MM-DD', n, acc, med }] oldest first
+// days: [{ day: 'YYYY-MM-DD', n, acc, med }] oldest first, by session day (logQueries.sessionDays)
 // known: [{ day, n }] new positions answered right for the first time that day
 // total: number of positions on the neck
+
+import { dayOf } from './logQueries.js';
 
 const DAY = 86400000;
 const pct = (x) => Math.round(x * 100) + '%';
@@ -22,7 +24,7 @@ export function rolling(xs, k) {
  * @param {{ day: string, n: number, acc: number, med: number }[]} days @param {number} now
  */
 export function weekOverWeek(days, now) {
-  const today = new Date(now).toISOString().slice(0, 10);
+  const today = dayOf(now);
   const age = (day) => Math.round((Date.parse(today) - Date.parse(day)) / DAY);
   const week = (from, to) => {
     const ds = days.filter((d) => age(d.day) >= from && age(d.day) <= to);
@@ -76,7 +78,8 @@ export function renderProgress(el, { runs, days, known, total, now = Date.now() 
 
   // the last 30 days, including days without practice
   const byDay = new Map(days.map((d) => [d.day, d]));
-  const range = Array.from({ length: 30 }, (_, i) => new Date(now - (29 - i) * DAY).toISOString().slice(0, 10));
+  // local calendar days (a fixed 24 h step would skip or repeat one at a DST change)
+  const range = Array.from({ length: 30 }, (_, i) => { const d = new Date(now); d.setDate(d.getDate() - 29 + i); return dayOf(d.getTime()); });
   const perDay = range.map((d) => byDay.get(d)?.n ?? 0);
   const dayHi = Math.max(10, Math.ceil(Math.max(...perDay) / 10) * 10);
   let sum = 0;

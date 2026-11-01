@@ -4,13 +4,29 @@
 
 Learn the guitar fretboard by playing. The app listens to your guitar (DI through an audio interface, or a mic), asks for notes inside a zone of the neck, and uses spaced repetition to focus on what you find hard: the note, its exact position, the shape of the zone, and how fast you answered.
 
+## What a run looks like
+
+A run asks for about 20 notes inside one zone of the neck. Play each one (no guitar at hand: click it on the board). A right note turns green; a wrong one shows where the note was, and comes back a few prompts later. The bar on top has a step per answer: green when right, red when wrong.
+
+![A run: notes asked, played, one missed and shown](media/run.gif)
+
+## Why spaced repetition
+
+A new fact fades within hours unless you recall it again. Each time you pull it from memory just before it fades, it lasts longer: minutes, then days, then weeks. The app keeps a memory model of every position on the neck (how surely you recall it, and how fast) and brings each one back when it is about to slip. So a short run every day sticks far better than a long session once a week: notes you miss come back often, notes you know fade out of the rotation.
+
+## How it gets harder
+
+You start near the nut on the low strings. Zones next to what you know open as you master them, and the app picks zones you should get about 4 in 5 right: never too easy, never too hard. Below, the mastery map over a learner's first 24 days (mock data, two short runs a day): each position starts shaky (red) and slow, then turns green, quicker and more automatic with practice, while new positions open around it. Dashed circles: unlocked, not played yet; the three bars: how surely you recall the note, your speed there against your average, and how automatic it is.
+
+![The mastery map growing over eight runs](media/growth.gif)
+
 ## Run it
 
 The app is at <https://fauconnier-n.github.io/fretboard_learn/> (Chrome or Edge recommended; it installs as an app). It always runs the [latest release](https://github.com/fauconnier-n/fretboard_learn/releases/latest), whose number is in the badge above and in the app under Settings → Data. On the first start it asks for a name and where to keep your data: a folder you pick (one inside OneDrive or Dropbox follows you to another computer), or just the browser. See [Profiles and storage](#profiles-and-storage).
 
 To run it on your own computer instead, double-click `start.bat`. It starts a tiny PowerShell server on <http://localhost:8137> and opens your browser (Chrome or Edge recommended). If the server is already running, it just opens the browser. Keep the server window open while you practise: it also saves the disk copy of your data (see below). Then:
 
-1. **Settings → Audio input**: pick your interface and the input channel your guitar is plugged into. Adjust the gain so the meter moves when you play.
+1. **Settings → Audio input** (the most important step: the first start takes you there): pick your interface and the input channel your guitar is plugged into. Adjust the gain so the meter moves when you play.
 2. **Tuner**: tune up and check the notes read cleanly.
 3. **Practice → Start run**.
 
@@ -36,7 +52,7 @@ The whole profile is also kept in memory while the app runs: the model is replay
 - `kv.json`: settings and the models' meta, replaced whole (the server keeps the previous version as `kv.json.bak`). The settings carry the time they were saved: between two computers the newer copy wins. The audio setup (input device, channel, gain, noise gate, pitch clarity, latency, strum level) belongs to the computer: it stays in that browser and is never written here.
 - `attempts.jsonl` and `runs.jsonl` from earlier versions are still read, never written.
 
-When the app starts, it compares the browser with the folder and copies whatever is missing in either direction, matching answers by time and position and runs by id. Answers that come back from the folder make the app rebuild the model from the log, and a banner says how many came back. Without a reachable copy the badge shows *saved in browser only* (or *folder: reconnect* when the browser wants your permission again: the app remembers the folder, Chrome remembers the permission once the app is installed or you choose "Allow on every visit"); with the server down, the writes waiting are sent when it is back (checked every 30 s). A reset or a JSON import replaces the copy too. The files are plain JSON lines: back up the folder like any other, or query it with the DuckDB command-line tool, for example `select * from read_json('data/user/attempts/*.jsonl')`.
+When the app starts, it compares the browser with the folder and copies whatever is missing in either direction, matching answers by time and position and runs by id. Answers that come back from the folder make the app rebuild the model from the log, and a banner says how many came back. Without a reachable copy the badge shows *saved in browser only* (or *folder: reconnect* when the browser wants your permission again: the app remembers the folder, Chrome remembers the permission once the app is installed or you choose "Allow on every visit"); with the server down, the writes waiting are sent when it is back (checked every 30 s). A reset or a JSON import replaces the copy too, and refuses while the copy cannot be reached (otherwise the next sync would bring the old answers back); it makes a backup first. The local server only accepts API requests from the app's own address. The files are plain JSON lines: back up the folder like any other, or query it with the DuckDB command-line tool, for example `select * from read_json('data/user/attempts/*.jsonl')`.
 
 Answers are only ever added in this sync, never deleted. If you reset a profile in one browser while another browser still has its answers, the other browser puts them back on its next start.
 
@@ -52,7 +68,7 @@ The app also warns when it is opened at a local address other than <http://local
 
 - **Zones**: 12 cells holding each of the 12 notes exactly once. These are either compact boxes over 3–4 strings or 12 frets on one string. Answers must be the exact pitch, so there is only one right spot.
 - **Instruments**: 6- to 9-string guitars and 4- to 6-string basses; standard or drop tuning shifted by semitones, or a custom tuning. Progress follows each string by its open note, so switching instruments keeps what the strings have in common (`js/instruments.js`).
-- **Runs**: a number of prompts or a sprint; on the guitar (play the note, mix-ups) or without it (name the note, true or false); optional beat mode whose tempo follows your answers. Pick one of up to three offered zones. The whole flow can be driven from the guitar: a two muted strums go back to the previous menu, three stop a run, and choices sit on the open strings. Prompts focus on weaker cells and can repeat; a prompts run ends with its hardest note, then a note you know. The board shows your progress live, with fog over locked positions.
+- **Runs**: a number of prompts or a sprint; on the guitar (play the note, mix-ups) or without it (name the note, true or false); optional beat mode whose tempo follows your answers. Pick one of up to three offered zones. The whole flow can be driven from the guitar: two muted strums take the menu's green option (new run, start, resume), three stop a run, and choices sit on the open strings. Prompts focus on weaker cells and can repeat; a prompts run ends with its hardest note, then a note you know. The board shows your progress live, with fog over locked positions.
 - **Two signals per note and position**, kept apart (see `js/srs.js`):
   - *memory*, from right/wrong only (a wrong answer or a timeout is a miss): stability, difficulty and accuracy;
   - *speed*, from the time of each right first answer: a running average of log answer time, with no buckets. While a position has few answers, its estimate leans on the same note name, then on your overall typical time.
@@ -66,11 +82,11 @@ The app also warns when it is opened at a local address other than <http://local
 ## Development
 
 The app needs no build. Node is only used for dev checks (`npm install` once):
-- `npm test`: tests for the pure logic in `music.js`, `srs.js` and `zones.js` (Node's built-in runner, `tests/`).
+- `npm test`: tests for the logic that runs without a page (notes and tunings, zones, the scheduler and its model check, intervals, pitch and strum detection, the disk layout, stats and progress), with Node's built-in runner (`tests/`).
 - `npm run lint`: ESLint.
 - `npm run typecheck`: type-checks the modules that start with `// @ts-check`.
-- `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as profile `test`, walks through the main screens and saves a screenshot of each (the server must be running). `tools/profiles.mjs` (with `--fresh --no-seed`) walks the welcome screen, the picker and the Data page; `tools/hosted.mjs` does the same against `node tools/static.mjs`, a plain static server, with `--host fretboard.test --secure` so the app behaves as on GitHub Pages.
-- The checks also run on GitHub for every pull request (`.github/workflows/pages.yml`).
+- `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as profile `test`, walks through the main screens and saves a screenshot of each (the server must be running). `tools/profiles.mjs` (with `--fresh --no-seed`) walks the welcome screen, the picker and the Data page; `tools/hosted.mjs` does the same against `node tools/static.mjs`, a plain static server, with `--host fretboard.test --secure` so the app behaves as on GitHub Pages. `tools/welcome.mjs` walks a beginner's first start. The README's GIFs: `node tools/seed-growth.mjs screenshots/growth-data` (mock data of a learner's first days), `tools/readme.mjs` (`--fresh --no-seed`) shows the mastery map at each and records a run, then `node tools/readme-gifs.mjs <folder>` writes `media/`.
+- The same checks run on GitHub for pull requests and pushes to `main` and before each release is deployed (`.github/workflows/pages.yml`); nothing runs on `dev`.
 - `npm run perf` (`node tools/perf.mjs [--out file.json] [--compare baseline.json] [--seed k]`): measures the app headless as user `test`: cold and warm start (the `app:*` and `db:*` marks of `js/main.js` and `js/storage.js`, visible in the console with `performance.getEntriesByType('mark')`), a run of answers and what it writes, layouts and paints per second during a run, the Stats tab, the end-of-run backup. `--seed k` multiplies the test user's answer log k times first. `tools/cdp.mjs` holds the headless-browser plumbing shared by both tools.
 
 ## Hosting

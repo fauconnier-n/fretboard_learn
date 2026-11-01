@@ -10,6 +10,9 @@ export class AudioInput {
     this.channel = 0;
     this.label = '';
     this.buf = new Float32Array(4096);
+    this.gen = 0; // bumped by start() and stop(): a start overtaken during its awaits drops its stream
+    /** @type {(() => void) | null} called when the input goes away (interface unplugged) */
+    this.onLost = null;
   }
 
   get sampleRate() {
@@ -24,6 +27,7 @@ export class AudioInput {
 
   async start({ deviceId, channel = 0, gain = 1 }) {
     this.stop();
+    const id = this.gen;
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Audio input needs http://localhost or https');
     // 48 kHz whatever the interface runs at: detection cost grows with the sample rate (a 96 kHz
     // interface would double it) and the browser resamples for free
@@ -35,6 +39,7 @@ export class AudioInput {
       }
     }
     await this.ctx.resume();
+    if (id !== this.gen) return;
     // raw signal: no voice processing on a DI
     const audio = {
       echoCancellation: false,
@@ -42,15 +47,27 @@ export class AudioInput {
       autoGainControl: false,
       channelCount: { ideal: 2 },
     };
+    let stream;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: deviceId ? { ...audio, deviceId: { exact: deviceId } } : audio,
       });
     } catch (e) {
+      if (id !== this.gen) return;
       if (!deviceId || e.name !== 'OverconstrainedError') throw e;
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio }); // saved device is gone
+      stream = await navigator.mediaDevices.getUserMedia({ audio }); // saved device is gone
     }
-    const track = this.stream.getAudioTracks()[0];
+    if (id !== this.gen) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    this.stream = stream;
+    const track = stream.getAudioTracks()[0];
+    track.onended = () => {
+      if (id !== this.gen) return;
+      this.stop();
+      this.onLost?.();
+    };
     const settings = track.getSettings();
     this.label = track.label || 'Audio input';
     this.deviceId = settings.deviceId || '';
@@ -111,6 +128,7 @@ export class AudioInput {
   }
 
   stop() {
+    this.gen++;
     this.running = false;
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;

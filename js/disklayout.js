@@ -49,6 +49,19 @@ export const parseJsonl = (text) => text.split('\n').flatMap((l) => {
 
 export const attemptKey = (a) => `${a.t}|${a.s}|${a.f}`;
 
+// The [key, JSON text] entries of the disk's kv that the browser takes: keys it lacks, and values
+// saved later than its own (settings carry savedAt, main.js saveSettings); otherwise the
+// browser's value wins.
+const savedAt = (text) => {
+  try {
+    return JSON.parse(text)?.savedAt || 0;
+  } catch {
+    return 0;
+  }
+};
+export const kvFromDisk = (remote, local) =>
+  Object.entries(remote).filter(([k, v]) => typeof v === 'string' && (!(k in local) || savedAt(v) > savedAt(local[k])));
+
 // Everything read from a profile folder, as {kv, attempts, runs}. Files may overlap (a synced
 // folder's "conflicted copy", a write repeated after a failure): answers are kept once by time
 // and position, runs once by run_id, a finished run beating an open one.
@@ -71,6 +84,30 @@ export function fold(kvText, attemptsTexts, runsTexts) {
     runs[r.run_id] = r;
   }
   return { kv, attempts, runs };
+}
+
+// What a sync copies each way between the browser (local) and the disk copy (remote), both
+// {attempts: [], runs: {run_id: row}, kv: {key: jsonText}}. Answers are matched by time and
+// position, runs by run_id (a finished run beats an open one, otherwise the browser's row wins),
+// settings and models by key (the browser's value wins, unless the disk's was saved later).
+// sameRun compares two rows as stored.
+export function mergePlan(local, remote, sameRun = (a, b) => JSON.stringify(a) === JSON.stringify(b)) {
+  const have = new Set(local.attempts.map(attemptKey));
+  const onDisk = new Set(remote.attempts.map(attemptKey));
+  const toLocal = [];
+  for (const a of remote.attempts) {
+    const k = attemptKey(a);
+    if (have.has(k)) continue;
+    have.add(k);
+    toLocal.push(a);
+  }
+  const toDisk = local.attempts.filter((a) => !onDisk.has(attemptKey(a)));
+  const runsToLocal = Object.values(remote.runs)
+    .filter((r) => !local.runs[r.run_id] || (local.runs[r.run_id].ended_at == null && r.ended_at != null));
+  const runsToDisk = Object.values(local.runs)
+    .filter((r) => !remote.runs[r.run_id] || (!sameRun(r, remote.runs[r.run_id]) && !runsToLocal.some((x) => x.run_id === r.run_id)));
+  const kvToLocal = kvFromDisk(remote.kv, local.kv);
+  return { toLocal, toDisk, runsToLocal, runsToDisk, kvToLocal };
 }
 
 export const profileFolder = (name) => 'fretboard-' + name;

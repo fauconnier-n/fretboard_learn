@@ -59,6 +59,7 @@ const $ = (id) => document.getElementById(id);
 const app = {
   levelTick: 0,
   settings: null,
+  settingsAt: 0, // savedAt of the settings in use
   model: null,
   modelKey: null,
   scheduler: null,
@@ -100,7 +101,11 @@ const AUDIO_KEYS = ['deviceId', 'channel', 'gain', 'gate', 'clarity', 'latencyMs
 const audioPart = (s, audio) => Object.fromEntries(Object.entries(s).filter(([k]) => AUDIO_KEYS.includes(k) === audio));
 
 function saveSettings() {
-  storage.set('settings', { ...audioPart(app.settings, false), savedAt: Date.now() });
+  // settings saved later came in from the disk meanwhile (a folder connected, a sync retried in
+  // the background): they win, so show them rather than write these over them
+  if ((storage.get('settings')?.savedAt || 0) > app.settingsAt) return location.reload();
+  app.settingsAt = Date.now();
+  storage.set('settings', { ...audioPart(app.settings, false), savedAt: app.settingsAt });
   storage.rememberSettings(app.settings);
 }
 
@@ -236,6 +241,11 @@ async function connectAudio() {
   try {
     label.textContent = 'Connecting…';
     await app.audio.start({ deviceId: s.deviceId, channel: s.channel, gain: s.gain });
+    if (!app.audio.running) return; // overtaken by a newer connect, which finishes the job
+    app.audio.onLost = () => {
+      updateAudioLabel();
+      $('connectBtn').textContent = 'Connect input';
+    };
     await refreshDevices();
     refreshChannels();
     updateAudioLabel();
@@ -251,6 +261,7 @@ async function connectAudio() {
 function updateAudioLabel() {
   const a = app.audio;
   $('audioLabel').textContent = a.running ? `${a.label}${a.channels > 1 ? ` · in ${a.channel + 1}` : ''}` : 'No input';
+  $('topMeter').classList.toggle('off', !a.running);
 }
 
 function processFrame() {
@@ -266,6 +277,8 @@ function processFrame() {
   const listening = app.view !== 'stats' && !document.hidden;
   const res = listening && rms >= s.gate ? app.detect(frame, app.audio.sampleRate, app.minF, app.maxF) : null;
   if (app.view === 'settings') updateMeter(rms);
+  $('topMeterFill').style.width = meterPct(rms) + '%';
+  $('topMeterFill').classList.toggle('gated', rms < s.gate);
   if (app.view === 'tuner') app.tuner.onFrame(res, rms, now);
   if (app.strum.feed(now, rms, !!res && res.clarity >= s.clarity, s.gate)) onStrum(now);
   const ev = app.tracker.feed(now, res, rms, s);
@@ -310,7 +323,7 @@ function updateMeter(rms) {
 }
 
 function updateGateMarker() {
-  $('meterGate').style.left = meterPct(app.settings.gate) + '%';
+  $('meterGate').style.left = $('topMeterGate').style.left = meterPct(app.settings.gate) + '%';
 }
 
 async function refreshDevices() {
@@ -321,7 +334,7 @@ async function refreshDevices() {
   } catch {}
   sel.innerHTML = '<option value="">System default input</option>' +
     inputs.filter((d) => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
-      .map((d, i) => `<option value="${d.deviceId}">${d.label || 'Input ' + (i + 1)}</option>`).join('');
+      .map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Input ' + (i + 1))}</option>`).join('');
   sel.value = app.settings.deviceId;
   if (sel.value !== app.settings.deviceId) sel.value = '';
 }
@@ -442,7 +455,10 @@ function bindSettings() {
       saveSettings();
       if (key === 'instrument') fillTunings();
       if (BOARD_KEYS.includes(key)) await applyBoardSettings();
-      else if (key === 'a4') setDetectRange(); // the reference pitch changes the detector's range, nothing on the board
+      else if (key === 'a4') { // the reference pitch changes the detector's range and the tuner's targets, nothing on the board
+        setDetectRange();
+        app.tuner.setStrings(app.strings, app.settings.flats);
+      }
       if (key === 'deviceId') connectAudio();
       if (key === 'gate') updateGateMarker();
       if (key === 'channel') { app.audio.setChannel(v); updateAudioLabel(); }
@@ -483,7 +499,9 @@ function bindData() {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      await storage.importAll(JSON.parse(await file.text()));
+      const data = JSON.parse(await file.text());
+      await makeBackup('before restore');
+      await storage.importAll(data);
       location.reload();
     } catch (err) {
       $('dataOut').textContent = 'Import failed: ' + err.message;
@@ -498,8 +516,13 @@ function bindData() {
   $('checkModelBtn').onclick = checkModel;
   $('resetBtn').onclick = async () => {
     if (!confirm(`Delete all progress, settings and the answer log of user "${storage.status().user}"? Other users are not affected.`)) return;
-    await storage.clearAll();
-    location.reload();
+    try {
+      await makeBackup('before restore');
+      await storage.clearAll();
+      location.reload();
+    } catch (err) {
+      $('dataOut').textContent = 'Reset failed: ' + err.message;
+    }
   };
   $('selfTestBtn').onclick = () => {
     $('dataOut').textContent = runSelfTest();
@@ -514,11 +537,18 @@ function bindData() {
     }
     renderDbStatus();
   };
-  $('folderCreateBtn').onclick = act(() => storage.createFolder());
-  $('folderChooseBtn').onclick = act(() => storage.connectFolder((other) => confirm(`This folder holds the data of "${other}". Use it for "${storage.status().user}" anyway? The answers of both are merged.`)));
-  $('folderReconnectBtn').onclick = act(() => storage.reconnectFolder());
+  // a folder whose settings were saved later brings them in: reload to use them, or the next
+  // save would write the settings on screen over them
+  const folderAct = (fn) => act(async () => {
+    const before = storage.get('settings')?.savedAt;
+    await fn();
+    if (storage.get('settings')?.savedAt !== before) location.reload();
+  });
+  $('folderCreateBtn').onclick = folderAct(() => storage.createFolder());
+  $('folderChooseBtn').onclick = folderAct(() => storage.connectFolder((other) => confirm(`This folder holds the data of "${other}". Use it for "${storage.status().user}" anyway? The answers of both are merged.`)));
+  $('folderReconnectBtn').onclick = folderAct(() => storage.reconnectFolder());
   $('dbBadge').onclick = () => { if (storage.status().disk.needsPermission) $('folderReconnectBtn').click(); };
-  $('folderForgetBtn').onclick = act(() => storage.disconnectFolder());
+  $('folderForgetBtn').onclick = folderAct(() => storage.disconnectFolder());
   $('bringBtn').onclick = act(async () => {
     const src = $('bringFrom').value;
     const { name, data } = src === '__folder' ? await storage.folderData() : { name: src, data: await storage.profileData(src) };
@@ -565,9 +595,13 @@ async function restoreBackup(id) {
   const msg = `Replace all data of user "${b.user}" with the backup from ${fmtDate(b.t)} (${b.attempts} answers)?\n` +
     'The current data is backed up first, so this can be undone.';
   if (!confirm(msg)) return;
-  await makeBackup('before restore');
-  await storage.importAll(b.data);
-  location.reload();
+  try {
+    await makeBackup('before restore');
+    await storage.importAll(b.data);
+    location.reload();
+  } catch (err) {
+    $('dataOut').textContent = 'Restore failed: ' + err.message;
+  }
 }
 
 // ---------- model check ----------
@@ -664,7 +698,7 @@ async function switchUser(name) {
 
 function bindUsers(db) {
   const sel = $('userSelect');
-  sel.innerHTML = storage.listUsers().map((u) => `<option value="${u}">${u}</option>`).join('') +
+  sel.innerHTML = storage.listUsers().map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join('') +
     '<option value="__new">+ New profile…</option>';
   sel.value = db.user;
   sel.onchange = () => {
@@ -729,7 +763,7 @@ async function renderDataPage() {
     (storage.diskStatus().supported ? '<option value="__folder">a folder…</option>' : '');
   $('bringBtn').disabled = !sel.options.length;
   const origins = await storage.origins();
-  $('originList').innerHTML = Object.entries(origins).map(([o, n]) => `<li><span>From "${o}" <span class="muted">· ${n} answers</span></span><button class="btn small" data-origin="${o}">Remove</button></li>`).join('');
+  $('originList').innerHTML = Object.entries(origins).map(([o, n]) => `<li><span>From "${esc(o)}" <span class="muted">· ${n} answers</span></span><button class="btn small" data-origin="${esc(o)}">Remove</button></li>`).join('');
 }
 
 // the model is replayed from the log, which has changed
@@ -755,6 +789,7 @@ function showWelcome(mode) {
     const form = $('newProfile');
     const err = (e) => { $('welcomeError').textContent = e?.message || String(e || ''); };
     document.body.classList.add('welcome');
+    $('welcomeIntro').classList.toggle('hidden', names.length > 0);
     $('loading').classList.add('hidden');
     el.classList.remove('hidden');
     const onKey = (e) => { if (e.key === 'Enter' && form.classList.contains('hidden')) $('profileList').querySelector('[data-pick]')?.click(); };
@@ -875,6 +910,7 @@ async function init() {
   const machine = AUDIO_KEYS.some((k) => k in last) ? last : stored;
   app.settings = { ...DEFAULTS, ...last, ...audioPart(stored, false), ...audioPart(machine, true) };
   delete app.settings.savedAt;
+  app.settingsAt = stored.savedAt || 0;
   if (!Number.isInteger(app.settings.channel)) app.settings.channel = 0; // was saved as NaN by an old bug
   if (app.settings.runTask === 'mixed') app.settings.runTask = 'play'; // mixed runs were removed
   // tunings from before the standard/drop switch
@@ -936,6 +972,8 @@ async function init() {
     ensureAudio: () => { if (!app.audio.running) connectAudio(); },
     sound,
   });
+  // closing or reloading the page ends a run like a tab switch: the answer on screen and the run row are saved
+  window.addEventListener('pagehide', () => { app.quiz.leave(); app.intervals.leave(); });
 
   document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => {
     if (b.dataset.tab === 'settings' && app.view === 'settings') return openSettings('home'); // second click: back to the cards
@@ -1010,8 +1048,22 @@ async function init() {
   // a profile made on the welcome screen picks its instrument and tuning first
   $('firstRunDone').onclick = () => {
     $('firstRunNote').classList.add('hidden');
-    showView('practice');
+    $('audioFirstNote').classList.remove('hidden');
+    openSettings('audio');
   };
+  $('audioFirstDone').onclick = () => {
+    $('audioFirstNote').classList.add('hidden');
+    showView('practice');
+    $('firstRunTip').classList.remove('hidden');
+  };
+  // the header meter: always there, a click opens the audio setup
+  $('topMeter').onclick = () => { showView('settings'); openSettings('audio'); };
+  // then the first run is one click away
+  $('firstRunGo').onclick = () => {
+    $('firstRunTip').classList.add('hidden');
+    app.quiz.prepare();
+  };
+  $('startBtn').addEventListener('click', () => $('firstRunTip').classList.add('hidden'));
   if (sessionStorage.getItem('ft:firstRun') === db.user) {
     sessionStorage.removeItem('ft:firstRun');
     $('firstRunNote').classList.remove('hidden');
