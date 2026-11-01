@@ -1,11 +1,12 @@
 # Working on this repo
 
 ## Git workflow (always)
-- Every change goes on a new branch created from an up-to-date `main` (`git fetch`, `git switch main`, `git pull --ff-only`, `git switch -c <type>/<short-name>`). Never commit on `main`.
-- Every pull request targets `main`, never another feature branch: stacked pull requests merged in another order leave work stranded on intermediate branches (it happened with #6–#9). Work that builds on an unmerged branch starts from that branch but still targets `main`, so either merge order is safe.
-- Commit in logical steps: **several commits on one branch, one pull request and one merge** for a piece of work, not a pull request per small fix. Then push and open a pull request against `main` with `gh pr create` (GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe`, not on PATH in Git Bash).
-- CI (`.github/workflows/pages.yml`) runs the checks on every pull request: wait for it (`gh pr checks <n> --watch`), then `gh pr merge <n> --merge --delete-branch` and update the local `main`. A push to `main` also deploys the app to <https://fauconnier-n.github.io/fretboard_learn/>.
-- End every reply that finishes a change with the link to its pull request.
+- Two long-lived branches: **`dev`** is where work lands; **`main`** is what is released, and only moves at a release. Never commit on either directly.
+- Every change goes on a new branch created from an up-to-date `dev` (`git fetch`, `git switch dev`, `git pull --ff-only`, `git switch -c <type>/<short-name>`).
+- Every pull request targets `dev` (`gh pr create --base dev`), never another feature branch: stacked pull requests merged in another order leave work stranded on intermediate branches (it happened with #6–#9). Work that builds on an unmerged branch starts from that branch but still targets `dev`. No CI runs on `dev`, so a pull request is merged as soon as it is opened and checked locally: `gh pr merge <n> --merge --delete-branch`, then update the local `dev`.
+- Commit in logical steps: **several commits on one branch, one pull request and one merge** for a piece of work, not a pull request per small fix (GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe`, not on PATH in Git Bash).
+- **Releases, only when the user asks for one** (never on your own): open a pull request `dev` → `main` (`gh pr create --base dev` is wrong here: `--base main --head dev`), wait for CI (`gh pr checks <n> --watch`), merge it, then publish a release on `main`: `gh release create vX.Y.Z --target main --generate-notes --notes "<the dated line from docs/FEATURES.md Changes>"`. Publishing deploys that tag to <https://fauconnier-n.github.io/fretboard_learn/> (watch `gh run list --workflow "Check and deploy"`), so the latest release is always what the site runs. Afterwards merge `main` back into `dev` if the release PR added anything. Versions are semantic with a `v`: minor for features, patch for fixes; the next one is the smallest bump that fits what `dev` holds since the last release.
+- End every reply that finishes a change with the link to its pull request (and the release, after one).
 - Personal practice data lives in `data/` (ignored); never commit it.
 
 ## Checks before a pull request

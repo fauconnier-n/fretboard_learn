@@ -1,17 +1,21 @@
-# Checks on every pull request; on main, the checks and then a deploy of the app to GitHub Pages
-# (https://fauconnier-n.github.io/fretboard_learn/). Only the app's files are published: no
-# docs, tools, tests or server script.
+# Checks on every pull request to main and on main itself. A published release (vX.Y.Z) runs the
+# checks and then deploys that tag to GitHub Pages (https://fauconnier-n.github.io/fretboard_learn/),
+# so the site always runs the latest release. Only the app's files are published: no docs, tools,
+# tests or server script.
 name: Check and deploy
+run-name: ${{ github.event_name == 'release' && format('Deploy {0}', github.event.release.tag_name) || format('Check {0}', github.ref_name) }}
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'release' && 'deploy' || github.ref }}
   cancel-in-progress: false
 jobs:
   check:
@@ -27,7 +31,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'release'
     needs: check
     runs-on: ubuntu-latest
     permissions:
@@ -38,10 +42,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Stage the app files only
+      - name: Stage the app files only, stamped with the release tag
         run: |
           mkdir _site
           cp -r index.html manifest.webmanifest sw.js css js icons vendor _site/
+          sed -i "s/export const VERSION = 'dev';/export const VERSION = '${{ github.event.release.tag_name }}';/" _site/js/version.js
+          grep -q "${{ github.event.release.tag_name }}" _site/js/version.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
