@@ -7,7 +7,7 @@
 
 const WINDOW_MS = 140;
 const REFRACTORY_MS = 200; // after a confirmed strum (about 340 ms after its attack), ignore its tail
-export const DOUBLE_MS = 700; // two strums this close together are a double strum
+export const DOUBLE_MS = 700; // strums this close one after the other count as one series (2, 3…)
 
 export class StrumDetector {
   /** @param {number} level burst threshold, as a multiple of the noise gate */

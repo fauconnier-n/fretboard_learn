@@ -6,7 +6,7 @@
 //   attempts/<file>.jsonl one append-only file per run; runs/<file>.jsonl its run row(s)
 //   attempts.jsonl, runs.jsonl  the flat files of earlier versions: read, never written
 // Small files per run mean a synced folder uploads only the current one, and two devices
-// never write the same file. DuckDB reads them with read_json('.../attempts/*.jsonl').
+// never write the same file. DuckDB (the command-line tool) reads them with read_json('.../attempts/*.jsonl').
 
 export const sanitizeUser = (name) => String(name || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
 

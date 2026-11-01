@@ -1,5 +1,5 @@
 // @ts-check
-// Spaced repetition + curriculum. See docs/learning-algorithm.md for the reasoning.
+// Spaced repetition + curriculum.
 //  - card per item = position (string:fret) + spelling. Natural notes have one item
 //    ("1:3"); sharps/flats have two linked twins ("1:1:s" = A#, "1:1:f" = Bb).
 //    "Name the note" (position → name) has its own card per position ("1:3:r").
@@ -49,6 +49,9 @@ const DAY = 86400000;
 const CTX_MAX = 24;
 const UNLOCK_FRACTION = 0.5;
 const STARTER_DIFF = 0.2;
+const SESSION_GAP = 30 * 60000; // answers this far apart belong to different sessions
+// open strings, the octave and the dot-marker frets are easier to find
+const markerBonus = (f) => (f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0);
 const TWIN_LINK = 0.85; // an unseen spelling starts from what is known of its twin, slightly discounted
 const DUE_R = 0.85; // below this recall probability an item is "fading, due for review"
 const BACKLOG_GATE = 8; // with this many due items, no zone with unseen positions is picked
@@ -377,8 +380,7 @@ export class Scheduler {
     // a string tuned like an easier one (high e vs low E) reuses what was learnt there
     for (let t = 0; t < k.length; t++) if (t !== s && pcOf(k[t]) === pcOf(k[s])) sd = Math.min(sd, stringDiff(k[t]) + 0.15);
     const fd = f <= 5 ? 0.03 * f : f <= 9 ? 0.25 : f <= 12 ? 0.4 : 0.5;
-    const bonus = f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0;
-    d = clamp(0.55 * sd + 0.45 * fd - bonus, 0, 1);
+    d = clamp(0.55 * sd + 0.45 * fd - markerBonus(f), 0, 1);
     this.diffCache.set(key, d);
     return d;
   }
@@ -530,7 +532,9 @@ export class Scheduler {
 
   // Played before, a starter cell, or next to something already known.
   isReachable(s, f, snap) {
-    if (snap.mastery.has(s + ':' + f) || this.cellDifficulty(s, f) <= STARTER_DIFF) return true;
+    // the starter region ignores the marker bonus: one run of frets from the nut on each string,
+    // not a scatter of marker frets
+    if (snap.mastery.has(s + ':' + f) || this.cellDifficulty(s, f) + markerBonus(f) <= STARTER_DIFF) return true;
     for (let ds = -1; ds <= 1; ds++) {
       for (let df = -2; df <= 2; df++) {
         if ((snap.mastery.get(s + ds + ':' + (f + df)) ?? 0) >= 0.5) return true;
@@ -631,13 +635,16 @@ export class Scheduler {
   }
 
   // How far an item is towards known (memory), fast (your usual time or better) and
-  // automatic (mastered: right and fast on two days), each 0–1, for the rings in the summary.
+  // automatic (mastered: right and fast on two days), each 0–1, for the bars on the board.
+  // Fast and automatic come only from right answers: none yet, both empty.
   noteRings(key, now = Date.now()) {
     const c = this.model.cards[key];
     if (!c) return { known: 0, fast: 0, auto: 0 };
+    if (!c.correct) return { known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6), fast: 0, auto: 0 };
     return {
       known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6),
-      fast: Math.min(1, Math.exp(this.globalMu()) / this.expectedMs(key, now)),
+      // your time from right answers only (the prior would fill the bar before any)
+      fast: c.time?.n ? Math.min(1, Math.exp(this.globalMu()) / this.expectedMs(key, now)) : 0,
       // not mastered yet never shows a full ring
       auto: this.isMastered(key, now) ? 1 : Math.min(0.95, 0.5 * Math.min(1, (c.days?.length || 0) / 2) + 0.5 * Math.min(1, this.itemMastery(key, now) / 0.7)),
     };
@@ -752,6 +759,9 @@ export class Scheduler {
     if (correct) G = Math.min(G, opts.maxG ?? 4);
     this.updateFactors(key, correct, correct && useSpeed ? ms : null);
     let c = cards[key];
+    // a new session on this item (30 min or more since its last answer): remember its bars as
+    // they stand now, the mark "before your last session" in its popup
+    if (c && now - c.last >= SESSION_GAP) c.mark = this.noteRings(key, now);
     if (!c) {
       c = cards[key] = {
         S: initS(G), D: initD(G),
@@ -779,6 +789,8 @@ export class Scheduler {
       c.days ||= [];
       if (!c.days.includes(d)) c.days = [...c.days, d].slice(-5);
     }
+    // the last 15 answers, [right 0/1, ms], for the position's popup
+    c.hist = [...(c.hist || []), [ok, ms]].slice(-15);
 
     if (sp !== 'r') {
       const n = (notes[spellName(cell.midi, sp)] ||= { acc: 0.6, n: 0, time: newTime() });

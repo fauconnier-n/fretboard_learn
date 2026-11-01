@@ -15,7 +15,7 @@ $maxBody = 64MB
 $mime = @{
   '.html' = 'text/html; charset=utf-8'; '.js' = 'text/javascript; charset=utf-8'; '.css' = 'text/css; charset=utf-8'
   '.json' = 'application/json'; '.webmanifest' = 'application/manifest+json'; '.svg' = 'image/svg+xml'
-  '.wasm' = 'application/wasm'; '.mjs' = 'text/javascript; charset=utf-8'
+  '.mjs' = 'text/javascript; charset=utf-8'
   '.png' = 'image/png'; '.ico' = 'image/x-icon'; '.md' = 'text/plain; charset=utf-8'
 }
 $utf8 = New-Object Text.UTF8Encoding($false)
@@ -127,8 +127,7 @@ function Invoke-Api($req, [string]$path) {
 }
 
 # Static files answer conditional requests with 304 (ETag from size and modification time), so a
-# reload re-reads only files that changed. The vendored DuckDB files (34 MB, version pinned; an
-# upgrade bumps the cache name in sw.js) may be kept for a year without asking again.
+# reload re-reads only files that changed.
 function Get-Static($req, [string]$path) {
   if ($path -eq '/') { $path = '/index.html' }
   $full = [IO.Path]::GetFullPath((Join-Path $root $path.TrimStart('/')))
@@ -137,7 +136,6 @@ function Get-Static($req, [string]$path) {
     $item = Get-Item -LiteralPath $full
     $etag = '"{0:x}-{1:x}"' -f $item.Length, $item.LastWriteTimeUtc.Ticks
     $headers = @{ 'ETag' = $etag; 'Last-Modified' = $item.LastWriteTimeUtc.ToString('R') }
-    if ($path.StartsWith('/vendor/')) { $headers['Cache-Control'] = 'public, max-age=31536000, immutable' }
     if ($req.Headers['If-None-Match'] -eq $etag) { return Reply 304 '' @() $headers }
     $ext = [IO.Path]::GetExtension($full).ToLower()
     $type = if ($mime.ContainsKey($ext)) { $mime[$ext] } else { 'application/octet-stream' }
@@ -147,7 +145,7 @@ function Get-Static($req, [string]$path) {
 }
 
 # One request. Nothing may escape from here: a browser that cancels a request (a reload
-# during the DuckDB download, say) makes the write and the close fail, and that used to
+# during a download, say) makes the write and the close fail, and that used to
 # stop the whole server.
 function Handle-Request($ctx) {
   $res = $ctx.Response

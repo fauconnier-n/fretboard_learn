@@ -8,13 +8,14 @@ import { AudioInput } from './audio.js';
 import { createDetector, NoteTracker } from './pitch.js';
 import { DOUBLE_MS, StrumDetector } from './strum.js';
 import { Scheduler, newModel } from './srs.js';
-import { Fretboard } from './fretboard.js';
+import { Fretboard, closeTips } from './fretboard.js';
 import { Quiz } from './quiz.js';
 import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
 import { renderStats } from './stats.js';
 import { renderProgress } from './progress.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
+import { firstRightPerDay, logStrings, perDay, practisedDays, predictionRows, rate, taskOf } from './logQueries.js';
 
 // timing marks for tools/perf.mjs (performance.getEntriesByType('mark'|'measure') in the console)
 performance.mark('app:modules');
@@ -69,7 +70,7 @@ const app = {
   audio: new AudioInput(),
   tracker: new NoteTracker(),
   strum: new StrumDetector(),
-  lastStrum: { t: -Infinity, running: false },
+  lastStrum: { t: -Infinity, running: false, n: 0 },
   detect: createDetector(4096),
   loop: 0,
 };
@@ -77,7 +78,7 @@ const app = {
 // What is stored of a model: its version and `meta` (the difficulty target, run history, best
 // runs, fitted decay). Everything else (cards, notes, ctx, conf) is replayed from the answer log
 // at every load (applyBoardSettings marks the model stale), so storing it only cost time: the
-// full model is 100 KB to 1 MB of JSON, written to DuckDB, the safety copy and the disk.
+// full model is 100 KB to 1 MB of JSON, written to the browser and the disk.
 const persistedModel = (m) => ({ version: m.version, meta: m.meta });
 const saveModelNow = () => storage.set(app.modelKey, persistedModel(app.model));
 
@@ -92,8 +93,14 @@ function saveModel() {
   });
 }
 
+// The audio setup belongs to the computer (its interface, levels, latency), not to the profile:
+// it is kept in this browser only (storage.lastSettings) and left out of the profile's data,
+// which carries the time it was saved so the newer copy wins between computers.
+const AUDIO_KEYS = ['deviceId', 'channel', 'gain', 'gate', 'clarity', 'latencyMs', 'strumLevel'];
+const audioPart = (s, audio) => Object.fromEntries(Object.entries(s).filter(([k]) => AUDIO_KEYS.includes(k) === audio));
+
 function saveSettings() {
-  storage.set('settings', app.settings);
+  storage.set('settings', { ...audioPart(app.settings, false), savedAt: Date.now() });
   storage.rememberSettings(app.settings);
 }
 
@@ -120,14 +127,13 @@ function sound(kind) {
 
 // Every answer of the log replayed on this instrument: answers on a string with the same key
 // (instruments.js) count, others are left out. The Intervals tab has its own stats.
-const tuningAttempts = async () =>
-  (await storage.allAttempts()).filter((a) => a.task !== 'interval')
+const tuningAttempts = () =>
+  storage.allAttempts().filter((a) => a.task !== 'interval')
     .map((a) => mapAttempt(a, app.keys)).filter(Boolean)
     .sort((a, b) => a.t - b.t);
 
-// SQL: the open strings an answer was given on, also for rows from before instruments
-const LOG_STRINGS = `coalesce(strings, CASE tuning ${Object.entries(LEGACY).map(([name, [, st]]) => `WHEN '${name}' THEN '${st.join(',')}'`).join(' ')} END)`;
-const sameStrings = () => `${LOG_STRINGS} = '${app.strings.join(',')}'`;
+// an answer or run given on the open strings in use (rows from before instruments too)
+const sameStrings = (a) => logStrings(a, LEGACY) === app.strings.join(',');
 
 // The tuning controls: Standard/Drop switch, a semitone slider, the notes they give, and the
 // custom tuning page. A custom tuning written for another string count is dropped.
@@ -267,19 +273,21 @@ function processFrame() {
   if (ev && app.view === 'intervals') app.intervals.onNote(ev);
 }
 
-// A muted strum: the "go" signal. Two within DOUBLE_MS, both during a run, are a double
-// strum (so the strum that starts a run can't pair with the next one and stop it).
+// A muted strum. Strums less than DOUBLE_MS apart in the same state (all in a run, or all
+// outside) make a series: n is its length so far. Two go back to the previous menu, three stop
+// a run.
 function onStrum(now) {
   const running = app.view === 'intervals' ? app.intervals.running : app.quiz.running;
-  const double = running && app.lastStrum.running && now - app.lastStrum.t < DOUBLE_MS;
-  app.lastStrum = double ? { t: -Infinity, running } : { t: now, running };
-  $('strumSeen').textContent = `Muted strum heard${double ? ' (double)' : ''} at ${new Date().toLocaleTimeString()}`;
+  const last = app.lastStrum;
+  const n = last.running === running && now - last.t < DOUBLE_MS ? last.n + 1 : 1;
+  app.lastStrum = { t: now, running, n };
+  $('strumSeen').textContent = `Muted strum heard${n > 1 ? ` (×${n})` : ''} at ${new Date().toLocaleTimeString()}`;
   if (app.view === 'practice') {
     app.board.strum();
-    app.quiz.onStrum(double);
+    app.quiz.onStrum(n);
   } else if (app.view === 'intervals') {
     app.ivBoard.strum();
-    app.intervals.onStrum(double);
+    app.intervals.onStrum(n);
   }
 }
 
@@ -330,6 +338,7 @@ function refreshChannels() {
 
 function showView(name) {
   app.view = name;
+  closeTips();
   const practice = name === 'practice' || name === 'intervals';
   if (practice) app.practicePage = name;
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === (practice ? 'practice' : name)));
@@ -351,14 +360,14 @@ async function showStats() {
   performance.mark('stats:start');
   const weekAgo = new Date().setHours(0, 0, 0, 0) - 6 * 86400000; // today and the 6 days before
   const monthAgo = Date.now() - 30 * 86400000;
-  const [attemptCount, [{ days }], [probe], [named]] = await Promise.all([
-    storage.countAttempts(),
-    // practice consistency: days with at least one answer in the last 7 (no streak to lose)
-    storage.sql(`SELECT count(DISTINCT strftime(to_timestamp(t / 1000), '%Y-%m-%d'))::INT AS days FROM attempts WHERE t >= ${weekAgo}`),
-    // check-up prompts are random, so their success rate is not pulled towards the target
-    storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE probe AND t >= ${monthAgo} AND ${sameStrings()}`),
-    storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE task = 'name' AND t >= ${monthAgo} AND ${sameStrings()}`),
-  ]);
+  const log = storage.allAttempts();
+  const attemptCount = log.length;
+  // practice consistency: days with at least one answer in the last 7 (no streak to lose)
+  const days = practisedDays(log, weekAgo);
+  const month = log.filter((a) => a.t >= monthAgo && sameStrings(a));
+  // check-up prompts are random, so their success rate is not pulled towards the target
+  const probe = rate(month.filter((a) => a.probe));
+  const named = rate(month.filter((a) => a.task === 'name'));
   const pct = (x) => Math.round(x * 100) + '%';
   renderStats({
     extraCards: [
@@ -375,18 +384,13 @@ async function showStats() {
     attemptCount,
   });
   // progress over runs and days, on these strings, note-position quizzes only
-  const notInterval = `coalesce(task, 'play') <> 'interval' AND ${sameStrings()}`;
-  const day = `strftime(to_timestamp(t / 1000), '%Y-%m-%d')`;
-  const [runs, dayRows, known] = await Promise.all([
-    storage.sql(`SELECT started_at AS t, prompts, correct, median_ms FROM runs WHERE prompts > 0 AND ${notInterval} ORDER BY started_at`),
-    storage.sql(`SELECT ${day} AS day, count(*)::INT AS n, avg(correct::INT) AS acc, median(ms) AS med FROM attempts WHERE ${notInterval} GROUP BY 1 ORDER BY 1`),
-    storage.sql(`SELECT strftime(to_timestamp(first / 1000), '%Y-%m-%d') AS day, count(*)::INT AS n FROM
-      (SELECT string_idx, fret, min(t) AS first FROM attempts WHERE correct AND coalesce(task, 'play') = 'play' AND ${sameStrings()} GROUP BY 1, 2) GROUP BY 1 ORDER BY 1`),
-  ]);
+  const notInterval = (a) => taskOf(a) !== 'interval' && sameStrings(a);
+  const here = log.filter(notInterval);
   renderProgress($('progressCharts'), {
-    runs: runs.map((r) => ({ t: r.t, prompts: Number(r.prompts), correct: Number(r.correct), median_ms: r.median_ms == null ? null : Number(r.median_ms) })),
-    days: dayRows.map((d) => ({ day: d.day, n: d.n, acc: d.acc, med: Number(d.med) })),
-    known,
+    runs: storage.allRuns().filter((r) => r.prompts > 0 && notInterval(r))
+      .map((r) => ({ t: r.started_at, prompts: r.prompts, correct: r.correct, median_ms: r.median_ms })),
+    days: perDay(here),
+    known: firstRightPerDay(here),
     total: app.strings.length * (app.settings.frets + 1),
   });
   performance.measure('stats:render', 'stats:start');
@@ -571,19 +575,15 @@ async function restoreBackup(id) {
 async function checkModel() {
   const out = $('modelCheck');
   out.innerHTML = '<p class="muted small">Checking…</p>';
-  const rows = (await storage.sql(`SELECT pred_p AS p, correct::INT AS y,
-      t - lag(t) OVER (PARTITION BY string_idx, fret, spelling, coalesce(task, 'play') ORDER BY t) AS lag
-    FROM attempts WHERE ${sameStrings()} AND coalesce(task, 'play') IN ('play', 'name') QUALIFY pred_p IS NOT NULL AND NOT coalesce(cue_target, false) ORDER BY t`))
-    .map((r) => ({ p: r.p, y: r.y, lag: r.lag == null ? null : Number(r.lag) }));
-  const attempts = await tuningAttempts();
+  const log = storage.allAttempts().filter(sameStrings);
+  const rows = predictionRows(log.filter((a) => ['play', 'name'].includes(taskOf(a))));
+  const attempts = tuningAttempts();
   const fit = await fitDecay(attempts, app.strings, app.settings.frets, app.model.meta.decay);
   app.scheduler.useDecay(app.model.meta.decay); // the replays changed the curve in use
   const useBtn = fit.best ? `<button class="btn small" id="useDecayBtn">Use decay ${fit.best} and rebuild</button>` : '';
   const resetBtn = app.model.meta.decay ? ' <button class="btn small" id="defaultDecayBtn">Back to the default decay</button>' : '';
-  const cueRows = (await storage.sql(`SELECT pred_p AS p, correct::INT AS y, ms, coalesce(cue_target, false)::INT AS own,
-      coalesce(cue_n, 0) AS n, cue_nearest AS near
-    FROM attempts WHERE ${sameStrings()} AND coalesce(task, 'play') = 'play' AND cue_mode IS NOT NULL AND pred_p IS NOT NULL`))
-    .map((r) => ({ p: r.p, y: r.y, ms: Number(r.ms), own: !!r.own, n: Number(r.n), near: r.near }));
+  const cueRows = log.filter((a) => taskOf(a) === 'play' && a.cueMode != null && a.predP != null)
+    .map((a) => ({ p: a.predP, y: a.correct ? 1 : 0, ms: a.ms, own: !!a.cueTarget, n: a.cueN ?? 0, near: a.cueNearest }));
   out.innerHTML = renderCheck(rows, fit.html + useBtn + resetBtn) + `<h4>Reliance on note names</h4>${renderCueReliance(cueRows)}`;
   const apply = async (d) => {
     app.scheduler.useDecay(d);
@@ -634,17 +634,9 @@ async function renderBackups() {
     <button class="btn small" data-restore="${b.id}">Restore</button></li>`).join('') || '<li class="muted">No backups yet. One is made after every run.</li>';
 }
 
-// The database is empty but a backup has answers: most likely the file was lost.
+// The profile is empty but a backup has answers: most likely the browser lost its data.
 async function checkForLostData(db) {
   const banner = $('restoreBanner');
-  if (db.recovered) {
-    banner.querySelector('span').textContent =
-      `The database file for "${db.user}" was out of date (${db.recovered.before} answers). ` +
-      `It was rebuilt from the safety copy: ${db.recovered.after} answers, nothing lost.`;
-    banner.querySelector('[data-restore]').classList.add('hidden');
-    banner.classList.remove('hidden');
-    return;
-  }
   const back = db.disk.restored;
   if (back?.attempts) {
     banner.querySelector('span').textContent =
@@ -680,7 +672,6 @@ function bindUsers(db) {
     sel.value = db.user;
     showWelcome('new').then(() => location.reload());
   };
-  document.body.classList.toggle('test-user', db.user === 'test');
   renderDbStatus();
 }
 
@@ -702,16 +693,17 @@ function renderDbStatus() {
   const d = db.disk;
   const onDisk = db.persistent && d.dir && !d.error;
   const badge = $('dbBadge');
-  badge.textContent = !db.persistent ? 'NOT SAVED' : onDisk ? (d.mode === 'folder' ? 'saved to folder' : 'saved to disk') : d.needsPermission ? 'folder: reconnect' : 'saved in browser only';
+  badge.textContent = !db.persistent || db.storeError ? 'NOT SAVED' : onDisk ? (d.mode === 'folder' ? 'saved to folder' : 'saved to disk') : d.needsPermission ? 'folder: reconnect' : 'saved in browser only';
   badge.classList.toggle('warn', !onDisk);
   badge.classList.toggle('action', !!d.needsPermission);
   badge.title = !db.persistent
-    ? `Could not open ${db.file} (${db.error}). Progress is kept in memory only — is the app open in another tab?`
-    : onDisk ? `DuckDB ${db.version} · ${db.file} · copy in ${copyPlace(db)}` : `DuckDB ${db.version} · ${db.file} · no copy outside this browser: ${noCopyReason(db)}`;
+    ? `Could not open the profile (${db.error}). Progress is kept in memory only — is the app open in another tab?`
+    : db.storeError ? `Saving in this browser failed: ${db.storeError}`
+      : onDisk ? `Saved in this browser (IndexedDB) · copy in ${copyPlace(db)}` : `Saved in this browser (IndexedDB) · no copy outside it: ${noCopyReason(db)}`;
   const waiting = d.waiting ? ` (${d.waiting} writes on their way)` : ' (up to date)';
-  $('dbInfo').textContent = `Fretboard Trainer ${VERSION} · profile "${db.user}" · DuckDB ${db.version} · ${db.persistent ? db.file + ' + safety copy in IndexedDB' : 'in memory only: ' + db.error}` +
+  $('dbInfo').textContent = `Fretboard Trainer ${VERSION} · profile "${db.user}" · ${db.persistent ? 'saved in this browser (IndexedDB)' : 'in memory only: ' + db.error}` +
     (!db.persistent ? '' : onDisk ? ` · copy in ${copyPlace(db)}${waiting}` : ` · NO copy outside this browser right now: ${noCopyReason(db)}`) +
-    (db.mirrorError ? ` · safety copy error: ${db.mirrorError}` : '') +
+    (db.storeError ? ` · SAVING IN THIS BROWSER FAILED: ${db.storeError}` : '') +
     (db.persisted ? ' · storage marked persistent' : ' · storage NOT marked persistent: the browser may clear it when disk space is low');
   // the Data folder block
   const show = (id, on) => $(id).classList.toggle('hidden', !on);
@@ -869,19 +861,26 @@ async function init() {
   }
   bindUsers(db);
   // console helpers; ft.strum() acts like a muted strum (for testing without a guitar)
-  window.ft = { sql: storage.sql, status: storage.status, strum: () => onStrum(performance.now()) };
+  window.ft = { rows: storage.rows, status: storage.status, strum: () => onStrum(performance.now()) };
   // models stored in full by earlier versions (100 KB each, every instrument's): keep only what
   // is read back, once, so the kv table and kv.json stay small
   if (db.persistent) {
-    for (const [k, v] of await storage.entries('model:')) if (v?.cards) await storage.set(k, persistedModel(v));
+    for (const [k, v] of storage.entries('model:')) if (v?.cards) await storage.set(k, persistedModel(v));
   }
 
-  app.settings = { ...DEFAULTS, ...storage.lastSettings(), ...((await storage.get('settings')) || {}) };
+  // the profile's settings, with this computer's audio setup (AUDIO_KEYS); before 1.1 the audio
+  // setup was in the profile's data too: it is taken from there once if this browser has none
+  const stored = storage.get('settings') || {};
+  const last = storage.lastSettings();
+  const machine = AUDIO_KEYS.some((k) => k in last) ? last : stored;
+  app.settings = { ...DEFAULTS, ...last, ...audioPart(stored, false), ...audioPart(machine, true) };
+  delete app.settings.savedAt;
   if (!Number.isInteger(app.settings.channel)) app.settings.channel = 0; // was saved as NaN by an old bug
   if (app.settings.runTask === 'mixed') app.settings.runTask = 'play'; // mixed runs were removed
   // tunings from before the standard/drop switch
   const OLD = { seven: { instrument: 'guitar7', tuning: 'standard' }, dropD: { tuning: 'drop' }, dropA: { tuning: 'drop' }, dropE: { tuning: 'drop' }, eb: { tuning: 'standard', tuningShift: -1 } };
   Object.assign(app.settings, OLD[app.settings.tuning] || {});
+  if (AUDIO_KEYS.some((k) => k in stored)) saveSettings(); // moves the audio setup out of the profile's data
   app.strum.level = app.settings.strumLevel;
   app.board = new Fretboard($('board'));
   app.heat = new Fretboard($('heatBoard'));
@@ -892,7 +891,7 @@ async function init() {
       area: $('promptArea'), note: $('promptNote'), sub: $('promptSub'), timer: $('promptTimer'),
       zone: $('zoneLabel'), progress: $('progressLabel'), fill: $('progressFill'),
       feedback: $('feedback'), summary: $('summary'), queue: $('promptQueue'), startBtn: $('startBtn'), showMe: $('showMeBtn'), names: $('nameButtons'),
-      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'), neckLegend: $('runNeckLegend'),
+      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'), neckLegend: $('runNeckLegend'), mapLegend: $('mapLegend'), boardView: $('boardView'),
     },
     getSettings: () => app.settings,
     getScheduler: () => app.scheduler,
@@ -911,7 +910,7 @@ async function init() {
     // the open-string menu changes the same settings as the practice bar
     actions: {
       setTask: (t) => { app.settings.runTask = t; saveSettings(); updateModeUI(); },
-      toggleMode: () => { app.settings.runMode = app.settings.runMode === 'count' ? 'sprint' : 'count'; saveSettings(); updateModeUI(); },
+      setLength: (mode, n) => { app.settings.runMode = mode; app.settings[mode === 'count' ? 'runCount' : 'sprintSec'] = n; saveSettings(); updateModeUI(); },
       toggleBeat: () => { app.settings.beat = !app.settings.beat; saveSettings(); updateModeUI(); },
       goIntervals: () => showView('intervals'),
     },
@@ -928,7 +927,7 @@ async function init() {
     getSettings: () => app.settings,
     getStrings: () => app.strings,
     isActive: () => app.view === 'intervals',
-    loadRows: () => storage.sql(`SELECT "interval", correct, ms FROM attempts WHERE task = 'interval' ORDER BY t`),
+    loadRows: () => storage.allAttempts().filter((a) => a.task === 'interval').map((a) => ({ interval: a.interval, correct: a.correct, ms: a.ms })),
     onAttempt: (a) => storage.addAttempt(a),
     onRun: async (row) => {
       await storage.saveRun(row);

@@ -1,6 +1,12 @@
 // SVG fretboard: board drawing, zone highlight, marks with green/red effects, heatmap.
 
+import { masteryColor } from './palette.js';
+
 const NS = 'http://www.w3.org/2000/svg';
+const boards = new Set(); // every board, so a change of page can close their popups
+
+/** Closes every board's popup (a page change, so none stays open over another page). */
+export const closeTips = () => boards.forEach((b) => b.showTip());
 const INLAYS = [3, 5, 7, 9, 15, 17, 19, 21];
 const MAX_ZOOM = 2;
 const RUN_STRINGS = 6; // during a run the view is at most this many strings high, so 7–9 strings fit a phone
@@ -59,6 +65,7 @@ export class Fretboard {
     this.svg = svg;
     this.onCellClick = null;
     this.id = 'fb' + uid++;
+    boards.add(this);
   }
 
   // lowAtBottom: low E drawn at the bottom, as in tab; by default it is on top, as in Rocksmith
@@ -72,29 +79,28 @@ export class Fretboard {
     const n = this.strings.length;
     this.W = 1200;
     this.sp = 30;
-    this.top = 24;
+    this.top = 32; // room above the board for the side dots
     this.boardTop = this.top - 15;
     this.boardBot = this.top + (n - 1) * this.sp + 15;
     this.H = this.boardBot + 24;
-    this.openW = 64;
+    // every space is as wide as the others, the open strings' too, so every position's card is
+    // the same size
+    const margin = 12;
+    this.fw = (this.W - 2 * margin - 6) / (this.frets + 1);
+    this.openW = margin + this.fw;
     this.nutX = this.openW + 6;
-    const end = this.W - 12;
-    const widths = [];
-    for (let f = 1; f <= this.frets; f++) widths.push(Math.pow(0.96, f - 1));
-    const total = widths.reduce((a, b) => a + b, 0);
-    this.wire = [this.nutX];
-    let x = this.nutX;
-    for (const w of widths) this.wire.push((x += (w * (end - this.nutX)) / total));
+    this.wire = [];
+    for (let f = 0; f <= this.frets; f++) this.wire.push(this.nutX + f * this.fw);
   }
 
   X(x) {
     return this.left ? this.W - x : x;
   }
   cx(f) {
-    return this.X(f === 0 ? this.openW * 0.62 : (this.wire[f - 1] + this.wire[f]) / 2);
+    return this.X(f === 0 ? this.openW - this.fw / 2 : (this.wire[f - 1] + this.wire[f]) / 2);
   }
-  cw(f) {
-    return f === 0 ? this.openW * 0.6 : this.wire[f] - this.wire[f - 1];
+  cw() {
+    return this.fw;
   }
   cy(s) {
     return this.top + (this.lowAtBottom ? this.strings.length - 1 - s : s) * this.sp;
@@ -111,8 +117,10 @@ export class Fretboard {
     this.view = [0, 0, this.W, this.H];
     svg.setAttribute('viewBox', this.view.join(' '));
     const defs = el('defs', {}, svg);
-    // a light blur so the clouds of the knowledge map have no hard edge
-    el('feGaussianBlur', { stdDeviation: '2.4' }, el('filter', { id: this.id + '-soft', x: '-20%', y: '-40%', width: '140%', height: '180%' }, defs));
+    // fog over locked positions: white with a fine cross-hatch, "uncharted"
+    const hatch = el('pattern', { id: this.id + '-hatch', patternUnits: 'userSpaceOnUse', width: 7, height: 7 }, defs);
+    el('rect', { width: 7, height: 7, fill: '#ffffff' }, hatch);
+    el('path', { d: 'M0 0L7 7M7 0L0 7', class: 'fb-hatch' }, hatch);
 
     const g = el('g', {}, svg);
     const xa = this.X(this.nutX);
@@ -136,12 +144,15 @@ export class Fretboard {
     this.strLines = [];
     for (let s = 0; s < n; s++) {
       const y = this.cy(s);
-      this.strLines.push(el('line', { x1: this.X(20), x2: xb, y1: y, y2: y, class: 'fb-string', 'stroke-width': (0.9 + (n - 1 - s) * 0.5).toFixed(2) }, this.strG));
+      this.strLines.push(el('line', { x1: this.X(2), x2: this.X(this.W - 2), y1: y, y2: y, class: 'fb-string', 'stroke-width': (0.9 + (n - 1 - s) * 0.5).toFixed(2) }, this.strG));
     }
     this.vibeLayer = el('g', { class: 'fb-vibes' }, g);
     this.vibes = new Map();
     for (let f = 0; f <= this.frets; f++) {
       const marked = f === 0 || f === 12 || f === 24 || INLAYS.includes(f);
+      // like the side dots of a neck: one above each marker fret, two above the octaves
+      const dots = f === 12 || f === 24 ? [-4, 4] : INLAYS.includes(f) ? [0] : [];
+      for (const dx of dots) el('circle', { cx: this.cx(f) + dx, cy: this.boardTop - 9, r: 2.4, class: 'fb-side-dot' }, g);
       el('text', { x: this.cx(f), y: this.boardBot + 16, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
     }
 
@@ -159,10 +170,55 @@ export class Fretboard {
         const r = el('rect', { ...this.cellRect(s, f), class: 'fb-hit' }, this.layers.hits);
         r.addEventListener('pointerdown', (e) => {
           e.preventDefault();
-          this.onCellClick?.(s, f);
+          // a position with details (Stats, after a run): a click (a tap on a phone) pins its popup
+          if (this.tips?.has(s + ':' + f)) this.showTip(s, f, r, true);
+          else this.onCellClick?.(s, f);
         });
+        r.addEventListener('pointerenter', () => this.pinned || this.showTip(s, f, r));
+        r.addEventListener('pointerleave', () => this.pinned || this.showTip());
       }
     }
+  }
+
+  // A popup with the details of a position (the tip of its setHeat entry), beside its cell on the
+  // board: to the right of a note in the left half, to the left of one in the right half. The
+  // note is highlighted while it is open, and the popup starts with the same highlighted card.
+  // Hovering shows it; a click pins it until its cross or a click elsewhere closes it.
+  showTip(s, f, rect, pin = false) {
+    const t = rect && this.tips?.get(s + ':' + f);
+    this.pinned = !!t && pin;
+    this.selected?.classList.remove('sel');
+    this.selected = t?.g;
+    if (!t) return this.tip?.classList.add('hidden');
+    t.g.classList.add('sel');
+    if (!this.tip) {
+      this.tip = Object.assign(document.createElement('div'), { className: 'fb-tip' });
+      this.tip.innerHTML = '<span></span><button class="fb-tip-x" aria-label="Close">×</button>';
+      this.tip.lastChild.addEventListener('click', () => this.showTip());
+      document.body.append(this.tip);
+      document.addEventListener('pointerdown', (e) => {
+        if (this.pinned && !this.tip.contains(/** @type {Node} */ (e.target)) && !this.layers.hits.contains(/** @type {Node} */ (e.target))) this.showTip();
+      });
+    }
+    const body = this.tip.firstChild;
+    if (typeof t.text === 'string') body.textContent = t.text;
+    else body.innerHTML = t.text.html;
+    this.tip.classList.toggle('pinned', this.pinned);
+    this.tip.classList.remove('hidden');
+    const r = rect.getBoundingClientRect();
+    const b = this.svg.getBoundingClientRect();
+    const w = this.tip.offsetWidth;
+    const right = r.left + r.width / 2 < b.left + b.width / 2;
+    const x = right ? r.right + 10 : r.left - 10 - w;
+    this.tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, x)) + 'px';
+    this.tip.style.top = Math.max(8, Math.min(innerHeight - this.tip.offsetHeight - 8, r.top + r.height / 2 - this.tip.offsetHeight / 2)) + 'px';
+  }
+
+  // Strings from edge to edge (maps, menus of knowledge), or during a run from the open-string
+  // column to the last fret, as before, so the run's board stays quiet.
+  setLongStrings(long) {
+    const [a, b] = long ? [this.X(2), this.X(this.W - 2)] : [this.X(20), this.X(this.wire[this.frets])];
+    for (const l of this.strLines || []) { l.setAttribute('x1', a); l.setAttribute('x2', b); }
   }
 
   setZone(cells) {
@@ -222,6 +278,8 @@ export class Fretboard {
   mark(s, f, cls, label) {
     const g = el('g', { class: 'fb-mark ' + cls, transform: `translate(${this.cx(f)},${this.cy(s)})` }, this.layers.marks);
     el('circle', { r: 14, class: 'dot' }, g);
+    // a wrong note is struck out, so it reads without telling red from green
+    if (cls === 'bad') el('path', { d: 'M-9.5 -9.5L9.5 9.5M9.5 -9.5L-9.5 9.5', class: 'strike' }, g);
     if (label) el('text', { y: 4.5, class: 'lbl' }, g).textContent = label;
     return g;
   }
@@ -289,64 +347,45 @@ export class Fretboard {
   }
 
   // fn(s, f) -> null | { fill, stroke, dash, label } | { fog: true } (a position not unlocked yet)
-  //   | { cloud: { w, h }, fill, opacity, label }: a soft round cloud w × half the fret width
-  //     wide and h × half the string spacing high, fading out gradually towards its edge
   //   | { stroke, dash, label, faint }: a ring with a (pale) name
-  //   | { rings: { known, fast, auto }, label, missed }: three progress rings with the name in front
+  //   | { bars: { known, fast, auto }, label, missed }: the name and three progress bars
+  // Any entry may carry tip, the text of a popup shown when the position is hovered or clicked.
   setHeat(fn) {
     const h = this.layers.heat;
     h.innerHTML = '';
-    const defs = el('defs', {}, h);
-    // all clouds in one blurred group (one filter pass per repaint instead of one per cloud), their
-    // names in a group above; gradients shared between clouds of the same colour and core
-    const clouds = el('g', { class: 'fb-clouds', filter: `url(#${this.id}-soft)` }, h);
-    const gradients = new Map();
-    const labels = [];
+    this.showTip();
+    this.tips = new Map(); // key -> { text, v, g }
     for (let s = 0; s < this.strings.length; s++) {
       for (let f = 0; f <= this.frets; f++) {
         const v = fn(s, f);
         if (!v) continue;
         if (v.fog) {
-          el('rect', { ...this.cellRect(s, f), class: 'fb-fog' }, h);
-          continue;
-        }
-        if (v.cloud) {
-          // a pill, solid across a middle band (wider when practised more), fading at top and bottom
-          const half = 0.1 + 0.16 * (v.cloud.core ?? 0.5);
-          const gkey = `${v.fill}|${half.toFixed(3)}`;
-          let id = gradients.get(gkey);
-          if (!id) {
-            id = `${this.id}-c${gradients.size}`;
-            gradients.set(gkey, id);
-            const grad = el('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-            for (const [o, a] of [[0, 0], [0.5 - half - 0.26, 0.3], [0.5 - half - 0.12, 0.7], [0.5 - half, 1], [0.5 + half, 1], [0.5 + half + 0.12, 0.7], [0.5 + half + 0.26, 0.3], [1, 0]]) {
-              el('stop', { offset: Math.max(0, Math.min(1, o)).toFixed(3), 'stop-color': v.fill, 'stop-opacity': a }, grad);
-            }
-          }
-          const ry = (this.sp / 2) * v.cloud.h;
-          const rx = Math.max(ry, (this.cw(f) / 2) * v.cloud.w);
-          el('rect', { x: (this.cx(f) - rx).toFixed(1), y: (this.cy(s) - ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: (ry * 0.7).toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), class: 'fb-cloud' }, clouds);
-          if (v.label) labels.push([s, f, v.label]);
+          el('rect', { ...this.cellRect(s, f), class: 'fb-fog', fill: `url(#${this.id}-hatch)` }, h);
           continue;
         }
         const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
-        if (v.rings) {
-          // a note of the last run: rings known (outer), fast (middle), automatic (inner), name in front
-          for (const [r, k] of [[12.5, 'known'], [9, 'fast'], [5.5, 'auto']]) {
-            const C = 2 * Math.PI * r;
-            el('circle', { r, class: 'fb-ring-bg' }, g);
-            el('circle', { r, class: 'fb-ring nr-' + k, 'stroke-dasharray': `${(v.rings[k] * C).toFixed(1)} ${C.toFixed(1)}`, transform: 'rotate(-90)' }, g);
-          }
-          el('text', { y: 3.5, class: 'fb-ring-lbl' + (v.missed ? ' missed' : '') }, g).textContent = v.label;
+        if (v.tip) this.tips.set(s + ':' + f, { text: v.tip, v, g });
+        if (v.bars) {
+          barsCard(g, v, this.cw(f));
           continue;
         }
         el('circle', { r: 11, class: 'fb-heat', fill: v.fill || 'none', stroke: v.stroke || 'none', 'stroke-width': v.fill && v.stroke ? 2.5 : 1.5, 'stroke-dasharray': v.dash || 'none' }, g);
         if (v.label) el('text', { y: 3.5, class: 'fb-heat-lbl' + (v.faint ? ' faint' : '') }, g).textContent = v.label;
       }
     }
-    if (labels.length) {
-      const lg = el('g', {}, h);
-      for (const [s, f, label] of labels) el('text', { x: this.cx(f), y: this.cy(s) + 3.5, class: 'fb-heat-lbl' }, lg).textContent = label;
-    }
   }
+}
+
+// A position as a card: its name on the left (red when missed), three bars on the right: known
+// (red to green by its level), fast (light grey), automatic (ink). w: the card's width; g is
+// centred on the position. Also draws the card at the top of a popup.
+function barsCard(g, v, w) {
+  el('rect', { x: -w / 2 + 2, y: -12, width: w - 4, height: 24, rx: 5, class: 'fb-bars-bg' }, g);
+  el('text', { x: -w / 2 + 5, y: 5, class: 'fb-bars-lbl' + (v.missed ? ' missed' : '') }, g).textContent = v.label;
+  const bx = -w / 2 + Math.max(19, w * 0.42);
+  const bw = w / 2 - 4 - bx;
+  ['known', 'fast', 'auto'].forEach((k, i) => {
+    el('rect', { x: bx, y: -8 + i * 6, width: bw, height: 4, rx: 2, class: 'fb-bar-track' }, g);
+    el('rect', { x: bx, y: -8 + i * 6, width: Math.max(0, bw * v.bars[k]), height: 4, rx: 2, class: 'fb-bar nb-' + k, ...(k === 'known' ? { fill: masteryColor(v.bars.known) } : {}) }, g);
+  });
 }

@@ -1,7 +1,6 @@
 // @ts-check
-// Automatic backups: full exports of a user's data, kept in IndexedDB, which is
-// a separate store from the DuckDB files in OPFS, so a damaged database file
-// does not take its backups with it.
+// Automatic backups: full exports of a user's data, kept in their own IndexedDB database,
+// apart from the profiles' data (idb.js), so a damaged profile does not take its backups with it.
 //   backups  {id, user, t, reason, attempts, data}   the export itself
 //   meta     {id, user, t, reason, attempts}         the same without data, for listing:
 //            reading the list used to deserialise every stored export (up to 11 full copies

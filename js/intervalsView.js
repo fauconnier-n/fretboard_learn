@@ -45,19 +45,19 @@ export class IntervalsView {
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
-  // Between runs: the next step on the open strings (low E, or a muted strum, starts a run).
+  // Between runs: the next step on the open strings (the top row starts a run, the bottom one
+  // goes back to the Note position main menu).
   showMenu() {
     if (this.running) return this.menu.hide();
-    this.menu.show('Next', [
-      { label: 'Start a run', act: () => this.primary() },
-      { label: 'Note position practice', act: () => this.goPractice?.() },
-    ], 'start a run');
+    this.menu.show('Next', [{ label: 'Start a run', primary: true, act: () => this.primary() }], { back: () => this.goPractice?.() });
   }
 
-  // A muted strum: starts a run between runs; during a run a double strum stops it.
-  onStrum(double) {
-    if (!this.running) return this.primary();
-    if (double) this.end('stopped');
+  // A muted strum: during a run three in a row stop it; between runs two start a run (the
+  // menu's green option).
+  onStrum(n) {
+    if (this.running) {
+      if (n >= 3) this.end('strum_stop');
+    } else if (n === 2) this.menu.primary();
   }
 
   get s() {
@@ -111,6 +111,7 @@ export class IntervalsView {
     b.textContent = this.running ? 'Stop' : 'Start ⏎';
     b.classList.toggle('danger', this.running);
     document.body.classList.toggle('in-run', this.running);
+    this.board.setLongStrings(!this.running);
   }
 
   primary() {
@@ -292,7 +293,7 @@ export class IntervalsView {
     burst(e.title, kind);
   }
 
-  // reason: 'completed' | 'stopped' (Stop or Esc) | 'left' (another tab or a board setting changed)
+  // reason: 'completed' | 'stopped' (Stop or Esc) | 'strum_stop' (three muted strums) | 'left' (another tab or a board setting changed)
   end(reason) {
     const run = this.run;
     if (!run || !this.running) return;
@@ -308,7 +309,7 @@ export class IntervalsView {
     this.board.clearMarks();
     const e = this.els;
     const added = unlockedKeys(this.stats).filter((k) => !run.unlockedAtStart.includes(k));
-    e.title.textContent = reason === 'stopped' ? 'Stopped' : 'Done';
+    e.title.textContent = reason === 'stopped' || reason === 'strum_stop' ? 'Stopped' : 'Done';
     e.sub.textContent = `${ok.length} of ${res.length} right · median ${fmt(med)}.` +
       (added.length ? ` New this run: ${added.map((k) => ITEM[k].label).join(', ')}.` : '') + ' Press Start or Enter to go again.';
     e.steps.textContent = '';

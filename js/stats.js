@@ -9,22 +9,66 @@ const pct = (x) => Math.round(x * 100) + '%';
 const secs = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(2) + ' s');
 
 // One position on a knowledge map (the Stats page, and the practice board between runs):
-// a soft cloud coloured by mastery, red → orange → yellow → green like the note bars, bigger
-// (mostly along the string) and denser the more often it was asked, with its note name; a
-// dashed ring and a pale name when unlocked but not played yet; nothing when still locked.
+// like after a run, its name and three bars (known, fast, automatic) over all runs; a dashed
+// ring and a pale name when unlocked but not played yet; nothing when still locked.
 export function mapCell(scheduler, snap, s, f, flats) {
   const midi = scheduler.strings[s] + f;
   const label = noteName(midi, flats);
-  const m = snap.mastery.get(s + ':' + f);
-  if (m !== undefined) {
+  if (snap.mastery.has(s + ':' + f)) {
     const key = s + ':' + f;
-    const asked = spellingsOf(pcOf(midi)).reduce((t, sp) => t + (scheduler.model.cards[sp === 'n' ? key : key + ':' + sp]?.seen || 0), 0);
-    const t = Math.min(1, Math.log2(1 + asked) / Math.log2(41)); // 40 questions or more: full size
-    // density rises fast: a well-practised position is a solid band of colour
-    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t, core: t }, fill: masteryColor(m), opacity: Math.min(0.85, 0.2 + 0.95 * t), label };
+    // the spelling played most stands for the position
+    const keys = spellingsOf(pcOf(midi)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
+    const most = keys.sort((a, b) => scheduler.model.cards[b].seen - scheduler.model.cards[a].seen)[0] ?? key;
+    return { bars: scheduler.noteRings(most), label, tip: positionTip(scheduler, s, f, label) };
   }
-  if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true };
+  if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true, tip: `${label} · fret ${f}\nNot played yet` };
   return null;
+}
+
+// The popup of a position over all runs on this instrument and tuning.
+export function positionTip(scheduler, s, f, label) {
+  const key = s + ':' + f;
+  const keys = spellingsOf(pcOf(scheduler.strings[s] + f)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
+  if (!keys.length) return `${label} · fret ${f}\nNot played yet`;
+  const most = keys.sort((a, b) => scheduler.model.cards[b].seen - scheduler.model.cards[a].seen)[0];
+  return { html: detailHtml(scheduler, most, { note: `${label} · fret ${f}`, title: 'all runs', keys }) };
+}
+
+// Time line of the popup: 0.3 s to 10 s on a log scale, as a % from the left
+const timeX = (ms) => (100 * (Math.log(Math.min(10000, Math.max(300, ms))) - Math.log(300))) / (Math.log(10000) - Math.log(300));
+
+// A position's popup: the note in a yellow box like its highlighted card, its three bars,
+// labelled, each with a mark where it stood before your last session on it; its last 15 answers
+// (green right, red wrong); a time line with your quickest 10%, your usual time for it and this
+// run's answers; how often it was asked. key: the spelling shown; keys: all spellings counted in
+// the totals (default: key).
+export function detailHtml(scheduler, key, { note, title, runMs = [], keys = [key] }) {
+  const bars = scheduler.noteRings(key);
+  const before = scheduler.model.cards[key]?.mark;
+  const row = (k, name) => {
+    const v = bars[k];
+    const color = k === 'known' ? masteryColor(v) : k === 'fast' ? PALETTE.steel : PALETTE.ink;
+    // the top bar's line carries a small label, like a pin on a map
+    const pin = k === 'known' ? '<span class="tip-pin">before this session</span>' : '';
+    const mark = before ? `<u style="left:${(100 * before[k]).toFixed(0)}%" title="before this session">${pin}</u>` : '';
+    return `<div class="tip-bar"><span>${name}</span><i><b style="width:${(100 * v).toFixed(0)}%;background:${color}"></b>${mark}</i><em>${pct(v)}</em></div>`;
+  };
+  const card = scheduler.model.cards[key];
+  const hist = (card?.hist || []).map(([ok, ms]) => `<span class="${ok ? 'ok' : 'miss'}" title="${(ms / 1000).toFixed(1)} s"></span>`).join('');
+  const usual = card?.time?.n ? scheduler.expectedMs(key) : null;
+  const ticks = [500, 1000, 2000, 5000].map((ms) => `<s style="left:${timeX(ms)}%">${ms / 1000} s</s>`).join('');
+  const line = `<div class="tip-time"><i>${ticks}` +
+    `<em class="floor" style="left:${timeX(scheduler.floorMs())}%" title="your quickest 10% of right answers"></em>` +
+    (usual ? `<em class="usual" style="left:${timeX(usual)}%" title="your usual time here"></em>` : '') +
+    runMs.map(([ok, ms]) => `<b class="${ok ? 'ok' : 'miss'}" style="left:${timeX(ms)}%" title="${(ms / 1000).toFixed(1)} s"></b>`).join('') +
+    '</i></div>';
+  const cards = keys.map((k) => scheduler.model.cards[k]).filter(Boolean);
+  const seen = cards.reduce((t, c) => t + c.seen, 0);
+  const acc = seen ? cards.reduce((t, c) => t + c.acc * c.seen, 0) / seen : 0;
+  return `<div class="tip-title${before ? ' with-pin' : ''}"><span class="tip-note">${note}</span> ${title}</div>${row('known', 'known')}${row('fast', 'speed vs avg')}${row('auto', 'automatic')}` +
+    `<div class="tip-hist"><span class="tip-lbl">last ${card?.hist?.length || 0}</span>${hist}</div>` +
+    `<div class="tip-lbl">time · <i class="floor"></i> quickest 10%${usual ? ' · <i class="usual"></i> usual' : ''}${runMs.length ? ' · <i class="run"></i> this run' : ''}</div>${line}` +
+    `<div class="tip-foot">Asked ${seen}× · ${pct(acc)} right${usual ? ` · usually ${(usual / 1000).toFixed(1)} s` : ''}</div>`;
 }
 
 // Every note name (e.g. "C#") split by octave (C#2, C#3…): right answers and expected time of
@@ -91,7 +135,7 @@ export function renderStats({ els, scheduler, strings, frets, flats, heat, attem
     ['Unlocked area', pct(reachable / total)],
     ['Target success rate', pct(model.meta.target)],
     ['Typical answer time', model.meta.time?.n ? secs(Math.exp(model.meta.time.mu)) : '—'],
-    ['Your fast end (speed scale)', model.meta.time?.n ? secs(scheduler.floorMs()) : '—'],
+    ['Your quickest 10% (speed scale)', model.meta.time?.n ? secs(scheduler.floorMs()) : '—'],
     ['Runs', model.meta.runsDone],
     ['Answers logged', attemptCount],
     ...extraCards,

@@ -9,12 +9,6 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
-  <!-- the longest import chain (main → storage → duckdb-wasm → apache-arrow → flatbuffers/tslib), fetched at once -->
-  <link rel="modulepreload" href="js/storage.js">
-  <link rel="modulepreload" href="vendor/duckdb/duckdb-wasm.mjs">
-  <link rel="modulepreload" href="vendor/duckdb/apache-arrow.mjs">
-  <link rel="modulepreload" href="vendor/duckdb/flatbuffers.mjs">
-  <link rel="modulepreload" href="vendor/duckdb/tslib.mjs">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
@@ -27,7 +21,6 @@
       <button data-tab="settings">Settings</button>
     </nav>
     <div class="user-switch" title="Each user has its own database. Use &quot;test&quot; for trying things out.">
-      <span class="test-pill">TEST DATA</span>
       <select id="userSelect" aria-label="User"></select>
       <span id="dbBadge" class="db-badge"></span>
     </div>
@@ -78,10 +71,10 @@
     <section id="view-practice" class="view active">
       <div class="practice-bar">
         <div class="seg" id="taskSeg" title="Guitar runs: play the note shown, or only notes you have mixed up. No-guitar runs: name the marked position, or say if the name shown is right.">
-          <span class="seg-label">Guitar</span>
+          <span class="seg-label">With an instrument</span>
           <button data-task="play">Play the note</button>
           <button data-task="confusions">Mix-ups</button>
-          <span class="seg-label">No guitar</span>
+          <span class="seg-label">No instrument on hand</span>
           <button data-task="name">Name the note</button>
           <button data-task="truefalse">True or false</button>
         </div>
@@ -108,11 +101,29 @@
         <button class="btn small show-me invisible" id="showMeBtn" title="Counts as a miss">Show me (H)</button>
       </div>
 
+      <div class="seg board-view hidden" id="boardView" aria-label="What the board shows">
+        <button data-view="run" class="active">This run</button>
+        <button data-view="all">All runs</button>
+      </div>
       <div class="board-wrap"><svg id="board" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
+      <div class="legend hidden" id="runNeckLegend">
+        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid)</span>
+        <span><i class="bar-fast"></i><b>speed vs avg</b> (middle): your answer time here compared with your average on all notes</span>
+        <span><i class="bar-auto"></i><b>automatic</b> (bottom): right and fast on separate days, so it sticks</span>
+        <span><b class="missed-name">C</b> red name: missed in this run</span>
+        <span>hover or click a note for more details</span>
+      </div>
+      <div class="legend hidden" id="mapLegend">
+        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid)</span>
+        <span><i class="bar-fast"></i><b>speed vs avg</b> (middle): your answer time here compared with your average on all notes</span>
+        <span><i class="bar-auto"></i><b>automatic</b> (bottom): right and fast on separate days, so it sticks</span>
+        <span><i class="dashed"></i>unlocked, not played yet</span>
+        <span>hover or click a note for more details</span>
+        <span><i class="fog"></i>cross-hatched: locked, opens as you learn the notes around it</span>
+      </div>
       <div class="feedback" id="feedback" aria-live="polite"></div>
-      <p class="muted small run-neck-legend hidden" id="runNeckLegend">On the neck: the notes of this run. Rings: outer known, middle fast, inner automatic. A red name was missed in this run.</p>
       <div class="summary hidden" id="summary"></div>
-      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp, so Bb is Shift+A). Enter: new run, then start it (keys 1–6 pick a row of the open-string menu). Esc stops a run.</p>
+      <p class="hint muted">No instrument on hand? Click a position on the board, or type a note letter (Shift = sharp, so Bb is Shift+A). Enter: new run, then start it (keys 1–6 pick a row of the open-string menu). Esc stops a run.</p>
     </section>
 
     <section id="view-intervals" class="view">
@@ -136,7 +147,7 @@
         <h3>Items <span class="muted small">· easiest first; the next one opens when all open ones are known (80% of recent answers, at least 5)</span></h3>
         <ul class="chg iv-items" id="ivItems"></ul>
       </div>
-      <p class="hint muted">No guitar handy? Click a position on the board, or type a note letter (Shift = sharp). Playing the marked root itself is not graded. Enter: start. Esc stops.</p>
+      <p class="hint muted">No instrument on hand? Click a position on the board, or type a note letter (Shift = sharp). Playing the marked root itself is not graded. Enter: start. Esc stops.</p>
     </section>
 
     <section id="view-tuner" class="view">
@@ -152,11 +163,12 @@
 
     <section id="view-stats" class="view">
       <div class="stat-cards" id="statCards"></div>
-      <h3>Mastery map</h3>
+      <h3>Mastery map <span class="muted small">· hover or click a note for more details</span></h3>
       <div class="board-wrap"><svg id="heatBoard" class="fretboard heat" role="img" aria-label="Mastery heatmap"></svg></div>
       <div class="legend">
-        <span><i class="cloud"></i>red: weak → orange → yellow → green: mastered (as the note bars)</span>
-        <span><i class="cloud-small"></i><i class="cloud-big"></i>bigger and denser: asked more often</span>
+        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid)</span>
+        <span><i class="bar-fast"></i><b>speed vs avg</b> (middle): your answer time here compared with your average on all notes</span>
+        <span><i class="bar-auto"></i><b>automatic</b> (bottom): right and fast on separate days, so it sticks</span>
         <span><i class="dashed"></i>unlocked, not played yet</span>
       </div>
       <div class="stats-cols">
@@ -290,7 +302,7 @@
           <button class="btn small back" data-open="home">← Settings</button>
           <h2>Data &amp; backups</h2>
           <div class="panel spage-body">
-          <p class="muted small">Everything is kept in this browser, in a DuckDB database per profile, and copied as plain files to the profile's folder: one you picked, or the <code>data</code> folder next to the app when it runs from <code>start.bat</code>. If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it by hand.</p>
+          <p class="muted small">Everything is kept in this browser (IndexedDB), per profile, and copied as plain files to the profile's folder: one you picked, or the <code>data</code> folder next to the app when it runs from <code>start.bat</code>. If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it by hand.</p>
           <p class="small" id="dbInfo"></p>
           <h4 class="backups-head">Data folder <span class="btn-row">
             <button class="btn small primary hidden" id="folderReconnectBtn">Reconnect</button>

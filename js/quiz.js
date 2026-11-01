@@ -10,7 +10,7 @@ import { describe, zoneLabel } from './zones.js';
 import { LANDMARKS, cueOpts, errorType, itemKey } from './srs.js';
 import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
-import { mapCell } from './stats.js';
+import { detailHtml, mapCell } from './stats.js';
 import { burst } from './burst.js';
 
 const DAY = 86400000;
@@ -46,7 +46,7 @@ const BPM_UP = 1.03;
 const BPM_DOWN = 0.93;
 const BPM_MIN = 40;
 const BPM_MAX = 220;
-const SPECIAL_TEXT = { boss: 'Boss note: the hardest one in this zone', finale: 'Last one', golden: '★ Golden note: one you have been missing' };
+const SPECIAL_TEXT = { boss: 'Boss: the hardest here', finale: 'Last one', golden: '★ Golden: one you keep missing' };
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const hz = (ev) => ev.freq || 440 * 2 ** ((ev.midi - 69) / 12); // typed or clicked notes have no measured frequency
@@ -56,8 +56,8 @@ const itemTask = (task) => (noGuitar(task) ? 'name' : 'play'); // both no-guitar
 const spellFor = (cell, task) => (noGuitar(task) ? 'r' : isAccidental(cell.pc) ? (Math.random() < 0.5 ? 's' : 'f') : 'n');
 // run types: [value, label]; the guitar ones first
 export const RUN_TYPES = [
-  ['play', 'Play the note (guitar)'],
-  ['confusions', 'Mix-ups (guitar)'],
+  ['play', 'Play the note (instrument)'],
+  ['confusions', 'Mix-ups (instrument)'],
   ['name', 'Name the note (buttons)'],
   ['truefalse', 'True or false (buttons)'],
 ];
@@ -82,6 +82,11 @@ export class Quiz {
     this.cueMarks = new Map(); // cell key -> label mark on the board for the current prompt
     this.board.onCellClick = (s, f) => this.simulate(this.getStrings()[s] + f);
     this.els.showMe.onclick = () => this.giveUp('show');
+    this.boardView = 'run'; // after a run the board shows 'run' (this run) or 'all' (all runs on this tuning)
+    this.els.boardView.onclick = (e) => {
+      const b = e.target.closest('[data-view]');
+      if (b) { this.boardView = b.dataset.view; this.paintProgress(); }
+    };
     this.els.names.onclick = (e) => {
       const b = e.target.closest('[data-pc]');
       if (b) this.answerName(+b.dataset.pc, b.textContent);
@@ -138,8 +143,11 @@ export class Quiz {
     const b = this.els.startBtn;
     b.textContent = this.state === 'preview' ? 'Start run ⏎' : this.running ? 'Stop run' : 'New run ⏎';
     b.classList.toggle('danger', this.running);
+    // phones: a run starts at the top of the page, so Stop is never half off the screen
+    if (this.running && !document.body.classList.contains('in-run') && matchMedia('(max-width: 720px), (max-height: 500px)').matches) scrollTo(0, 0);
     document.body.classList.toggle('in-run', this.running);
     this.board.zoomTo(this.running ? this.run.zone.cells : null);
+    this.board.setLongStrings(!this.running);
   }
 
   reset() {
@@ -165,17 +173,24 @@ export class Quiz {
     this.showMenu();
   }
 
-  // Practice board between runs: the knowledge map (clouds and note names, as on the Stats
+  // Practice board between runs: the knowledge map (note names and bars, as on the Stats
   // page), positions not unlocked yet under fog.
   paintProgress() {
     const sch = this.getScheduler();
     if (!sch || !this.board.layers) return;
-    // during a run the board shows only the run: no knowledge colours
-    if (this.running) return this.board.setHeat(() => null);
-    // a finished run: its notes on the neck, with their progress rings
-    if (this.state === 'done' && this.run) return this.board.setHeat(this.runResultsCell(sch));
+    const done = this.state === 'done' && !!this.run;
+    const runView = done && this.boardView !== 'all';
+    this.els.boardView.classList.toggle('hidden', !done);
+    this.els.boardView.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', (b.dataset.view === 'run') === runView));
+    this.els.neckLegend.classList.toggle('hidden', !runView);
+    this.els.mapLegend.classList.toggle('hidden', this.running || runView);
+    // during a run, and on Ready (the zone about to be played), the board shows only the zone
+    if (this.running || this.state === 'preview') return this.board.setHeat(() => null);
+    // a finished run: its notes on the neck, each with its name and progress bars
+    if (runView) return this.board.setHeat(this.runResultsCell(sch));
     const snap = sch.snapshot();
-    this.board.setHeat((s, f) => mapCell(sch, snap, s, f, this.s.flats) || { fog: true });
+    // popups only on the Stats map and after a run, not on the board before a run
+    this.board.setHeat((s, f) => { const v = mapCell(sch, snap, s, f, this.s.flats); return v ? { ...v, tip: done ? v.tip : undefined } : { fog: true }; });
   }
 
   // Text before a run: welcome back after a gap (neutral, no streak lost), what is due,
@@ -222,6 +237,7 @@ export class Quiz {
     const { zone } = pick;
     this.run = {
       id: Date.now().toString(36),
+      pick,
       zone,
       desc: describe(zone),
       review: pick.review,
@@ -252,9 +268,7 @@ export class Quiz {
     e.feedback.textContent = '';
     e.feedback.className = 'feedback';
     e.note.textContent = 'Ready?';
-    e.sub.textContent = 'This is the zone. The natural notes are shown as a reminder' +
-      (noGuitar(s.runTask) || s.cueMode === 'off' ? '; they hide when the run starts.' : '; during the run, names show according to your Note names setting.') +
-      ' Press Start run or Enter.';
+    e.sub.textContent = 'This is the zone. Press Start run or Enter.';
     e.timer.textContent = '';
     e.queue.innerHTML = '';
     e.progress.textContent = s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`;
@@ -441,10 +455,10 @@ export class Quiz {
     if (naming) this.renderNames();
     e.names.classList.toggle('hidden', !naming);
     e.tf.classList.toggle('hidden', !tf);
-    e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again — you missed this one a moment ago'
-      : naming ? 'Name the marked note: type its letter (Shift = sharp) or click it below'
-        : tf ? `Is the marked note ${this.cur.shown.name}? Yes (Y or →) or No (N or ←)`
-        : 'Play it inside the zone');
+    e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again: missed a moment ago'
+      : naming ? 'Name the marked note'
+        : tf ? `Is it ${this.cur.shown.name}? (Y / N)`
+        : 'Play it in the zone');
     e.queue.innerHTML = s.showQueue && run.task === 'play' ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
       `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
     e.showMe.classList.remove('invisible');
@@ -488,9 +502,7 @@ export class Quiz {
     const hint = this.getScheduler().positionMastered(cur.cell) ? '' : this.structuralHint(cur.cell);
     // beat mode keeps the beat going: no waiting for a play-along
     if (this.s.retry && !this.run.beat && cur.task !== 'truefalse') {
-      this.els.sub.textContent = (hint ? hint + ' ' : '') +
-        (naming ? 'Type or click its name once (not graded).' : 'Play it once where it is shown (not graded).') +
-        ' It comes back in a few prompts.';
+      this.els.sub.textContent = (hint ? hint + ' ' : '') + (naming ? 'Name it once (not graded).' : 'Play it once (not graded).');
       this.clearTimers();
       this.later(() => this.cur === cur && this.state === 'await' && this.advance(0), PLAYALONG_MS);
     } else {
@@ -512,7 +524,7 @@ export class Quiz {
     const lm = LANDMARKS.filter((f) => f <= this.s.frets).sort((a, b) => Math.abs(a - cell.f) - Math.abs(b - cell.f))[0];
     if (lm !== undefined && lm !== cell.f && Math.abs(lm - cell.f) <= 2) {
       const d = cell.f - lm;
-      out.push(`Fret ${cell.f} is ${Math.abs(d)} fret${Math.abs(d) > 1 ? 's' : ''} ${d > 0 ? 'above' : 'below'} the ${lm === 0 ? 'open string' : `fret-${lm} marker`} (${name(strings[cell.s] + lm)}).`);
+      out.push(`${Math.abs(d)} ${d > 0 ? 'above' : 'below'} ${lm === 0 ? 'the open string' : `fret ${lm}`} (${name(strings[cell.s] + lm)}).`);
     }
     for (const ds of [-2, 2]) {
       const t = cell.s + ds;
@@ -521,8 +533,7 @@ export class Quiz {
       for (let f = Math.max(0, cell.f - 4); f <= Math.min(this.s.frets, cell.f + 4); f++) if (pcOf(strings[t] + f) === cell.pc) fs.push(f);
       if (!fs.length) continue;
       const f = fs.sort((a, b) => Math.abs(a - cell.f) - Math.abs(b - cell.f))[0];
-      const lower = ds < 0;
-      out.push(`Octave shape: ${name(cell.midi)} is also on the ${str(t)}, fret ${f} (${lower ? 'two strings lower' : 'two strings higher'}${this.crossesB(cell.s, t) ? ', the shape shifts one fret where it crosses the B string' : ''}).`);
+      out.push(`Octave: ${str(t)}, fret ${f}${this.crossesB(cell.s, t) ? ' (B shift)' : ''}.`);
       break;
     }
     return out.join(' ');
@@ -549,7 +560,7 @@ export class Quiz {
       this.els.showMe.classList.add('invisible');
       this.dropCue(cell);
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', this.nameOf(cell.pc));
-      this.feedback('good', cur.revealed ? `✓ That's it — ${this.nameOf(cell.pc)}. It comes back in a few prompts.` : this.goodText(this.nameOf(cell.pc), ms));
+      this.feedback('good', cur.revealed ? `✓ That's it: ${this.nameOf(cell.pc)}` : this.goodText(this.nameOf(cell.pc), ms));
       this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
       this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
       return;
@@ -602,45 +613,63 @@ export class Quiz {
     this.missed();
   }
 
-  // What comes next, answered on the open strings (or by clicking a row, or keys 1–6).
-  // Low E carries the usual next step, which a muted strum also takes.
+  // What comes next, answered on the open strings (or by clicking a row, or keys 1–6). The
+  // green option on top is what two muted strums do: New run, Start the run, Resume the run.
+  // The bottom row goes back. Run settings live only in the main menu, reached by going back.
   showMenu(sub = null) {
     const s = this.s;
     const a = this.actions;
     if (this.running) return this.menu.hide();
-    if (this.state === 'preview') {
-      this.menuSub = null;
-      return this.menu.show('Zone', this.offers.map((o) => ({
-        label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
-      })), 'start the run');
-    }
     this.menuSub = sub;
+    const toMenu = () => this.reset();
+    if (this.state === 'preview') {
+      return this.menu.show('Choose a zone and start the run', [{ label: 'Start the run', primary: true, act: () => this.begin() }, ...this.offers.map((o) => ({
+        label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
+      }))], { back: toMenu });
+    }
+    if (this.state === 'done' && this.run?.stoppedAt) {
+      return this.menu.show('Stopped', [
+        { label: 'Resume the run', primary: true, act: () => this.resume() },
+        { label: 'Restart the run', act: () => this.restart() },
+      ], { back: toMenu, backLabel: 'Back to the main menu (cancel the run)' });
+    }
+    if (this.state === 'done') {
+      return this.menu.show('Next', [
+        { label: 'New run', primary: true, act: () => this.prepare() },
+        { label: 'Restart the run', act: () => this.restart() },
+      ], { back: toMenu });
+    }
     if (sub === 'type') {
-      return this.menu.show('Run type', [
-        ...RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),
-        { label: 'Back', act: () => this.showMenu() },
-      ], 'back');
+      return this.menu.show('Run type', RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),
+        { back: () => this.showMenu(), hint: 'new run' });
+    }
+    if (sub === 'length') {
+      return this.menu.show('Length', [
+        ...[10, 20, 30, 50].map((n) => ({ label: `${n} prompts`, active: s.runMode === 'count' && s.runCount === n, act: () => { a.setLength('count', n); this.showMenu(); } })),
+        ...[60, 120, 180].map((n) => ({ label: `${n} s sprint`, active: s.runMode === 'sprint' && s.sprintSec === n, act: () => { a.setLength('sprint', n); this.showMenu(); } })),
+      ], { back: () => this.showMenu(), hint: 'new run' });
     }
     const type = (RUN_TYPES.find(([t]) => t === s.runTask) || RUN_TYPES[0])[1];
     this.menu.show('Next', [
-      { label: 'New run', act: () => this.prepare() },
+      { label: 'New run', primary: true, act: () => this.prepare() },
       { label: `Run type: ${type} …`, act: () => this.showMenu('type') },
-      { label: s.runMode === 'count' ? `Length: ${s.runCount} prompts (switch to a ${s.sprintSec} s sprint)` : `Length: ${s.sprintSec} s sprint (switch to ${s.runCount} prompts)`, act: () => { a.toggleMode(); this.showMenu(); } },
+      { label: `Length: ${s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`} …`, act: () => this.showMenu('length') },
       { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
       { label: 'Interval practice', act: () => a.goIntervals() },
-    ], 'new run');
+    ]);
   }
 
-  // A muted strum. Outside a run it takes the next step (new run, then start it). During a
-  // run a double strum stops it, and a single one skips the wait after a miss.
-  onStrum(double) {
+  // A muted strum, n the strums in a row so far. During a run three stop it (logged as
+  // 'strum_stop'), and a single one skips the wait after a miss. Outside a run two take the
+  // menu's green option (New run, Start the run, Resume the run; a new run from a submenu);
+  // a single one does nothing, so a stray strum cannot start anything.
+  onStrum(n) {
     if (this.running) {
-      if (double) return this.end('stopped');
-      if (this.state === 'await' && this.cur?.graded) this.advance(0);
+      if (n >= 3) return this.end('strum_stop');
+      if (n === 1 && this.state === 'await' && this.cur?.graded) this.advance(0);
       return;
     }
-    if (this.menuSub) return this.showMenu();
-    this.primary();
+    if (n === 2 && !this.menu.primary()) this.prepare();
   }
 
   scheduleRetest(cur) {
@@ -708,7 +737,7 @@ export class Quiz {
       this.dropCue(cell);
       this.board.vibrate(cell.s, cell.f, hz(ev));
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', spellName(cell.midi, cur.sp));
-      this.feedback('good', cur.revealed ? `✓ That's it — ${midiLabel(cell.midi, flats)}. It comes back in a few prompts.` : this.goodText(spellName(cell.midi, cur.sp), ms));
+      this.feedback('good', cur.revealed ? `✓ That's it: ${midiLabel(cell.midi, flats)}` : this.goodText(spellName(cell.midi, cur.sp), ms));
       this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
       this.muteUntil = performance.now() + 250;
       this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
@@ -821,7 +850,8 @@ export class Quiz {
     burst(e.note, kind);
   }
 
-  // reason: 'completed' | 'time_up' | 'stopped' (Stop button) | 'left' (view or board changed)
+  // reason: 'completed' | 'time_up' | 'stopped' (Stop button or Esc) | 'strum_stop' (three muted
+  // strums) | 'left' (view or board changed)
   end(reason, showSummary = true) {
     const run = this.run;
     if (!run || !this.running) return;
@@ -830,7 +860,10 @@ export class Quiz {
     cancelAnimationFrame(this.raf);
     this.closePrompt();
     this.state = 'done';
+    this.boardView = 'run';
     this.cur = null;
+    // stopped by hand: it can be resumed (the time it stood still is not counted in a sprint)
+    run.stoppedAt = reason === 'stopped' || reason === 'strum_stop' ? performance.now() : null;
     this.ring();
     this.paintProgress();
     this.els.area.style.setProperty('--glow', '0');
@@ -861,11 +894,39 @@ export class Quiz {
       this.showMenu();
       return;
     }
-    e.note.textContent = reason === 'stopped' ? 'Stopped' : 'Done';
-    e.sub.textContent = 'Press New run or Enter to keep going';
+    e.note.textContent = reason === 'stopped' || reason === 'strum_stop' ? 'Stopped' : 'Done';
+    e.sub.textContent = run.stoppedAt ? 'Resume, restart or cancel it below' : 'Press New run or Enter to keep going';
     e.fill.style.width = '100%';
     this.renderSummary(run, acc, med);
     this.showMenu();
+    // phones: the menu sits under the result; bring it into view
+    if (matchMedia('(max-width: 720px), (max-height: 500px)').matches) e.menu.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // A run stopped by hand goes on where it was: same zone, same answers so far, next prompt.
+  // Its row is saved again when it ends, replacing the stopped one.
+  resume() {
+    const run = this.run;
+    if (this.state !== 'done' || !run?.stoppedAt) return;
+    if (run.endsAt) run.endsAt += performance.now() - run.stoppedAt;
+    run.stoppedAt = null;
+    this.els.summary.classList.add('hidden');
+    this.menu.hide();
+    this.state = 'feedback';
+    this.updateButton();
+    this.ring();
+    this.paintProgress();
+    this.tick();
+    if (run.beat) this.startBeat();
+    this.next();
+  }
+
+  // The stopped run again from the start, on the same zone.
+  restart() {
+    const pick = this.run?.pick;
+    if (!pick) return this.prepare();
+    this.prepare(pick);
+    this.begin();
   }
 
   // A finished prompts run: one note from perfect, one short of your best on this zone and
@@ -882,20 +943,26 @@ export class Quiz {
     return out.join(' ');
   }
 
-  // The board after a run: each position asked, with the rings of the spelling asked first and
-  // its name, red when it was missed in this run.
+  // The board after a run: each position asked, with its name (red when missed in this run),
+  // the bars of the spelling asked first, and a popup with what happened in the run.
   runResultsCell(sch) {
     const byCell = new Map();
     for (const r of this.run.results) {
-      const c = byCell.get(r.cell.key) || { r, missed: false };
+      const c = byCell.get(r.cell.key) || { r, missed: false, rs: [] };
       c.missed ||= !r.correct;
+      c.rs.push(r);
       byCell.set(r.cell.key, c);
     }
     return (s, f) => {
       const c = byCell.get(s + ':' + f);
       if (!c) return null;
-      const { r } = c;
-      return { rings: sch.noteRings(r.key), label: r.sp === 'r' ? NAME_LABELS[r.cell.pc].split('/')[0] : spellName(r.cell.midi, r.sp), missed: c.missed };
+      const { r, rs } = c;
+      const label = r.sp === 'r' ? this.nameOf(r.cell.pc) : spellName(r.cell.midi, r.sp);
+      const right = rs.filter((x) => x.correct).length;
+      const html = detailHtml(sch, r.key, {
+        note: `${label} · fret ${f}`, title: `this run: ${right} of ${rs.length} right`, runMs: rs.map((x) => [x.correct ? 1 : 0, x.ms]),
+      });
+      return { bars: sch.noteRings(r.key), label, missed: c.missed, tip: { html } };
     };
   }
 
@@ -935,7 +1002,7 @@ export class Quiz {
     const probes = run.results.filter((r) => r.probe);
     const tomorrow = `<p class="tomorrow">${dueTomorrow ? `<b>${dueTomorrow}</b> note${dueTomorrow === 1 ? '' : 's'} will be due for review tomorrow` : 'Nothing will be due tomorrow'}${dueNow ? ` (${dueNow} already today)` : ''}. A few short runs every day work better than one long session.</p>`;
 
-    const reasons = { completed: '', time_up: '', stopped: ' · stopped early' };
+    const reasons = { completed: '', time_up: '', stopped: ' · stopped early', strum_stop: ' · stopped early (muted strums)' };
     const e = this.els.summary;
     e.innerHTML = `
       <div class="sum-head">
@@ -956,7 +1023,6 @@ export class Quiz {
       </div>
       <button class="btn primary" id="nextRunBtn">New run ⏎</button>`;
     e.classList.remove('hidden');
-    this.els.neckLegend.classList.remove('hidden');
     e.querySelector('#nextRunBtn').onclick = () => this.prepare();
   }
 
@@ -971,8 +1037,14 @@ export class Quiz {
     const x = (ms) => L + ((Math.log(Math.min(12000, Math.max(300, ms))) - lo) / (hi - lo)) * (R - L);
     const ticks = [500, 1000, 2000, 3000, 5000, 10000].map((ms) =>
       `<line x1="${x(ms)}" x2="${x(ms)}" y1="8" y2="${H - 22}" class="tp-grid"/><text x="${x(ms)}" y="${H - 6}" class="tp-tick">${ms / 1000} s</text>`).join('');
-    const dots = run.results.map((r, i) =>
-      `<circle cx="${x(r.ms).toFixed(1)}" cy="${18 + ((i * 37) % 5) * 11}" r="5" class="${r.correct ? 'tp-ok' : 'tp-bad'}"><title>${spellName(r.cell.midi, r.sp)} · ${(r.ms / 1000).toFixed(2)} s${r.correct ? '' : ' · missed'}</title></circle>`).join('');
+    // right: a disc; missed: a cross, so the two differ by shape as well as colour
+    const dots = run.results.map((r, i) => {
+      const cx = x(r.ms).toFixed(1);
+      const cy = 18 + ((i * 37) % 5) * 11;
+      const title = `<title>${spellName(r.cell.midi, r.sp)} · ${(r.ms / 1000).toFixed(2)} s${r.correct ? '' : ' · missed'}</title>`;
+      return r.correct ? `<circle cx="${cx}" cy="${cy}" r="5" class="tp-ok">${title}</circle>`
+        : `<path d="M${cx} ${cy}m-5 -5l10 10m0 -10l-10 10" class="tp-bad">${title}</path>`;
+    }).join('');
     const med = median(run.results.filter((r) => r.correct).map((r) => r.ms));
     // the two labels sit on opposite sides of their lines so they don't collide
     const line = (ms, cls, label, right) => (ms == null ? '' : `<line x1="${x(ms)}" x2="${x(ms)}" y1="6" y2="${H - 22}" class="${cls}"/>
