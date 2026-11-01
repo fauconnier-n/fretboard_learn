@@ -214,6 +214,13 @@ export class Fretboard {
     this.tip.style.top = Math.max(8, Math.min(innerHeight - this.tip.offsetHeight - 8, r.top + r.height / 2 - this.tip.offsetHeight / 2)) + 'px';
   }
 
+  // Strings from edge to edge (maps, menus of knowledge), or during a run from the open-string
+  // column to the last fret, as before, so the run's board stays quiet.
+  setLongStrings(long) {
+    const [a, b] = long ? [this.X(2), this.X(this.W - 2)] : [this.X(20), this.X(this.wire[this.frets])];
+    for (const l of this.strLines || []) { l.setAttribute('x1', a); l.setAttribute('x2', b); }
+  }
+
   setZone(cells) {
     const { zone, dim } = this.layers;
     zone.innerHTML = '';
