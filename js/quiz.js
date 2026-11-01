@@ -612,16 +612,16 @@ export class Quiz {
   }
 
   // What comes next, answered on the open strings (or by clicking a row, or keys 1–6).
-  // Low E carries the usual next step, which a muted strum also takes.
+  // Low E carries the usual next step, in green; two muted strums go back.
   showMenu(sub = null) {
     const s = this.s;
     const a = this.actions;
     if (this.running) return this.menu.hide();
     if (this.state === 'preview') {
       this.menuSub = null;
-      return this.menu.show('Zone', this.offers.map((o) => ({
+      return this.menu.show('Zone', [{ label: 'Start the run', primary: true, act: () => this.begin() }, ...this.offers.map((o) => ({
         label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
-      })).concat({ label: 'Back to the menu', act: () => this.reset() }), 'start the run');
+      })), { label: 'Back to the menu', act: () => this.reset() }], 'back to the menu');
     }
     this.menuSub = sub;
     if (sub === 'type') {
@@ -639,24 +639,26 @@ export class Quiz {
     }
     const type = (RUN_TYPES.find(([t]) => t === s.runTask) || RUN_TYPES[0])[1];
     this.menu.show('Next', [
-      { label: 'New run', act: () => this.prepare() },
+      { label: 'New run', primary: true, act: () => this.prepare() },
       { label: `Run type: ${type} …`, act: () => this.showMenu('type') },
       { label: `Length: ${s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`} …`, act: () => this.showMenu('length') },
       { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
       { label: 'Interval practice', act: () => a.goIntervals() },
-    ], 'new run');
+    ]);
   }
 
-  // A muted strum. Outside a run it takes the next step (new run, then start it). During a
-  // run a double strum stops it, and a single one skips the wait after a miss.
+  // A muted strum. During a run a double strum stops it, and a single one skips the wait after
+  // a miss. Outside a run a double strum goes back to the previous menu (a single one does
+  // nothing, so a stray strum cannot start anything).
   onStrum(double) {
     if (this.running) {
       if (double) return this.end('stopped');
       if (this.state === 'await' && this.cur?.graded) this.advance(0);
       return;
     }
-    if (this.menuSub) return this.showMenu();
-    this.primary();
+    if (!double) return;
+    if (this.state === 'preview') return this.reset();
+    if (this.menuSub) this.showMenu();
   }
 
   scheduleRetest(cur) {

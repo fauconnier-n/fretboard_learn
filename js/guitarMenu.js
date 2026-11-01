@@ -18,7 +18,7 @@ export class GuitarMenu {
     this.getStrings = getStrings;
     this.getFlats = getFlats;
     this.getLowAtBottom = getLowAtBottom;
-    /** @type {{ label: string, act: () => void, active?: boolean }[]} */
+    /** @type {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} */
     this.options = [];
     el.addEventListener('click', (e) => {
       const row = /** @type {HTMLElement} */ (e.target).closest?.('[data-opt]');
@@ -28,8 +28,8 @@ export class GuitarMenu {
 
   /**
    * @param {string} title
-   * @param {{ label: string, act: () => void, active?: boolean }[]} options at most one per string
-   * @param {string} [strumHint] what a muted strum does here
+   * @param {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} options at most one per string (primary: the main step, green)
+   * @param {string} [strumHint] what two muted strums do here (go back), if anything
    */
   show(title, options, strumHint = '', page = 0) {
     const strings = this.getStrings();
@@ -47,10 +47,10 @@ export class GuitarMenu {
     const rows = order.map((s) => {
       const o = this.options[s];
       const name = stringName(strings, s, this.getFlats());
-      return `<div class="gm-row${o ? ' has-opt' : ''}${o?.active ? ' active' : ''}"${o ? ` data-opt="${s}" role="button" tabindex="0"` : ''}>
+      return `<div class="gm-row${o ? ' has-opt' : ''}${o?.active ? ' active' : ''}${o?.primary ? ' primary' : ''}"${o ? ` data-opt="${s}" role="button" tabindex="0"` : ''}>
         <span class="gm-str">${name}</span><span class="gm-line"></span>${o ? `<span class="gm-opt">${o.label}</span>` : ''}</div>`;
     }).join('');
-    this.el.innerHTML = `<div class="gm-title">${title}<span class="muted"> · play an open string${strumHint ? ` · muted strum: ${strumHint}` : ''}</span></div><div class="gm-neck">${rows}</div>`;
+    this.el.innerHTML = `<div class="gm-title">${title}<span class="muted"> · play an open string${strumHint ? ` · two muted strums: ${strumHint}` : ''}</span></div><div class="gm-neck">${rows}</div>`;
     this.el.classList.remove('hidden');
   }
 
