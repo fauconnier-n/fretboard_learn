@@ -12,6 +12,7 @@ import { Quiz } from './quiz.js';
 import { IntervalsView } from './intervalsView.js';
 import { Tuner } from './tuner.js';
 import { renderStats } from './stats.js';
+import { renderProgress } from './progress.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
 
 const DEFAULTS = {
@@ -337,14 +338,28 @@ async function showStats() {
       ['Check-up accuracy (30 days)', probe.n ? `${pct(probe.acc)} of ${probe.n}` : '—'],
       ['Name the note (30 days)', named.n ? `${pct(named.acc)} of ${named.n}` : '—'],
     ],
-    els: { cards: $('statCards'), notes: $('noteBars'), cells: $('weakCells'), slow: $('slowCells'), zones: $('weakZones'), runs: $('recentRuns') },
+    els: { cards: $('statCards'), notes: $('noteBars'), cells: $('weakCells'), slow: $('slowCells') },
     scheduler: app.scheduler,
-    zones: app.zones,
     strings: app.strings,
     frets: app.settings.frets,
     flats: app.settings.flats,
     heat: app.heat,
     attemptCount,
+  });
+  // progress over runs and days, on these strings, note-position quizzes only
+  const notInterval = `coalesce(task, 'play') <> 'interval' AND ${sameStrings()}`;
+  const day = `strftime(to_timestamp(t / 1000), '%Y-%m-%d')`;
+  const [runs, dayRows, known] = await Promise.all([
+    storage.sql(`SELECT started_at AS t, prompts, correct, median_ms FROM runs WHERE prompts > 0 AND ${notInterval} ORDER BY started_at`),
+    storage.sql(`SELECT ${day} AS day, count(*)::INT AS n, avg(correct::INT) AS acc, median(ms) AS med FROM attempts WHERE ${notInterval} GROUP BY 1 ORDER BY 1`),
+    storage.sql(`SELECT strftime(to_timestamp(first / 1000), '%Y-%m-%d') AS day, count(*)::INT AS n FROM
+      (SELECT string_idx, fret, min(t) AS first FROM attempts WHERE correct AND coalesce(task, 'play') = 'play' AND ${sameStrings()} GROUP BY 1, 2) GROUP BY 1 ORDER BY 1`),
+  ]);
+  renderProgress($('progressCharts'), {
+    runs: runs.map((r) => ({ t: r.t, prompts: Number(r.prompts), correct: Number(r.correct), median_ms: r.median_ms == null ? null : Number(r.median_ms) })),
+    days: dayRows.map((d) => ({ day: d.day, n: d.n, acc: d.acc, med: Number(d.med) })),
+    known,
+    total: app.strings.length * (app.settings.frets + 1),
   });
 }
 

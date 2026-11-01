@@ -10,6 +10,7 @@ export const PALETTE = {
   red: '#e5252f', // wrong answers, boss, test data
   blue: '#14a0c4', // information, fading, "fast"
   yellow: '#f5cb2a', // highlight: zone, cues, golden
+  yellowInk: '#e8a91c', // thin yellow lines on beige: the zone contour
   ink: '#3f3c37', // text and outlines
   beige: '#f9f6ed', // secondary backgrounds, the neck
   muted: '#77716a',

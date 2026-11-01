@@ -10,6 +10,7 @@
   --red: #e5252f;
   --blue: #14a0c4;
   --yellow: #f5cb2a;
+  --yellow-ink: #e8a91c; /* a deeper yellow for thin lines on beige: the zone contour */
   --ink: #3f3c37;
   --beige: #f9f6ed;
   --neck: var(--beige); /* the fretboard: a beige neck drawn like a chord diagram */
@@ -168,7 +169,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .fb-num.marked { fill: var(--ink); font-weight: 800; }
 /* outside the zone the board fades into the white page */
 .fb-dim { fill: rgba(255, 255, 255, .6); pointer-events: none; }
-.fb-zone { fill: rgba(245, 203, 42, .16); stroke: rgba(245, 203, 42, .7); stroke-width: 1; pointer-events: none; }
+/* the zone: only its contour, rounded like the buttons, no fill */
+.fb-zone { fill: none; stroke: var(--yellow-ink); stroke-width: 1.8; stroke-linejoin: round; pointer-events: none; }
 .fb-hit { fill: transparent; cursor: pointer; }
 .fb-hit:hover { fill: rgba(63, 60, 55, .06); }
 .fb-marks, .fb-heat { pointer-events: none; }
@@ -290,7 +292,32 @@ main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 40px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px 14px; box-shadow: var(--shadow); }
 .panel ol { padding-left: 20px; margin: 0; font-size: 14px; }
 .panel li { padding: 3px 0; }
-.nbar { display: grid; grid-template-columns: 32px 1fr 42px 56px; align-items: center; gap: 8px; font-size: 13px; padding: 2px 0; }
+.nbar { display: grid; grid-template-columns: 38px 1fr 42px 56px; align-items: center; gap: 8px; font-size: 13px; padding: 2px 0; }
+/* a note opens to its octaves */
+.nnote > summary { list-style: none; cursor: pointer; border-radius: 6px; }
+.nnote > summary::-webkit-details-marker { display: none; }
+.nnote > summary b::before { content: '▸ '; color: var(--muted); font-size: 10px; }
+.nnote[open] > summary b::before { content: '▾ '; }
+.nnote > summary:hover { background: var(--panel2); }
+.nbar.noct { padding-left: 14px; font-size: 12px; }
+.nbar.noct b { font-weight: 700; }
+/* progress over runs and days: the full width */
+.progress-panel { grid-column: 1 / -1; }
+.pg-week { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.pg-week div { background: var(--panel2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; }
+.pg-week b { font-size: 20px; font-weight: 900; }
+.pg-week b span { font-size: 12px; font-weight: 700; }
+.pg-week > div > span { color: var(--muted); font-size: 12px; }
+.pg-grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 12px 24px; }
+.pg-chart { margin: 0; }
+.pg-chart figcaption { font-size: 13px; margin-bottom: 2px; }
+.pg-chart svg { display: block; width: 100%; height: auto; }
+.pg-grid { stroke: var(--line); stroke-width: 1; }
+.pg-ytick { fill: var(--muted); font-size: 11px; text-anchor: end; }
+.pg-xtick { fill: var(--muted); font-size: 11px; }
+.pg-dot { fill: var(--green); fill-opacity: .45; }
+.pg-line { fill: none; stroke: var(--green-ink); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.pg-bar { fill: var(--blue); fill-opacity: .8; }
 .ntrack { height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
 .nfill { height: 100%; }
 

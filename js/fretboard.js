@@ -11,6 +11,48 @@ function el(tag, attrs = {}, parent) {
   return e;
 }
 
+// The contour of a zone: its cells form one band of adjacent strings, each string a run of
+// frets, so the outline goes down the right ends of the rows and back up the left ends.
+// Corners are rounded like the app's buttons. rects: the cells' rectangles.
+export function zoneOutline(rects, radius = 9) {
+  const rows = new Map();
+  for (const r of rects) {
+    const row = rows.get(r.y) || { y: r.y, h: r.height, x0: Infinity, x1: -Infinity };
+    row.x0 = Math.min(row.x0, r.x);
+    row.x1 = Math.max(row.x1, r.x + r.width);
+    rows.set(r.y, row);
+  }
+  const list = [...rows.values()].sort((a, b) => a.y - b.y);
+  const pts = [];
+  for (const r of list) pts.push([r.x1, r.y], [r.x1, r.y + r.h]);
+  for (const r of [...list].reverse()) pts.push([r.x0, r.y + r.h], [r.x0, r.y]);
+  // drop points that do not turn (a straight edge across two rows)
+  const corners = pts.filter((p, i) => {
+    const a = pts[(i - 1 + pts.length) % pts.length];
+    const b = pts[(i + 1) % pts.length];
+    return !((a[0] === p[0] && p[0] === b[0]) || (a[1] === p[1] && p[1] === b[1]));
+  });
+  const n = corners.length;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const p = corners[i];
+    const a = corners[(i - 1 + n) % n];
+    const b = corners[(i + 1) % n];
+    // the corner is cut back along both edges, at most half of each edge
+    const toward = (q, len) => {
+      const dx = q[0] - p[0];
+      const dy = q[1] - p[1];
+      const l = Math.hypot(dx, dy) || 1;
+      const k = Math.min(len, l / 2) / l;
+      return [p[0] + dx * k, p[1] + dy * k];
+    };
+    const s = toward(a, radius);
+    const t = toward(b, radius);
+    d += `${i ? 'L' : 'M'}${s[0].toFixed(1)} ${s[1].toFixed(1)} Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${t[0].toFixed(1)} ${t[1].toFixed(1)} `;
+  }
+  return d + 'Z';
+}
+
 export class Fretboard {
   constructor(svg) {
     this.svg = svg;
@@ -67,6 +109,8 @@ export class Fretboard {
     svg.setAttribute('viewBox', `0 0 ${this.W} ${this.H}`);
     const defs = el('defs', {}, svg);
     this.mask = el('mask', { id: this.id + '-mask' }, defs);
+    // a light blur so the clouds of the knowledge map have no hard edge
+    el('feGaussianBlur', { stdDeviation: '1.8' }, el('filter', { id: this.id + '-soft', x: '-20%', y: '-40%', width: '140%', height: '180%' }, defs));
 
     const g = el('g', {}, svg);
     const xa = this.X(this.nutX);
@@ -126,11 +170,8 @@ export class Fretboard {
       return;
     }
     el('rect', { x: 0, y: 0, width: this.W, height: this.H, fill: 'white' }, this.mask);
-    for (const c of cells) {
-      const a = this.cellRect(c.s, c.f);
-      el('rect', { ...a, fill: 'black' }, this.mask);
-      el('rect', { ...a, class: 'fb-zone' }, zone);
-    }
+    for (const c of cells) el('rect', { ...this.cellRect(c.s, c.f), fill: 'black' }, this.mask);
+    el('path', { d: zoneOutline(cells.map((c) => this.cellRect(c.s, c.f))), class: 'fb-zone' }, zone);
     dim.setAttribute('visibility', 'visible');
   }
 
@@ -228,11 +269,14 @@ export class Fretboard {
         if (v.cloud) {
           const id = `${this.id}-c${s}-${f}`;
           const grad = el('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-          // a pill, dense along its middle line and thinning out gradually towards top and bottom
-          for (const [o, a] of [[0, 0], [0.16, 0.22], [0.32, 0.62], [0.5, 1], [0.68, 0.62], [0.84, 0.22], [1, 0]]) el('stop', { offset: o, 'stop-color': v.fill, 'stop-opacity': a }, grad);
+          // a pill, solid across a middle band (wider when practised more), fading at top and bottom
+          const half = 0.14 + 0.2 * (v.cloud.core ?? 0.5);
+          for (const [o, a] of [[0, 0], [0.5 - half - 0.16, 0.4], [0.5 - half, 1], [0.5 + half, 1], [0.5 + half + 0.16, 0.4], [1, 0]]) {
+            el('stop', { offset: Math.max(0, Math.min(1, o)).toFixed(3), 'stop-color': v.fill, 'stop-opacity': a }, grad);
+          }
           const ry = (this.sp / 2) * v.cloud.h;
           const rx = Math.max(ry, (this.cw(f) / 2) * v.cloud.w);
-          el('rect', { x: (-rx).toFixed(1), y: (-ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: ry.toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), class: 'fb-cloud' }, g);
+          el('rect', { x: (-rx).toFixed(1), y: (-ry).toFixed(1), width: (2 * rx).toFixed(1), height: (2 * ry).toFixed(1), rx: ry.toFixed(1), fill: `url(#${id})`, opacity: (v.opacity ?? 1).toFixed(2), filter: `url(#${this.id}-soft)`, class: 'fb-cloud' }, g);
           if (v.label) el('text', { y: 3.5, class: 'fb-heat-lbl' }, g).textContent = v.label;
           continue;
         }
