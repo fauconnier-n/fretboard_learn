@@ -189,9 +189,9 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .fb-mark.bad .dot { fill: var(--red); stroke: #fff; filter: drop-shadow(0 0 6px var(--red)); }
 .fb-mark.bad .lbl { fill: #fff; stroke: var(--red); stroke-width: 3px; paint-order: stroke; }
 .fb-mark .strike { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
-.fb-mark.reveal .dot { fill: #fff; stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s steps(8) infinite; }
-/* the name in ink on white: green on green was hard to read */
-.fb-mark.reveal .lbl { fill: var(--ink); }
+.fb-mark.reveal .dot { fill: rgba(60, 189, 43, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s steps(8) infinite; }
+/* a white contour keeps the green name readable on the green disc */
+.fb-mark.reveal .lbl { fill: var(--green-ink); stroke: #fff; stroke-width: 3px; paint-order: stroke; }
 .fb-mark .ripple { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ripple .7s ease-out forwards; }
 .fb-mark.good .ripple { stroke: var(--green); }
 .fb-mark.bad .ripple { stroke: var(--red); }
@@ -376,6 +376,9 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
 /* during a run the run settings step aside (they are the menu before a run): only Stop, the
    score ring and the progress stay */
 body.in-run #practiceNav, body.in-run .practice-bar > .seg, body.in-run .practice-bar > .run-len { display: none; }
+/* Note position: no settings bar at all, the menu under the prompt holds them (run type,
+   length, beat, interval practice) */
+#practiceNav:has(+ #view-practice.active), #view-practice .practice-bar > .seg, #view-practice .practice-bar > .run-len { display: none; }
 /* during a run: two invisible boxes, the note and Show me on the left (aligned right), the texts
    and answer buttons on the right (aligned left), so a long text never moves the note */
 body.in-run .prompt-area { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: center; text-align: left; }
@@ -481,3 +484,32 @@ body.in-run .prompt-queue:empty { display: none; }
 .fb-tip.pinned { pointer-events: auto; padding-right: 26px; }
 .fb-tip-x { display: none; position: absolute; top: 2px; right: 4px; border: 0; background: none; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 2px; }
 .fb-tip.pinned .fb-tip-x { display: block; }
+
+/* a position's popup in detail: bars with labels and a mark where each was before the run, the
+   last answers, and a time line */
+.fb-tip { min-width: 250px; }
+.tip-title { font-weight: 800; margin-bottom: 4px; white-space: normal; }
+.tip-bar { display: grid; grid-template-columns: 66px 1fr 34px; align-items: center; gap: 6px; }
+.tip-bar i { position: relative; height: 7px; border-radius: 4px; background: var(--panel2); }
+.tip-bar i b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.tip-bar i u { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); text-decoration: none; }
+.tip-bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
+.tip-lbl { color: var(--muted); font-size: 11px; margin-top: 6px; white-space: normal; }
+.tip-lbl i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: -1px; }
+.tip-lbl i.floor { background: var(--green); }
+.tip-lbl i.usual { background: var(--ink); }
+.tip-lbl i.run { background: var(--steel); border-radius: 1px; transform: rotate(45deg); }
+.tip-hist { display: flex; align-items: center; gap: 4px; min-height: 18px; }
+.tip-hist .tip-lbl { margin: 0 4px 0 0; }
+.tip-hist span.ok, .tip-hist span.miss { border-radius: 50%; display: inline-block; }
+.tip-hist .ok { background: var(--green); }
+.tip-hist .miss { background: var(--red); }
+.tip-time i { position: relative; display: block; height: 22px; margin: 2px 4px 0; border-top: 2px solid var(--line); }
+.tip-time s { position: absolute; top: 6px; transform: translateX(-50%); font-size: 10px; color: var(--muted); text-decoration: none; }
+.tip-time em, .tip-time b { position: absolute; top: -6px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; }
+.tip-time em.floor { background: var(--green); }
+.tip-time em.usual { background: var(--ink); }
+.tip-time b { width: 8px; height: 8px; margin-left: -4px; top: -5px; border-radius: 1px; transform: rotate(45deg); }
+.tip-time b.ok { background: var(--steel); }
+.tip-time b.miss { background: var(--red); }
+.tip-foot { margin-top: 2px; color: var(--muted); font-size: 11.5px; white-space: normal; }

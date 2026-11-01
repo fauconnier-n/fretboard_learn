@@ -911,7 +911,7 @@ async function init() {
     // the open-string menu changes the same settings as the practice bar
     actions: {
       setTask: (t) => { app.settings.runTask = t; saveSettings(); updateModeUI(); },
-      toggleMode: () => { app.settings.runMode = app.settings.runMode === 'count' ? 'sprint' : 'count'; saveSettings(); updateModeUI(); },
+      setLength: (mode, n) => { app.settings.runMode = mode; app.settings[mode === 'count' ? 'runCount' : 'sprintSec'] = n; saveSettings(); updateModeUI(); },
       toggleBeat: () => { app.settings.beat = !app.settings.beat; saveSettings(); updateModeUI(); },
       goIntervals: () => showView('intervals'),
     },

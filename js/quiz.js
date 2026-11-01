@@ -10,7 +10,7 @@ import { describe, zoneLabel } from './zones.js';
 import { LANDMARKS, cueOpts, errorType, itemKey } from './srs.js';
 import { describeCues, initialCues, labelOf } from './cues.js';
 import { GuitarMenu } from './guitarMenu.js';
-import { mapCell } from './stats.js';
+import { detailHtml, mapCell } from './stats.js';
 import { burst } from './burst.js';
 
 const DAY = 86400000;
@@ -143,6 +143,8 @@ export class Quiz {
     const b = this.els.startBtn;
     b.textContent = this.state === 'preview' ? 'Start run ⏎' : this.running ? 'Stop run' : 'New run ⏎';
     b.classList.toggle('danger', this.running);
+    // phones: a run starts at the top of the page, so Stop is never half off the screen
+    if (this.running && !document.body.classList.contains('in-run') && matchMedia('(max-width: 720px), (max-height: 500px)').matches) scrollTo(0, 0);
     document.body.classList.toggle('in-run', this.running);
     this.board.zoomTo(this.running ? this.run.zone.cells : null);
   }
@@ -181,8 +183,8 @@ export class Quiz {
     this.els.boardView.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', (b.dataset.view === 'run') === runView));
     this.els.neckLegend.classList.toggle('hidden', !runView);
     this.els.mapLegend.classList.toggle('hidden', this.running || runView);
-    // during a run the board shows only the run: no knowledge colours
-    if (this.running) return this.board.setHeat(() => null);
+    // during a run, and on Ready (the zone about to be played), the board shows only the zone
+    if (this.running || this.state === 'preview') return this.board.setHeat(() => null);
     // a finished run: its notes on the neck, each with its name and progress bars
     if (runView) return this.board.setHeat(this.runResultsCell(sch));
     const snap = sch.snapshot();
@@ -297,6 +299,8 @@ export class Quiz {
         const key = itemKey(c.key, sp);
         return [key, sch.model.cards[key] ? sch.expectedMs(key) : null];
       }))),
+      // each item's bars before the run, marked in its popup afterwards
+      beforeBars: new Map(run.zone.cells.flatMap((c) => ['n', 's', 'f', 'r'].map((sp) => [itemKey(c.key, sp), sch.noteRings(itemKey(c.key, sp))]))),
     });
     // cells that carry a name label; in "fade" mode it changes during the run
     run.labelled = initialCues(run.cueMode, run.zone, sch, run.desc, Date.now());
@@ -619,7 +623,7 @@ export class Quiz {
       this.menuSub = null;
       return this.menu.show('Zone', this.offers.map((o) => ({
         label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
-      })), 'start the run');
+      })).concat({ label: 'Back to the menu', act: () => this.reset() }), 'start the run');
     }
     this.menuSub = sub;
     if (sub === 'type') {
@@ -628,11 +632,18 @@ export class Quiz {
         { label: 'Back', act: () => this.showMenu() },
       ], 'back');
     }
+    if (sub === 'length') {
+      return this.menu.show('Length', [
+        ...[10, 20, 30, 50].map((n) => ({ label: `${n} prompts`, active: s.runMode === 'count' && s.runCount === n, act: () => { a.setLength('count', n); this.showMenu(); } })),
+        ...[60, 120, 180].map((n) => ({ label: `${n} s sprint`, active: s.runMode === 'sprint' && s.sprintSec === n, act: () => { a.setLength('sprint', n); this.showMenu(); } })),
+        { label: 'Back', act: () => this.showMenu() },
+      ], 'back');
+    }
     const type = (RUN_TYPES.find(([t]) => t === s.runTask) || RUN_TYPES[0])[1];
     this.menu.show('Next', [
       { label: 'New run', act: () => this.prepare() },
       { label: `Run type: ${type} …`, act: () => this.showMenu('type') },
-      { label: s.runMode === 'count' ? `Length: ${s.runCount} prompts (switch to a ${s.sprintSec} s sprint)` : `Length: ${s.sprintSec} s sprint (switch to ${s.runCount} prompts)`, act: () => { a.toggleMode(); this.showMenu(); } },
+      { label: `Length: ${s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`} …`, act: () => this.showMenu('length') },
       { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
       { label: 'Interval practice', act: () => a.goIntervals() },
     ], 'new run');
@@ -900,18 +911,17 @@ export class Quiz {
       c.rs.push(r);
       byCell.set(r.cell.key, c);
     }
-    const pct = (x) => Math.round(100 * x) + '%';
     return (s, f) => {
       const c = byCell.get(s + ':' + f);
       if (!c) return null;
       const { r, rs } = c;
       const label = r.sp === 'r' ? this.nameOf(r.cell.pc) : spellName(r.cell.midi, r.sp);
-      const bars = sch.noteRings(r.key);
-      const right = rs.filter((x) => x.correct);
-      const times = right.map((x) => (x.ms / 1000).toFixed(1) + ' s').join(', ');
-      const tip = `${label} · fret ${f} · this run\nAsked ${rs.length}× · ${right.length} right${times ? ' · ' + times : ''}\n` +
-        `Now: known ${pct(bars.known)} · fast ${pct(bars.fast)} · automatic ${pct(bars.auto)}`;
-      return { bars, label, missed: c.missed, tip };
+      const right = rs.filter((x) => x.correct).length;
+      const html = detailHtml(sch, r.key, {
+        title: `${label} · fret ${f} · this run: ${right} of ${rs.length} right`,
+        before: this.run.beforeBars?.get(r.key), runMs: rs.map((x) => [x.correct ? 1 : 0, x.ms]),
+      });
+      return { bars: sch.noteRings(r.key), label, missed: c.missed, tip: { html } };
     };
   }
 

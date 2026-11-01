@@ -79,10 +79,10 @@ export class Fretboard {
     const n = this.strings.length;
     this.W = 1200;
     this.sp = 30;
-    this.top = 24;
+    this.top = 32; // room above the board for the side dots
     this.boardTop = this.top - 15;
     this.boardBot = this.top + (n - 1) * this.sp + 15;
-    this.H = this.boardBot + 30; // dots under the marker frets, then the fret numbers
+    this.H = this.boardBot + 24;
     // every space is as wide as the others, the open strings' too, so every position's card is
     // the same size
     const margin = 12;
@@ -150,10 +150,10 @@ export class Fretboard {
     this.vibes = new Map();
     for (let f = 0; f <= this.frets; f++) {
       const marked = f === 0 || f === 12 || f === 24 || INLAYS.includes(f);
-      // like the side dots of a neck: one under each marker fret, two under the octaves
+      // like the side dots of a neck: one above each marker fret, two above the octaves
       const dots = f === 12 || f === 24 ? [-4, 4] : INLAYS.includes(f) ? [0] : [];
-      for (const dx of dots) el('circle', { cx: this.cx(f) + dx, cy: this.boardBot + 7, r: 2.2, class: 'fb-side-dot' }, g);
-      el('text', { x: this.cx(f), y: this.boardBot + 23, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
+      for (const dx of dots) el('circle', { cx: this.cx(f) + dx, cy: this.boardTop - 9, r: 2.4, class: 'fb-side-dot' }, g);
+      el('text', { x: this.cx(f), y: this.boardBot + 16, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
     }
 
     this.layers = {
@@ -204,7 +204,9 @@ export class Fretboard {
     card.innerHTML = '';
     if (t.v.bars) barsCard(card, t.v, 62);
     card.classList.toggle('hidden', !t.v.bars);
-    this.tip.children[1].textContent = t.text;
+    const body = this.tip.children[1];
+    if (typeof t.text === 'string') body.textContent = t.text;
+    else body.innerHTML = t.text.html;
     this.tip.classList.toggle('pinned', this.pinned);
     this.tip.classList.remove('hidden');
     const r = rect.getBoundingClientRect();
