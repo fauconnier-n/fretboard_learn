@@ -767,6 +767,7 @@ function showWelcome(mode) {
     const form = $('newProfile');
     const err = (e) => { $('welcomeError').textContent = e?.message || String(e || ''); };
     document.body.classList.add('welcome');
+    $('welcomeIntro').classList.toggle('hidden', names.length > 0);
     $('loading').classList.add('hidden');
     el.classList.remove('hidden');
     const onKey = (e) => { if (e.key === 'Enter' && form.classList.contains('hidden')) $('profileList').querySelector('[data-pick]')?.click(); };
@@ -1024,7 +1025,14 @@ async function init() {
   $('firstRunDone').onclick = () => {
     $('firstRunNote').classList.add('hidden');
     showView('practice');
+    $('firstRunTip').classList.remove('hidden');
   };
+  // then the first run is one click away
+  $('firstRunGo').onclick = () => {
+    $('firstRunTip').classList.add('hidden');
+    app.quiz.prepare();
+  };
+  $('startBtn').addEventListener('click', () => $('firstRunTip').classList.add('hidden'));
   if (sessionStorage.getItem('ft:firstRun') === db.user) {
     sessionStorage.removeItem('ft:firstRun');
     $('firstRunNote').classList.remove('hidden');

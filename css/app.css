@@ -123,6 +123,8 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .welcome .spage-body { margin: 24px auto; }
 .welcome h2 { margin: 12px 0 10px; font-size: 24px; font-weight: 900; }
 .welcome label { display: block; margin: 8px 0; }
+.welcome-intro { max-width: 62ch; line-height: 1.5; margin-bottom: 12px; }
+.welcome-intro p { margin: 0 0 10px; }
 .welcome label.check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .welcome input:not([type]) { font: inherit; padding: 6px 10px; border: 1.5px solid var(--text); border-radius: 10px; }
 .db-badge.action { cursor: pointer; }
