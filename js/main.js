@@ -173,6 +173,13 @@ async function setTuning(changes) {
   await applyBoardSettings();
 }
 
+// the pitch range the detector looks at: the open strings minus 3 semitones up to the last fret plus 3
+function setDetectRange() {
+  const s = app.settings;
+  app.minF = midiToFreq(Math.min(...app.strings) - 3, s.a4);
+  app.maxF = midiToFreq(Math.max(...app.strings) + s.frets + 3, s.a4);
+}
+
 async function applyBoardSettings() {
   const s = app.settings;
   const tuning = resolveTuning(s);
@@ -207,8 +214,7 @@ async function applyBoardSettings() {
   app.quiz.reset();
   app.tuner.setStrings(app.strings, s.flats);
   // detector range: a tone below the lowest string up to the top fret
-  app.minF = midiToFreq(Math.min(...app.strings) - 3, s.a4);
-  app.maxF = midiToFreq(Math.max(...app.strings) + s.frets + 3, s.a4);
+  setDetectRange();
   if (app.view === 'stats') showStats();
 }
 
@@ -339,14 +345,16 @@ function showView(name) {
 
 async function showStats() {
   performance.mark('stats:start');
-  const attemptCount = await storage.countAttempts();
   const weekAgo = new Date().setHours(0, 0, 0, 0) - 6 * 86400000; // today and the 6 days before
   const monthAgo = Date.now() - 30 * 86400000;
-  // practice consistency: days with at least one answer in the last 7 (no streak to lose)
-  const [{ days }] = await storage.sql(`SELECT count(DISTINCT strftime(to_timestamp(t / 1000), '%Y-%m-%d'))::INT AS days FROM attempts WHERE t >= ${weekAgo}`);
-  // check-up prompts are random, so their success rate is not pulled towards the target
-  const [probe] = await storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE probe AND t >= ${monthAgo} AND ${sameStrings()}`);
-  const [named] = await storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE task = 'name' AND t >= ${monthAgo} AND ${sameStrings()}`);
+  const [attemptCount, [{ days }], [probe], [named]] = await Promise.all([
+    storage.countAttempts(),
+    // practice consistency: days with at least one answer in the last 7 (no streak to lose)
+    storage.sql(`SELECT count(DISTINCT strftime(to_timestamp(t / 1000), '%Y-%m-%d'))::INT AS days FROM attempts WHERE t >= ${weekAgo}`),
+    // check-up prompts are random, so their success rate is not pulled towards the target
+    storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE probe AND t >= ${monthAgo} AND ${sameStrings()}`),
+    storage.sql(`SELECT count(*)::INT AS n, coalesce(avg(correct::INT), 0) AS acc FROM attempts WHERE task = 'name' AND t >= ${monthAgo} AND ${sameStrings()}`),
+  ]);
   const pct = (x) => Math.round(x * 100) + '%';
   renderStats({
     extraCards: [
@@ -425,7 +433,8 @@ function bindSettings() {
       showOutput(input);
       saveSettings();
       if (key === 'instrument') fillTunings();
-      if (BOARD_KEYS.includes(key) || key === 'a4') await applyBoardSettings();
+      if (BOARD_KEYS.includes(key)) await applyBoardSettings();
+      else if (key === 'a4') setDetectRange(); // the reference pitch changes the detector's range, nothing on the board
       if (key === 'deviceId') connectAudio();
       if (key === 'gate') updateGateMarker();
       if (key === 'channel') { app.audio.setChannel(v); updateAudioLabel(); }
@@ -534,7 +543,7 @@ async function checkModel() {
     FROM attempts WHERE ${sameStrings()} AND coalesce(task, 'play') IN ('play', 'name') QUALIFY pred_p IS NOT NULL AND NOT coalesce(cue_target, false) ORDER BY t`))
     .map((r) => ({ p: r.p, y: r.y, lag: r.lag == null ? null : Number(r.lag) }));
   const attempts = await tuningAttempts();
-  const fit = fitDecay(attempts, app.strings, app.settings.frets, app.model.meta.decay);
+  const fit = await fitDecay(attempts, app.strings, app.settings.frets, app.model.meta.decay);
   app.scheduler.useDecay(app.model.meta.decay); // the replays changed the curve in use
   const useBtn = fit.best ? `<button class="btn small" id="useDecayBtn">Use decay ${fit.best} and rebuild</button>` : '';
   const resetBtn = app.model.meta.decay ? ' <button class="btn small" id="defaultDecayBtn">Back to the default decay</button>' : '';

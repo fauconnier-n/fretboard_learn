@@ -27,16 +27,18 @@ export function mapCell(scheduler, snap, s, f, flats) {
   return null;
 }
 
-// One note name (e.g. "C#") split by octave (C#2, C#3…): right answers and expected time of
-// the positions of that name in each octave, from the memory cards.
-export function octaveRows(scheduler, name, now = Date.now()) {
-  const rows = new Map();
+// Every note name (e.g. "C#") split by octave (C#2, C#3…): right answers and expected time of
+// the positions of that name in each octave, from the memory cards, in one pass over the cards.
+export function octaveRowsAll(scheduler, now = Date.now()) {
+  const byName = new Map(); // name -> Map(octave -> totals)
   for (const [key, c] of Object.entries(scheduler.model.cards)) {
     const [s, f, sp = 'n'] = key.split(':');
     if (sp === 'r' || scheduler.strings[+s] == null) continue;
     const midi = scheduler.strings[+s] + +f;
-    if (spellName(midi, sp) !== name) continue;
+    const name = spellName(midi, sp);
     const oct = Math.floor(midi / 12) - 1;
+    let rows = byName.get(name);
+    if (!rows) byName.set(name, (rows = new Map()));
     const r = rows.get(oct) || { oct, seen: 0, acc: 0, ms: [], positions: 0 };
     r.seen += c.seen;
     r.acc += c.acc * c.seen;
@@ -44,9 +46,15 @@ export function octaveRows(scheduler, name, now = Date.now()) {
     if (c.time?.n) r.ms.push(scheduler.expectedMs(key, now));
     rows.set(oct, r);
   }
-  return [...rows.values()].sort((a, b) => a.oct - b.oct)
-    .map((r) => ({ label: name + r.oct, acc: r.seen ? r.acc / r.seen : 0, ms: r.ms.length ? r.ms.reduce((a, b) => a + b, 0) / r.ms.length : null, positions: r.positions, seen: r.seen }));
+  const out = new Map();
+  for (const [name, rows] of byName) {
+    out.set(name, [...rows.values()].sort((a, b) => a.oct - b.oct)
+      .map((r) => ({ label: name + r.oct, acc: r.seen ? r.acc / r.seen : 0, ms: r.ms.length ? r.ms.reduce((a, b) => a + b, 0) / r.ms.length : null, positions: r.positions, seen: r.seen })));
+  }
+  return out;
 }
+
+export const octaveRows = (scheduler, name, now = Date.now()) => octaveRowsAll(scheduler, now).get(name) || [];
 
 export function renderStats({ els, scheduler, strings, frets, flats, heat, attemptCount, extraCards = [] }) {
   const now = Date.now();
@@ -95,9 +103,10 @@ export function renderStats({ els, scheduler, strings, frets, flats, heat, attem
   const bar = (label, acc, time, known) => `<b>${label}</b>
       <div class="ntrack"><div class="nfill" style="width:${known ? acc * 100 : 0}%;background:${masteryColor(acc)}"></div></div>
       <span>${known ? pct(acc) : '—'}</span><span class="muted">${time}</span>`;
+  const octaves = octaveRowsAll(scheduler, now);
   els.notes.innerHTML = names.map((name) => {
     const n = model.notes[name];
-    const octs = octaveRows(scheduler, name, now);
+    const octs = octaves.get(name) || [];
     const head = bar(name, n ? n.acc : 0, n?.time?.n ? secs(Math.exp(n.time.mu)) : '', !!n);
     if (!octs.length) return `<div class="nbar">${head}</div>`;
     return `<details class="nnote"><summary class="nbar">${head}</summary>${octs.map((o) => `<div class="nbar noct" title="${o.positions} position${o.positions > 1 ? 's' : ''} · ${o.seen} answer${o.seen > 1 ? 's' : ''}">${bar(o.label, o.acc, o.ms == null ? '' : secs(o.ms), true)}</div>`).join('')}</details>`;

@@ -19,14 +19,24 @@ const MIN_FIT = 30; // answers more than an hour after the previous one, needed 
 const clampP = (p) => Math.min(0.99, Math.max(0.01, p));
 export const logLoss = (rows) => -rows.reduce((t, r) => t + (r.y ? Math.log(clampP(r.p)) : Math.log(1 - clampP(r.p))), 0) / rows.length;
 
-// Chance that a random right answer got a higher prediction than a random wrong one.
+// Chance that a random right answer got a higher prediction than a random wrong one: the
+// Mann–Whitney form (ranks, ties averaged), O(n log n) instead of every right-wrong pair.
 export function auc(rows) {
-  const pos = rows.filter((r) => r.y).map((r) => r.p);
-  const neg = rows.filter((r) => !r.y).map((r) => r.p);
-  if (!pos.length || !neg.length) return null;
-  let wins = 0;
-  for (const a of pos) for (const b of neg) wins += a > b ? 1 : a === b ? 0.5 : 0;
-  return wins / (pos.length * neg.length);
+  const n = rows.length;
+  let pos = 0;
+  for (const r of rows) if (r.y) pos++;
+  const neg = n - pos;
+  if (!pos || !neg) return null;
+  const order = rows.map((_, i) => i).sort((a, b) => rows[a].p - rows[b].p);
+  let rankSum = 0;
+  for (let i = 0; i < n;) {
+    let j = i;
+    while (j + 1 < n && rows[order[j + 1]].p === rows[order[i]].p) j++;
+    const rank = (i + j + 2) / 2; // 1-based, shared by the tied run
+    for (let k = i; k <= j; k++) if (rows[order[k]].y) rankSum += rank;
+    i = j + 1;
+  }
+  return (rankSum - (pos * (pos + 1)) / 2) / (pos * neg);
 }
 
 function metrics(rows) {
@@ -185,9 +195,13 @@ export function renderCueReliance(rows) {
 
 // Fit the FSRS-6 decay by replaying the answer log under each candidate value and scoring
 // the memory model's prediction on answers given more than an hour after the previous one.
-export function fitDecay(attempts, strings, frets, current) {
-  const results = DECAYS.map((d) => ({ d, rows: Scheduler.replayRecall(attempts, strings, frets, d) }))
-    .map(({ d, rows }) => ({ d, n: rows.length, ll: rows.length ? logLoss(rows) : null }));
+export async function fitDecay(attempts, strings, frets, current) {
+  const results = [];
+  for (const d of DECAYS) {
+    const rows = Scheduler.replayRecall(attempts, strings, frets, d);
+    results.push({ d, n: rows.length, ll: rows.length ? logLoss(rows) : null });
+    await new Promise((r) => setTimeout(r)); // seven replays of the whole log: let the page breathe between them
+  }
   const n = results[0]?.n || 0;
   if (n < MIN_FIT) {
     return { best: null, html: `<p class="muted small">Needs at least ${MIN_FIT} answers given more than an hour after the previous answer on the same item (you have ${n}). Until then the FSRS-6 default (${DEFAULT_DECAY}) is used.</p>` };
