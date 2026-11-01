@@ -1,7 +1,7 @@
 // A tour of the main screens for tools/browser-check.mjs: node tools/browser-check.mjs tools/tour.mjs --out <dir>
 const wait = 'const wait = (ms) => new Promise((r) => setTimeout(r, ms));';
-// top tabs, or the Note position / Interval switch inside Practice
-const tab = (name) => `document.querySelector('.tabs button[data-tab=${name}], #practiceNav button[data-tab=${name}]').click(); await new Promise((r) => setTimeout(r, 700));`;
+// top tabs; practice and intervals also pick the page inside Practice (the Practice tab alone reopens the last one)
+const tab = (name) => `document.querySelector('.tabs button[data-tab=${name === 'intervals' ? 'practice' : name}]').click(); document.querySelector('#practiceNav button[data-tab=${name}]')?.click(); await new Promise((r) => setTimeout(r, 700));`;
 // a settings page (home, audio, instrument, custom, board, practice, data, tables)
 const spage = (name) => `document.querySelector('[data-open=${name}]').click(); await new Promise((r) => setTimeout(r, 500));`;
 const key = 'const key = (k, shift) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true }));';

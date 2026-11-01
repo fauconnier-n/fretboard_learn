@@ -240,6 +240,7 @@ export async function open() {
   info.file = `opfs://fretboard-${info.user}.duckdb`;
   const locked = await acquireTabLock('fretboard-db-' + info.user, LOCK_WAIT_MS);
   await startEngine();
+  performance.mark('db:engine');
   if (!locked) info.error = `user "${info.user}" is open in another tab`;
 
   // the previous page's worker may still hold the file handle for a moment after a reload
@@ -272,6 +273,7 @@ export async function open() {
     putRun: await conn.prepare(`INSERT OR REPLACE INTO runs (${RUN_COLS.join(', ')}) VALUES (${RUN_COLS.map(() => '?').join(', ')})`),
   };
   info.version = (await conn.query('SELECT version() AS v')).toArray()[0].v;
+  performance.mark('db:schema');
   if (info.persistent) {
     try {
       await reconcile();
@@ -279,8 +281,10 @@ export async function open() {
       info.mirrorError = e.message || String(e);
       console.error('Safety copy check failed', e);
     }
+    performance.mark('db:reconcile');
     await closeOpenRuns();
     await syncDisk();
+    performance.mark('db:sync');
     pushDisk(false); // starts the retries if the server was not reachable
   }
 
