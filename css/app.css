@@ -189,7 +189,8 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .fb-mark .lbl { font-size: 12.5px; font-weight: 800; text-anchor: middle; fill: var(--ink); }
 .fb-mark.good .dot { fill: var(--green); stroke: #fff; filter: drop-shadow(0 0 6px var(--green)); }
 .fb-mark.bad .dot { fill: var(--red); stroke: #fff; filter: drop-shadow(0 0 6px var(--red)); }
-.fb-mark.bad .lbl { fill: #fff; }
+.fb-mark.bad .lbl { fill: #fff; stroke: var(--red); stroke-width: 3px; paint-order: stroke; }
+.fb-mark .strike { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
 .fb-mark.reveal .dot { fill: rgba(60, 189, 43, .2); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 4 3; animation: pulse 1s steps(8) infinite; }
 .fb-mark.reveal .lbl { fill: var(--green); }
 .fb-mark .ripple { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ripple .7s ease-out forwards; }
@@ -236,7 +237,7 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .tp-med { stroke: var(--ink); stroke-width: 2; }
 .tp-usual { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .tp-ok { fill: var(--green); fill-opacity: .9; }
-.tp-bad { fill: var(--red); fill-opacity: .9; }
+.tp-bad { fill: none; stroke: var(--red); stroke-width: 2.6; stroke-linecap: round; }
 .sum-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
 .chg { list-style: none; padding: 0; margin: 0; font-size: 14px; }
 .chg li { padding: 3px 0; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
@@ -287,7 +288,7 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 2px; }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 .legend i.dashed { border: 1.5px dashed var(--muted); }
-.legend i.fog { border-radius: 3px; background: var(--line); }
+.legend i.fog { border-radius: 3px; background: repeating-linear-gradient(45deg, transparent 0 3px, var(--steel) 3px 3.7px), repeating-linear-gradient(-45deg, transparent 0 3px, var(--steel) 3px 3.7px), var(--line); }
 .legend i.lv-weak { background: var(--red); }
 .legend i.lv-mid { background: var(--yellow); }
 .legend i.lv-done { background: var(--green); }
@@ -407,7 +408,8 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
 
 /* progress on the practice board: mastery colours, and white fog over positions not unlocked yet */
 #board .fb-heat { opacity: .6; }
-.fb-fog { fill: #ffffff; opacity: .78; }
+.fb-fog { opacity: .78; }
+.fb-hatch { stroke: var(--steel); stroke-width: .7; stroke-opacity: .5; }
 
 /* momentum: a green glow that builds with fast right answers in a row */
 .prompt-area { --glow: 0; box-shadow: 0 0 calc(var(--glow) * 28px) calc(var(--glow) * 4px) rgba(60, 189, 43, calc(var(--glow) * .55)); transition: box-shadow .8s ease; }

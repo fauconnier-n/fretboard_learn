@@ -113,6 +113,10 @@ export class Fretboard {
     const defs = el('defs', {}, svg);
     // a light blur so the clouds of the knowledge map have no hard edge
     el('feGaussianBlur', { stdDeviation: '2.4' }, el('filter', { id: this.id + '-soft', x: '-20%', y: '-40%', width: '140%', height: '180%' }, defs));
+    // fog over locked positions: white with a fine cross-hatch, "uncharted"
+    const hatch = el('pattern', { id: this.id + '-hatch', patternUnits: 'userSpaceOnUse', width: 7, height: 7 }, defs);
+    el('rect', { width: 7, height: 7, fill: '#ffffff' }, hatch);
+    el('path', { d: 'M0 0L7 7M7 0L0 7', class: 'fb-hatch' }, hatch);
 
     const g = el('g', {}, svg);
     const xa = this.X(this.nutX);
@@ -222,6 +226,8 @@ export class Fretboard {
   mark(s, f, cls, label) {
     const g = el('g', { class: 'fb-mark ' + cls, transform: `translate(${this.cx(f)},${this.cy(s)})` }, this.layers.marks);
     el('circle', { r: 14, class: 'dot' }, g);
+    // a wrong note is struck out, so it reads without telling red from green
+    if (cls === 'bad') el('path', { d: 'M-9.5 -9.5L9.5 9.5M9.5 -9.5L-9.5 9.5', class: 'strike' }, g);
     if (label) el('text', { y: 4.5, class: 'lbl' }, g).textContent = label;
     return g;
   }
@@ -307,7 +313,7 @@ export class Fretboard {
         const v = fn(s, f);
         if (!v) continue;
         if (v.fog) {
-          el('rect', { ...this.cellRect(s, f), class: 'fb-fog' }, h);
+          el('rect', { ...this.cellRect(s, f), class: 'fb-fog', fill: `url(#${this.id}-hatch)` }, h);
           continue;
         }
         if (v.cloud) {

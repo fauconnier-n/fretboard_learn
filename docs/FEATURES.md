@@ -53,7 +53,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
   - Check-ups and re-tests never show the asked note's name. Name-the-note runs show none.
 - Next-notes queue: the next 4 prompts, shown only if the setting is on (off by default; play runs only).
 - **During a run:** a live ring of the first-try accuracy, a glow that builds with fast right answers in a row (a miss lets it fade), and a clean board showing only the run (no mastery colours).
-- **Between runs** the practice board shows each played position coloured by mastery, with fog over positions not unlocked yet, and a legend under it (colours, size, dashed ring for unlocked but not played, faded for locked). A new player starts on one run of frets from the nut on each string.
+- **Between runs** the practice board shows each played position coloured by mastery, with fog over positions not unlocked yet, and a legend under it (colours, size, dashed ring for unlocked but not played, cross-hatched for locked). A new player starts on one run of frets from the nut on each string.
 - After a miss with the play-along setting on, the run moves on by itself after 6 s if you do not play the note.
 - Green on a right answer, red at the played position on a wrong one, with the kind of mistake (octave, one or two frets off). **Answer animation:** green confetti thrown out of the asked note on a right answer, red fireworks on a wrong one.
 - **During a run the board zooms in on the zone** (up to 2×), and the circles and note names on it are a little bigger. The view is at most six strings high, so on a 7–9-string guitar it frames the strings around the zone.
@@ -127,6 +127,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — Colour-blind friendly shapes: a wrong note on the board is struck through with a cross, missed answers on the run time plot are crosses (right ones stay discs), and the fog over locked positions has a fine cross-hatch.
 - **2026-11-01** — A new player's starting area is one run of frets from the nut on each string (marker frets beyond it no longer start unlocked on their own); a legend under the practice board between runs.
 - **2026-11-01** — Releases: the site deploys from a published release (`v1.0.0` first), whose version shows in Settings → Data and on the title; `main` only moves at a release, work goes through `dev`.
 
