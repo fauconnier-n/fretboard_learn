@@ -1,5 +1,7 @@
-// Offline support: network first (so edits show up straight away), cache as fallback.
-const CACHE = 'fretboard-trainer-v29';
+// Offline support: app files network first (so edits show up straight away), cache as fallback;
+// the vendored DuckDB files (34 MB, version pinned) cache first, so a start does not fetch and
+// re-cache them every time. Bump CACHE when a vendored file or index.html's preload list changes.
+const CACHE = 'fretboard-trainer-v30';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
   'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',
@@ -25,13 +27,14 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // the disk copy API must always reach the server, never a cached answer
   if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/')) return;
-  e.respondWith(
-    fetch(req)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
-        return res;
-      })
-      .catch(() => caches.match(req).then((r) => r || caches.match('index.html'))),
-  );
+  const fetchAndCache = () => fetch(req).then((res) => {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(req, copy));
+    return res;
+  });
+  if (url.pathname.includes('/vendor/')) {
+    e.respondWith(caches.match(req).then((r) => r || fetchAndCache()));
+    return;
+  }
+  e.respondWith(fetchAndCache().catch(() => caches.match(req).then((r) => r || caches.match('index.html'))));
 });
