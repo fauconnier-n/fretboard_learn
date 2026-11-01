@@ -20,6 +20,10 @@
       <button data-tab="stats">Stats</button>
       <button data-tab="settings">Settings</button>
     </nav>
+    <button id="topMeter" class="top-meter off" title="Guitar input level (the line is the noise gate). Click to set up the audio.">
+      <span class="meter"><span class="meter-fill gated" id="topMeterFill"></span><i class="meter-gate" id="topMeterGate"></i></span>
+      <span class="top-meter-label">Set up audio</span>
+    </button>
     <div class="user-switch" title="Each user has its own database. Use &quot;test&quot; for trying things out.">
       <select id="userSelect" aria-label="User"></select>
       <span id="dbBadge" class="db-badge"></span>
@@ -36,6 +40,7 @@
           <p><b>Learn every note on the neck, for good.</b> Knowing where each note sits lets you find chord tones, follow a chart and improvise without counting frets. The app shows a note, you play it on your guitar (or click it on the board), and it hears whether you were right and how fast.</p>
           <p><b>Why spaced repetition?</b> A new fact fades within hours unless you recall it again, and each time you pull it from memory just before it fades, it lasts longer: minutes, then days, then weeks. The app keeps a memory model of every position and brings each one back when it is about to slip, so a short run every day sticks far better than a long one once a week. Notes you miss come back often; notes you know fade out.</p>
           <p><b>It grows with you.</b> You start near the nut on the low strings. New zones of the neck open as you master the ones around them, and runs aim for about 4 answers right in 5: never too easy, never too hard.</p>
+          <p><b>Before the first run</b> you pick your instrument and set up the audio input, so the app hears your guitar clearly. Take a minute over it: it matters more than anything else.</p>
         </div>
         <div id="welcomeChoice">
           <p class="muted small">Your practice data is yours: it lives in a folder you choose, as plain files, and this browser keeps a working copy.</p>
@@ -204,6 +209,7 @@
           <button class="btn small back" data-open="home">← Settings</button>
           <h2>Audio input</h2>
           <div class="panel spage-body">
+          <div id="audioFirstNote" class="banner hidden"><span><b>Very important: set up your audio before you play.</b> Pick your interface (or microphone) and the input your guitar is plugged into, then play a string: the meter must move, and the Tuner tab should show the note you play. If the app cannot hear you clearly, every answer counts wrong.</span><button class="btn small primary" id="audioFirstDone">Start practising</button></div>
           <div class="audio-status">
             <span id="audioLabel" class="muted">No input</span>
             <button id="connectBtn" class="btn small">Connect input</button>
@@ -233,7 +239,7 @@
           <button class="btn small back" data-open="home">← Settings</button>
           <h2>Instrument &amp; tuning</h2>
           <div class="panel spage-body">
-          <div id="firstRunNote" class="banner hidden"><span>Pick your instrument and tuning. No stress: you can change them later, right here.</span><button class="btn small primary" id="firstRunDone">Start practising</button></div>
+          <div id="firstRunNote" class="banner hidden"><span>Pick your instrument and tuning. No stress: you can change them later, right here.</span><button class="btn small primary" id="firstRunDone">Next: set up the audio</button></div>
           <label>Instrument
             <select id="instrumentSelect" data-setting="instrument"></select>
           </label>

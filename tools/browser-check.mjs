@@ -1,6 +1,6 @@
 // Drive the app in headless Edge (or Chrome) and take screenshots, without a browser window.
 //   node tools/browser-check.mjs <steps.mjs> [--origin http://localhost:8137] [--out <dir>] [--port 9333] [--url <page>]
-//                                [--fresh] [--no-seed] [--host <name>] [--secure]
+//                                [--fresh] [--no-seed] [--host <name>] [--secure] [--fake-audio]
 // --url opens that page (a path relative to the origin) instead of the app. --fresh starts from an
 // empty browser profile and --no-seed leaves the app's storage alone (the welcome screen shows).
 // --host <name> makes the browser resolve that name to this machine, so an origin like
@@ -34,6 +34,7 @@ const host = opt('host', '');
 const flags = [];
 if (host) flags.push(`--host-resolver-rules=MAP ${host} 127.0.0.1`);
 if (host && args.includes('--secure')) flags.push(`--unsafely-treat-insecure-origin-as-secure=${origin}`);
+if (args.includes('--fake-audio')) flags.push('--use-fake-device-for-media-stream'); // a beeping test input
 if (!stepsFile || !browserExe()) {
   console.log(!browserExe() ? 'No Edge or Chrome found.' : 'usage: node tools/browser-check.mjs <steps.mjs> [--origin URL] [--out DIR] [--port N]');
   process.exit(1);

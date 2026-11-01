@@ -14,9 +14,11 @@ export default [
   { name: 'm1-phone-welcome', ...phone, js: welcome },
   { name: 'w2-new-profile', full: true, js: `${wait} document.getElementById('newProfileBtn').click(); await wait(200); const i = document.getElementById('profileName'); i.value = 'test'; i.dispatchEvent(new Event('input')); await wait(200);` },
   { name: 'w3-instrument-step', js: `document.getElementById('newProfile').requestSubmit(); ${ready}` },
-  { name: 'w4-first-run-tip', js: `${wait} document.getElementById('firstRunDone').click(); await wait(600);` },
+  { name: 'w4-audio-step', js: `${wait} document.getElementById('firstRunDone').click(); await wait(600);` },
+  { name: 'm2a-phone-audio-step', ...phone, js: `${wait} await wait(300);` },
+  { name: 'w5-first-run-tip', js: `${wait} document.getElementById('audioFirstDone').click(); await wait(600);` },
   { name: 'm2-phone-first-run-tip', ...phone, js: `${wait} await wait(300);` },
-  { name: 'w5-first-run-ready', js: `${wait} document.getElementById('firstRunGo').click(); await wait(800);` },
+  { name: 'w6-first-run-ready', js: `${wait} document.getElementById('firstRunGo').click(); await wait(800);` },
   runGif('run-answer'),
   runGif('m3-phone-run-answer', { width: 844, height: 390, mobile: true }),
 ];

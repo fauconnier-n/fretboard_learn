@@ -63,6 +63,9 @@ h4 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 700; }
   padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--bg);
   position: sticky; top: 0; z-index: 5;
 }
+.top-meter { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px; font: inherit; font-size: 12px; font-weight: 700; color: var(--bad); cursor: pointer; }
+.top-meter .meter { flex-basis: 70px; }
+.top-meter:not(.off) .top-meter-label { display: none; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 900; letter-spacing: -.2px; font-size: 17px; }
 .tabs { display: flex; gap: 4px; }
 .tabs button {

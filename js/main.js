@@ -256,6 +256,7 @@ async function connectAudio() {
 function updateAudioLabel() {
   const a = app.audio;
   $('audioLabel').textContent = a.running ? `${a.label}${a.channels > 1 ? ` · in ${a.channel + 1}` : ''}` : 'No input';
+  $('topMeter').classList.toggle('off', !a.running);
 }
 
 function processFrame() {
@@ -271,6 +272,8 @@ function processFrame() {
   const listening = app.view !== 'stats' && !document.hidden;
   const res = listening && rms >= s.gate ? app.detect(frame, app.audio.sampleRate, app.minF, app.maxF) : null;
   if (app.view === 'settings') updateMeter(rms);
+  $('topMeterFill').style.width = meterPct(rms) + '%';
+  $('topMeterFill').classList.toggle('gated', rms < s.gate);
   if (app.view === 'tuner') app.tuner.onFrame(res, rms, now);
   if (app.strum.feed(now, rms, !!res && res.clarity >= s.clarity, s.gate)) onStrum(now);
   const ev = app.tracker.feed(now, res, rms, s);
@@ -315,7 +318,7 @@ function updateMeter(rms) {
 }
 
 function updateGateMarker() {
-  $('meterGate').style.left = meterPct(app.settings.gate) + '%';
+  $('meterGate').style.left = $('topMeterGate').style.left = meterPct(app.settings.gate) + '%';
 }
 
 async function refreshDevices() {
@@ -1024,9 +1027,16 @@ async function init() {
   // a profile made on the welcome screen picks its instrument and tuning first
   $('firstRunDone').onclick = () => {
     $('firstRunNote').classList.add('hidden');
+    $('audioFirstNote').classList.remove('hidden');
+    openSettings('audio');
+  };
+  $('audioFirstDone').onclick = () => {
+    $('audioFirstNote').classList.add('hidden');
     showView('practice');
     $('firstRunTip').classList.remove('hidden');
   };
+  // the header meter: always there, a click opens the audio setup
+  $('topMeter').onclick = () => { showView('settings'); openSettings('audio'); };
   // then the first run is one click away
   $('firstRunGo').onclick = () => {
     $('firstRunTip').classList.add('hidden');
