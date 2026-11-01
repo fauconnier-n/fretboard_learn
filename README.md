@@ -82,11 +82,11 @@ The app also warns when it is opened at a local address other than <http://local
 ## Development
 
 The app needs no build. Node is only used for dev checks (`npm install` once):
-- `npm test`: tests for the pure logic in `music.js`, `srs.js` and `zones.js` (Node's built-in runner, `tests/`).
+- `npm test`: tests for the logic that runs without a page (notes and tunings, zones, the scheduler and its model check, intervals, pitch and strum detection, the disk layout, stats and progress), with Node's built-in runner (`tests/`).
 - `npm run lint`: ESLint.
 - `npm run typecheck`: type-checks the modules that start with `// @ts-check`.
 - `node tools/browser-check.mjs tools/tour.mjs --out <folder>`: opens the app in headless Edge as profile `test`, walks through the main screens and saves a screenshot of each (the server must be running). `tools/profiles.mjs` (with `--fresh --no-seed`) walks the welcome screen, the picker and the Data page; `tools/hosted.mjs` does the same against `node tools/static.mjs`, a plain static server, with `--host fretboard.test --secure` so the app behaves as on GitHub Pages. `tools/welcome.mjs` walks a beginner's first start. The README's GIFs: `node tools/seed-growth.mjs screenshots/growth-data` (mock data of a learner's first days), `tools/readme.mjs` (`--fresh --no-seed`) shows the mastery map at each and records a run, then `node tools/readme-gifs.mjs <folder>` writes `media/`.
-- The checks also run on GitHub for every pull request (`.github/workflows/pages.yml`).
+- The same checks run on GitHub for pull requests and pushes to `main` and before each release is deployed (`.github/workflows/pages.yml`); nothing runs on `dev`.
 - `npm run perf` (`node tools/perf.mjs [--out file.json] [--compare baseline.json] [--seed k]`): measures the app headless as user `test`: cold and warm start (the `app:*` and `db:*` marks of `js/main.js` and `js/storage.js`, visible in the console with `performance.getEntriesByType('mark')`), a run of answers and what it writes, layouts and paints per second during a run, the Stats tab, the end-of-run backup. `--seed k` multiplies the test user's answer log k times first. `tools/cdp.mjs` holds the headless-browser plumbing shared by both tools.
 
 ## Hosting
