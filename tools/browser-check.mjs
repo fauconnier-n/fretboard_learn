@@ -13,7 +13,7 @@
 // awaiting it). <out>/index.html shows them all. The active user is set to "test" before the
 // app loads, so real data is never touched. The browser profile lives in the temp folder and
 // is kept between runs (the test user's data persists). Console errors are printed at the end.
-// The local server must be running (start.bat). The browser plumbing is in tools/cdp.mjs.
+// The local server must be running (npm start). The browser plumbing is in tools/cdp.mjs.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -36,7 +36,7 @@ if (host) flags.push(`--host-resolver-rules=MAP ${host} 127.0.0.1`);
 if (host && args.includes('--secure')) flags.push(`--unsafely-treat-insecure-origin-as-secure=${origin}`);
 if (args.includes('--fake-audio')) flags.push('--use-fake-device-for-media-stream'); // a beeping test input
 if (!stepsFile || !browserExe()) {
-  console.log(!browserExe() ? 'No Edge or Chrome found.' : 'usage: node tools/browser-check.mjs <steps.mjs> [--origin URL] [--out DIR] [--port N]');
+  console.log(!browserExe() ? 'No Edge or Chrome found (set FT_BROWSER to a browser executable).' : 'usage: node tools/browser-check.mjs <steps.mjs> [--origin URL] [--out DIR] [--port N]');
   process.exit(1);
 }
 const steps = (await import(pathToFileURL(resolve(stepsFile)).href)).default;

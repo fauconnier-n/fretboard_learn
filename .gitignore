@@ -1,7 +1,9 @@
 node_modules/
-# disk copy of practice data (personal), written by serve.ps1
+# disk copy of practice data (personal), written by serve.mjs
 data/
 # agent worktrees
 .claude/worktrees/
 # screenshots taken while testing (linked from replies, never committed)
 screenshots/
+# local binary builds (bun build --compile)
+dist/
