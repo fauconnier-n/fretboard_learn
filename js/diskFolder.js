@@ -85,10 +85,6 @@ export class FolderTransport {
     this.root = root;
   }
 
-  label() {
-    return this.root.name;
-  }
-
   readKv() {
     return readText(this.root, 'kv.json');
   }

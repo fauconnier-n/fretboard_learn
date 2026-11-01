@@ -4,17 +4,8 @@
 // Against a hosted-like origin (serve.ps1 -Port 8140 -NoApi), add --host fretboard.test --secure
 // --origin http://fretboard.test:8140 (and without --secure for a browser that cannot save to a folder).
 // A step that reloads the page ends there (the call dies with the page); the next step waits.
-import { runGif } from './tour.mjs';
+import { answer, dataPage, key, ready, runGif, until, wait, welcome } from './tour.mjs';
 
-const wait = 'const wait = (ms) => new Promise((r) => setTimeout(r, ms));';
-const until = `${wait} const until = async (f) => { for (let i = 0; i < 300 && !f(); i++) await wait(100); };`;
-const ready = `${until} await until(() => window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length); await wait(800);`;
-const welcome = `${until} await until(() => !document.getElementById('welcome').classList.contains('hidden')); await wait(300);`;
-const key = 'const key = (k, shift) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true }));';
-const answer = `const PC = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-const nat = [0, 2, 4, 5, 7, 9, 11];
-const play = (n) => { const pc = PC[n]; const i = nat.indexOf(pc); if (i >= 0) key('CDEFGAB'[i]); else key('CDEFGAB'[nat.indexOf(pc - 1)], true); };`;
-const dataPage = `document.querySelector('.tabs button[data-tab=settings]').click(); await wait(300); document.querySelector('[data-open=data]').click(); await wait(800);`;
 const phone = { width: 844, height: 390, mobile: true, full: true };
 
 export default [

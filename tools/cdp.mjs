@@ -18,6 +18,16 @@ export async function launch({ port = 9333, profileName = `fretboard-browser-che
   if (fresh) rmSync(profile, { recursive: true, force: true });
   const proc = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--mute-audio',
     '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--hide-scrollbars', ...flags, 'about:blank'], { stdio: 'ignore' });
+  process.on('exit', () => proc.kill());
+  try {
+    return await connect(proc, port, profile);
+  } catch (e) {
+    proc.kill();
+    throw e;
+  }
+}
+
+async function connect(proc, port, profile) {
   let target;
   for (let i = 0; i < 50 && !target; i++) {
     await sleep(200);
@@ -25,12 +35,13 @@ export async function launch({ port = 9333, profileName = `fretboard-browser-che
       target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page');
     } catch {}
   }
-  if (!target) {
-    proc.kill();
-    throw new Error('browser did not start');
-  }
+  if (!target) throw new Error('browser did not start');
   const ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((r) => (ws.onopen = r));
+  await new Promise((res, rej) => {
+    ws.onopen = res;
+    ws.onerror = () => rej(new Error('could not connect to the browser'));
+    setTimeout(() => rej(new Error('no connection to the browser in 10 s')), 10000).unref();
+  });
   let id = 0;
   const pending = new Map();
   const listeners = new Map(); // CDP event name -> handlers
@@ -87,7 +98,10 @@ export async function launch({ port = 9333, profileName = `fretboard-browser-che
 // `seed: false` nothing is set and the app starts on its welcome screen.
 export async function openApp(page, { origin = 'http://localhost:8137', path = '', timeoutMs = 20000, seed = true } = {}) {
   await page.send('Page.navigate', { url: origin + '/manifest.webmanifest' });
-  await sleep(1200);
+  for (let i = 0; i < 100; i++) {
+    await sleep(100);
+    if (await page.evaluate(`location.href.endsWith('/manifest.webmanifest') && document.readyState === 'complete'`).catch(() => false)) break;
+  }
   if (seed) {
     await page.evaluate(`localStorage.setItem('ft:activeUser', JSON.stringify('test')); localStorage.setItem('ft:profiles', JSON.stringify({ test: { store: 'server', lastUsed: Date.now() } })); sessionStorage.setItem('ft:picked', '1')`);
   }

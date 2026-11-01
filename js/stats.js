@@ -19,19 +19,17 @@ export function mapCell(scheduler, snap, s, f, flats) {
     // the spelling played most stands for the position
     const keys = spellingsOf(pcOf(midi)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
     const most = keys.sort((a, b) => scheduler.model.cards[b].seen - scheduler.model.cards[a].seen)[0] ?? key;
-    return { bars: scheduler.noteRings(most), label, tip: positionTip(scheduler, s, f, label) };
+    return { bars: scheduler.noteRings(most), label, tip: positionTip(scheduler, f, label, keys, most) };
   }
   if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true, tip: `${label} · fret ${f}\nNot played yet` };
   return null;
 }
 
-// The popup of a position over all runs on this instrument and tuning.
-export function positionTip(scheduler, s, f, label) {
-  const key = s + ':' + f;
-  const keys = spellingsOf(pcOf(scheduler.strings[s] + f)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
+// The popup of a position over all runs on this instrument and tuning; keys: its played
+// spellings, most: the one played most. Built only when the popup opens: a map has many positions.
+function positionTip(scheduler, f, label, keys, most) {
   if (!keys.length) return `${label} · fret ${f}\nNot played yet`;
-  const most = keys.sort((a, b) => scheduler.model.cards[b].seen - scheduler.model.cards[a].seen)[0];
-  return { html: detailHtml(scheduler, most, { note: `${label} · fret ${f}`, title: 'all runs', keys }) };
+  return { get html() { return detailHtml(scheduler, most, { note: `${label} · fret ${f}`, title: 'all runs', keys }); } };
 }
 
 // Time line of the popup: 0.3 s to 10 s on a log scale, as a % from the left
@@ -120,7 +118,7 @@ export function renderStats({ els, scheduler, strings, frets, flats, heat, attem
       const keys = spellingsOf(pc).map((sp) => (sp === 'n' ? cell.key : cell.key + ':' + sp));
       // fading: memory of a spelling you have played dropped below 85%
       const fade = keys.some((k) => model.cards[k] && retrievability(model.cards[k], now) < 0.85);
-      // mastered: right and fast on two separate days, and still strong
+      // mastered: right and fast in two separate sessions, and still strong
       const done = scheduler.positionMastered(cell, now);
       if (done) mastered++;
       if (fade) fading++;
@@ -130,7 +128,7 @@ export function renderStats({ els, scheduler, strings, frets, flats, heat, attem
 
   const cards = [
     ['Positions practised', `${seen} / ${total}`],
-    ['Mastered (2+ days)', mastered],
+    ['Mastered (2+ sessions)', mastered],
     ['Fading, due for review', fading],
     ['Unlocked area', pct(reachable / total)],
     ['Target success rate', pct(model.meta.target)],

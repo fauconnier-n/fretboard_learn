@@ -4,7 +4,8 @@
 // feedback, a time-out that shows the answer, Esc stops. Each graded prompt is logged
 // with task 'interval'; each run gets a runs row.
 
-import { ITEM, ITEMS, accuracy, addResult, buildStats, isReference, isRight, itemState, makePrompt, medianMs, pickItem, unlockedKeys } from './intervals.js';
+import { ITEM, ITEMS, accuracy, addResult, buildStats, isReference, isRight, itemState, makePrompt, pickItem, unlockedKeys } from './intervals.js';
+import { median } from './logQueries.js';
 import { midiLabel, pcOf } from './music.js';
 import { GuitarMenu } from './guitarMenu.js';
 import { burst } from './burst.js';
@@ -327,7 +328,7 @@ export class IntervalsView {
       const state = itemState(this.stats, it.key, unlocked);
       const info = state === 'locked' ? 'locked'
         : !st ? 'new'
-          : `${Math.round(accuracy(st) * 100)}% · ${st.n} answer${st.n === 1 ? '' : 's'} · ${fmt(medianMs(st))}${state === 'known' ? ' · known' : ''}`;
+          : `${Math.round(accuracy(st) * 100)}% · ${st.n} answer${st.n === 1 ? '' : 's'} · ${fmt(median(st.results.filter((r) => r.correct).map((r) => r.ms)))}${state === 'known' ? ' · known' : ''}`;
       return `<li class="iv-${state}" data-item="${it.key}"><span>${it.label}</span><span class="muted">${info}</span></li>`;
     }).join('');
   }

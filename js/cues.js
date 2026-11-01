@@ -8,8 +8,6 @@
 import { LANDMARKS } from './srs.js';
 import { isAccidental, spellName } from './music.js';
 
-export const CUE_MODES = ['off', 'fade', 'all', 'naturals', 'landmarks'];
-
 // "fade": a position gets its label while the chance of recalling it is below FULL_BELOW;
 // between FULL_BELOW and PART_BELOW only naturals and landmark frets keep theirs.
 const FULL_BELOW = 0.55;

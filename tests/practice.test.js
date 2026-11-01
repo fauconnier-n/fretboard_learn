@@ -70,11 +70,12 @@ test('knowledge map: note names, bars and a popup with how often it was asked', 
   const desc = { type: 'string', sk: '0', cs: 0, cf: 5.5, span: 12 };
   sch.record(desc, cell, 'n', true, 900, Date.now());
   const once = mapCell(sch, sch.snapshot(), 0, 5, false);
+  const onceHtml = once.tip.html; // built when read (the popup opens): taken before more answers
   for (let i = 0; i < 20; i++) sch.record(desc, cell, 'n', true, 900, Date.now());
   const often = mapCell(sch, sch.snapshot(), 0, 5, false);
   assert.equal(once.label, 'A');
   assert.ok(['known', 'fast', 'auto'].every((k) => often.bars[k] >= 0 && often.bars[k] <= 1));
-  assert.ok(once.tip.html.includes('Asked 1×') && often.tip.html.includes('Asked 21×'));
+  assert.ok(onceHtml.includes('Asked 1×') && often.tip.html.includes('Asked 21×'));
   assert.equal((often.tip.html.match(/class="ok"/g) || []).length, 15, 'the last 15 answers, all right');
   const unplayed = mapCell(sch, sch.snapshot(), 0, 1, true);
   assert.deepEqual([unplayed.label, unplayed.faint], ['F', true]);

@@ -1,17 +1,13 @@
 // The README's pictures, from a new profile kept in the browser only (the test data stays out):
-//   node tools/seed-growth.mjs screenshots/growth-data
+//   node tools/seed-growth.mjs screenshots/growth-data      (this folder: the steps fetch it from there)
 //   node tools/browser-check.mjs tools/readme.mjs --fresh --no-seed --out screenshots/readme
 //   node tools/readme-gifs.mjs screenshots/readme     (writes the GIFs into media/)
 // The mastery map is shown after each mock-data snapshot of tools/seed-growth.mjs (a learner's
 // first days), then a run is played live on top of the last one.
+import { answer, key, ready, until, wait } from './tour.mjs';
+
 const SNAPS = [1, 2, 3, 5, 7, 10, 14, 19, 24];
-const wait = 'const wait = (ms) => new Promise((r) => setTimeout(r, ms));';
-const until = `${wait} const until = async (f) => { for (let i = 0; i < 300 && !f(); i++) await wait(100); };`;
-const ready = `${until} await until(() => window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length); await wait(800);`;
-const key = 'const key = (k, shift) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true }));';
-const answer = `const PC = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-const nat = [0, 2, 4, 5, 7, 9, 11];
-const play = (n) => { const pc = PC[n]; const i = nat.indexOf(pc); if (i >= 0) key('CDEFGAB'[i]); else key('CDEFGAB'[nat.indexOf(pc - 1)], true); };`;
+// a top tab, with time for the Stats page to draw
 const tab = (t) => `document.querySelector('.tabs button[data-tab=${t}]').click(); await wait(1200);`;
 // a snapshot: import it (the page reloads), then the mastery map, framed for one GIF frame, its day in the title
 const snap = (day, k) => [

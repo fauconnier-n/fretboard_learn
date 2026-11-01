@@ -1,6 +1,6 @@
 // Offline support: app files network first (so edits show up straight away), cache as fallback.
 // Bump CACHE when the list of files changes.
-const CACHE = 'fretboard-trainer-v34';
+const CACHE = 'fretboard-trainer-v35';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
   'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',
@@ -25,10 +25,15 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // the disk copy API must always reach the server, never a cached answer
   if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/')) return;
-  const fetchAndCache = () => fetch(req).then((res) => {
-    const copy = res.clone();
-    caches.open(CACHE).then((c) => c.put(req, copy));
+  // no-cache: revalidate with the server, so a release shows up without waiting out the HTTP max-age
+  const fetchAndCache = () => fetch(req, { cache: 'no-cache' }).then((res) => {
+    if (res.ok) {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(req, copy));
+    }
     return res;
   });
-  e.respondWith(fetchAndCache().catch(() => caches.match(req).then((r) => r || caches.match('index.html'))));
+  // offline: the app shell only for page loads; a missing script should fail, not get HTML
+  const fallback = () => caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('index.html') : Response.error()));
+  e.respondWith(fetchAndCache().catch(fallback));
 });

@@ -15,6 +15,7 @@
 
 import { pcOf, SHARPS, isAccidental, spellingsOf, spellName } from './music.js';
 import { describe } from './zones.js';
+import { SESSION_GAP } from './logQueries.js';
 
 const SLOW_MS = 10000;
 const PRIOR_MS = 3000;
@@ -45,12 +46,11 @@ export const itemKey = (cellKey, sp) => (sp === 'n' ? cellKey : cellKey + ':' + 
 const twin = (sp) => (sp === 's' ? 'f' : 's');
 const isReverse = (key) => key.endsWith(':r');
 
-const MODEL_VERSION = 5;
+const MODEL_VERSION = 6;
 const DAY = 86400000;
 const CTX_MAX = 24;
 const UNLOCK_FRACTION = 0.5;
 const STARTER_DIFF = 0.2;
-const SESSION_GAP = 30 * 60000; // answers this far apart belong to different sessions
 // open strings, the octave and the dot-marker frets are easier to find
 const markerBonus = (f) => (f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0);
 const TWIN_LINK = 0.85; // an unseen spelling starts from what is known of its twin, slightly discounted
@@ -86,6 +86,7 @@ export function newModel() {
     version: MODEL_VERSION, cards: {}, notes: {}, ctx: {}, conf: {},
     meta: {
       target: 0.8, speedPush: 1, runsDone: 0, recent: [], last: null,
+      session: 0, lastAnswer: 0, // sessions counted while answers are replayed (SESSION_GAP apart)
       time: newTime(), recentLog: [], floor: DEFAULT_FLOOR_MS, fx: { time: {}, acc: {}, g: { v: logit(0.7), n: 0 } },
       best: {}, // most right first answers per "zone label|run length", for the near-miss line
     },
@@ -96,7 +97,6 @@ export function newModel() {
 const W = [0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796,
   1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542];
 export const DEFAULT_DECAY = W[20];
-export const GRADE_NAMES = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
 
 // FSRS-6 forgetting curve: R = (1 + F·t/S)^-decay, t and S in days, F such that R(S) = 90%.
 // The decay can be fitted to your own answers (Settings → Data → Check the model).
@@ -133,8 +133,6 @@ function nextS(c, G, R, elapsedDays) {
   const bonus = G === 2 ? W[15] : G === 4 ? W[16] : 1;
   return Math.min(36500, c.S * (1 + Math.exp(W[8]) * (11 - c.D) * c.S ** -W[9] * (Math.exp(W[10] * (1 - R)) - 1) * bonus));
 }
-
-const dayKey = (t) => new Date(t).toDateString();
 
 // probability of a right answer: memory only
 export const cardP = (c, now) => retrievability(c, now) * (0.15 + 0.85 * c.acc);
@@ -328,11 +326,11 @@ export class Scheduler {
     return z < -0.5 ? 4 : z <= 1 ? 3 : 2;
   }
 
-  // Right and fast (Good or Easy) on at least two different days: one long session
+  // Right and fast (Good or Easy) in at least two different sessions: one long session
   // can't make a position look mastered.
   isMastered(key, now = Date.now()) {
     const c = this.model.cards[key];
-    return !!c && (c.days?.length || 0) >= 2 && this.itemMastery(key, now) >= 0.7;
+    return !!c && (c.sessions?.length || 0) >= 2 && this.itemMastery(key, now) >= 0.7;
   }
 
   positionMastered(cell, now = Date.now()) {
@@ -423,10 +421,6 @@ export class Scheduler {
       byPc[pc].push(m);
     }
     return { now, items, mastery, byPc };
-  }
-
-  masteryOf(key, now = Date.now()) {
-    return this.itemMastery(key, now);
   }
 
   hasCard(cell) {
@@ -561,10 +555,6 @@ export class Scheduler {
     return avg(z.cells.map((c) => this.pCell(c, desc, snap, now)));
   }
 
-  zoneMastery(z, snap) {
-    return avg(z.cells.map((c) => snap.mastery.get(c.key) ?? 0));
-  }
-
   // ---------- choosing a zone ----------
 
   // Due reviews come first when they pile up: then only zones without unseen positions are
@@ -636,13 +626,13 @@ export class Scheduler {
     return zone.cells.map((cell) => ({
       cell,
       p: task === 'name' ? this.pItem(cell, 'r', desc, snap, now) : this.pCell(cell, desc, snap, now),
-      seen: this.hasCard(cell),
+      seen: task === 'name' ? !!this.model.cards[itemKey(cell.key, 'r')] : this.hasCard(cell),
       lapses: (task === 'name' ? ['r'] : spellingsOf(cell.pc)).reduce((t, sp) => t + (this.model.cards[itemKey(cell.key, sp)]?.lapses || 0), 0),
     }));
   }
 
   // How far an item is towards known (memory), fast (your usual time or better) and
-  // automatic (mastered: right and fast on two days), each 0–1, for the bars on the board.
+  // automatic (mastered: right and fast in two sessions), each 0–1, for the bars on the board.
   // Fast and automatic come only from right answers: none yet, both empty.
   noteRings(key, now = Date.now()) {
     const c = this.model.cards[key];
@@ -652,8 +642,8 @@ export class Scheduler {
       known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6),
       // your time from right answers only (the prior would fill the bar before any)
       fast: c.time?.n ? Math.min(1, Math.exp(this.recentMu()) / this.expectedMs(key, now)) : 0,
-      // empty until right and fast on two days; then towards mastered, full only once it is
-      auto: (c.days?.length || 0) < 2 ? 0 : this.isMastered(key, now) ? 1 : Math.min(0.95, this.itemMastery(key, now) / 0.7),
+      // empty until right and fast in two sessions; then towards mastered, full only once it is
+      auto: (c.sessions?.length || 0) < 2 ? 0 : this.isMastered(key, now) ? 1 : Math.min(0.95, this.itemMastery(key, now) / 0.7),
     };
   }
 
@@ -765,10 +755,13 @@ export class Scheduler {
     let G = useSpeed ? this.timeGrade(key, correct, ms, now) : correct ? 3 : 1;
     if (correct) G = Math.min(G, opts.maxG ?? 4);
     this.updateFactors(key, correct, correct && useSpeed ? ms : null);
+    // a new session: SESSION_GAP or more since the previous answer, whatever position it was on
+    if (now - meta.lastAnswer >= SESSION_GAP) meta.session++;
+    meta.lastAnswer = now;
     let c = cards[key];
-    // a new session on this item (30 min or more since its last answer): remember its bars as
-    // they stand now, the mark "before your last session" in its popup
-    if (c && now - c.last >= SESSION_GAP) c.mark = this.noteRings(key, now);
+    // its first answer in this session: remember its bars as they stand now, the mark "before
+    // your last session" in its popup
+    if (c && c.inSession !== meta.session) c.mark = this.noteRings(key, now);
     if (!c) {
       c = cards[key] = {
         S: initS(G), D: initD(G),
@@ -777,7 +770,7 @@ export class Scheduler {
         correct: ok,
         acc: correct ? 0.75 : 0.25,
         time: newTime(),
-        days: [],
+        sessions: [],
       };
     } else {
       const elapsed = Math.max(0, now - c.last) / DAY;
@@ -792,10 +785,10 @@ export class Scheduler {
       c.last = now;
     }
     if (G >= 3) {
-      const d = dayKey(now);
-      c.days ||= [];
-      if (!c.days.includes(d)) c.days = [...c.days, d].slice(-5);
+      c.sessions ||= [];
+      if (!c.sessions.includes(meta.session)) c.sessions = [...c.sessions, meta.session].slice(-5);
     }
+    c.inSession = meta.session;
     // the last 15 answers, [right 0/1, ms], for the position's popup
     c.hist = [...(c.hist || []), [ok, ms]].slice(-15);
 
@@ -840,8 +833,12 @@ export class Scheduler {
       meta.target = clamp(meta.target, TARGET_MIN, TARGET_MAX);
     }
     meta.speedPush = clamp((meta.speedPush || 1) + (acc >= 0.85 ? 0.1 : acc < 0.7 ? -0.1 : 0), 0.5, 1.5);
-    meta.runsDone++;
     meta.last = desc;
+  }
+
+  // Every run with at least one answer counts once, as rebuild counts them (by runId).
+  countRun() {
+    this.model.meta.runsDone++;
   }
 
   // Replay the attempt log into fresh cards. Of `meta` it keeps target, speedPush, recent, last,
@@ -850,7 +847,7 @@ export class Scheduler {
   rebuild(attempts) {
     const fresh = newModel();
     for (const k of ['cards', 'notes', 'ctx', 'conf']) this.model[k] = fresh[k];
-    for (const k of ['time', 'recentLog', 'floor', 'fx']) this.model.meta[k] = fresh.meta[k];
+    for (const k of ['time', 'recentLog', 'floor', 'fx', 'session', 'lastAnswer']) this.model.meta[k] = fresh.meta[k];
     this.model.version = MODEL_VERSION;
     delete this.model.stale;
     this.needsRebuild = false;

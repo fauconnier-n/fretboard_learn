@@ -61,7 +61,10 @@ test('rank-based AUC equals the pairwise one, ties included', () => {
 
 test('zones and their descriptions are reused for the same strings, frets and shapes', () => {
   assert.equal(generateZones(strings, 15, 'both'), zones);
-  assert.notEqual(generateZones(strings, 12, 'both'), zones); // one entry is kept: the live board
+  generateZones(strings, 12, 'both'); // one entry is kept (the live board): this one replaces it
+  const again = generateZones(strings, 15, 'both');
+  assert.notEqual(again, zones);
+  assert.deepEqual(again.map((z) => z.id), zones.map((z) => z.id));
   const z = zones[0];
   assert.equal(describe(z), describe(z));
   assert.deepEqual(describe(z), { type: z.type, sk: z.strings.join(','), cs: +z.cs.toFixed(3), cf: +z.cf.toFixed(3), span: z.span, fretMin: z.fretMin, fretMax: z.fretMax });

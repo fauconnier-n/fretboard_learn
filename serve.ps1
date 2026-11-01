@@ -69,6 +69,9 @@ function Read-Body($req) {
 }
 
 function Invoke-Api($req, [string]$path) {
+  # another site's page may send requests here (it can't read the answers, but it could write)
+  $origin = $req.Headers['Origin']
+  if ($origin -and $origin -ne "http://localhost:$Port") { return Text 403 'Forbidden origin' }
   if ($path -eq '/api/disk') {
     return Reply 200 'application/json' $utf8.GetBytes('{"dir":' + (ConvertTo-Json $dataDir) + '}')
   }
@@ -114,10 +117,12 @@ function Invoke-Api($req, [string]$path) {
       return Text 200 'saved'
     }
     'DELETE' {
-      # a reset or an import: the run files and the flat file are kept aside, the newest set only
+      # a reset or an import: the run files and the flat file are kept aside, the newest 3 sets
       if ($isJson -or $file) { return Text 405 'Delete a kind as a whole' }
-      Get-ChildItem -LiteralPath $dir -Filter "$kind.bak-*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
-      $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+      foreach ($f in "$kind.bak-*", "$kind.jsonl.bak-*") {
+        Get-ChildItem -LiteralPath $dir -Filter $f -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force
+      }
+      $stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
       if (Test-Path -LiteralPath "$dir\$kind") { Move-Item -LiteralPath "$dir\$kind" "$dir\$kind.bak-$stamp" }
       if (Test-Path -LiteralPath "$dir\$kind.jsonl") { Move-Item -LiteralPath "$dir\$kind.jsonl" "$dir\$kind.jsonl.bak-$stamp" -Force }
       return Text 200 'cleared'
