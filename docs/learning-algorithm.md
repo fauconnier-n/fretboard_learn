@@ -248,6 +248,10 @@ Items open in groups: the two octave-shape directions together, then one item at
 
 Each prompt picks an open item at random, weighted towards new items (fewer than 5 answers, weight 4) and weak ones (weight 1 + 4 × (1 − accuracy)), never the same item twice in a row when there is a choice, and never the same root twice in a row. Per-item stats (answers, recent accuracy, median time of right answers) are rebuilt from the answer log when the tab opens and updated after each answer.
 
+## Several profiles, one log
+
+`attempts` and `runs` are append-only logs, and every model is rebuilt from them (the stored model is only its version and `meta`). That is what makes **Bring / sync from another profile** (Settings → Data) a plain union: the other profile's rows are added once (answers matched by time and position, runs by id), tagged with `origin`, and the model is replayed over the whole log; removing an origin deletes its rows and replays again. Settings and models are never merged. Any change to the tables must keep this true: new columns are nullable, rows are built by column name from `TABLES` (checked at start), and nothing the model needs lives outside the log.
+
 ## Changing the model
 
 The model is rebuilt from the answer log when its version changes (`MODEL_VERSION` in `js/srs.js`), so changes apply to all past answers. Settings → Data → "Rebuild model from log" does the same on demand. A rebuild keeps the target rate, the fitted decay and the run history, and replays confusions from the logged wrong notes. Those kept fields (`meta`: target, speedPush, recent, last, best, decay) are the only part of a model that is stored (`persistedModel` in `main.js`), written at the end of a run; the cards, note stats, contexts and confusions are replayed from the answer log at every start, which happens anyway (`stale`).
