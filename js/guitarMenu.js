@@ -29,9 +29,9 @@ export class GuitarMenu {
   }
 
   /**
-   * Options fill the rows from the top; the bottom row is Back (when there is somewhere to go
-   * back to), or More… when there are more options than strings. Two muted strums take the
-   * primary option (green): the menu's hint says which.
+   * Options fill the rows from the top; the bottom row is Back when there is somewhere to go
+   * back to, and More… sits just above it when there are more options than rows. Two muted
+   * strums take the primary option (green): the menu's hint says which.
    * @param {string} title
    * @param {{ label: string, act: () => void, active?: boolean, primary?: boolean }[]} options from the top row
    * @param {{ back?: () => void, backLabel?: string, hint?: string }} [o] back: the bottom row's action;
@@ -43,19 +43,23 @@ export class GuitarMenu {
     // drawn like the boards: string indices from the top row down
     const order = strings.map((_, s) => s);
     if (this.getLowAtBottom()) order.reverse();
-    const all = o.back ? [...options, { label: o.backLabel || 'Back', act: o.back }] : options;
-    let shown = all;
-    if (all.length > n) {
-      // more options than strings (a 4-string bass): pages, the bottom row turning the page
-      const per = n - 1;
-      const pages = Math.ceil(all.length / per);
-      const turn = { label: page + 1 < pages ? 'More…' : 'Back to the first choices', act: () => this.show(title, options, o, (page + 1) % pages) };
-      shown = [...all.slice(page * per, page * per + per), turn];
+    const back = o.back ? { label: o.backLabel || 'Back to the main menu', act: o.back } : null;
+    // the rows for options: all but the bottom one when it holds Back
+    const room = back ? n - 1 : n;
+    let pageOpts = options;
+    let turn = null;
+    if (options.length > room) {
+      // more options than rows (a 4-string bass, a long list): pages, More… on the last free row
+      const per = room - 1;
+      const pages = Math.ceil(options.length / per);
+      pageOpts = options.slice(page * per, page * per + per);
+      turn = { label: page + 1 < pages ? 'More…' : 'Back to the first choices', act: () => this.show(title, options, o, (page + 1) % pages) };
     }
-    // the last one (Back or More…) on the bottom row, the others from the top
-    const rowsOf = o.back || all.length > n ? [...shown.slice(0, -1).map((_, i) => order[i]), order[n - 1]] : shown.map((_, i) => order[i]);
+    // options from the top row down; More… just above Back; Back always on the bottom row
     this.options = [];
-    shown.forEach((opt, i) => { this.options[rowsOf[i]] = opt; });
+    pageOpts.forEach((opt, i) => { this.options[order[i]] = opt; });
+    if (turn) this.options[order[room - 1]] = turn;
+    if (back) this.options[order[n - 1]] = back;
     this.primaryOption = options.find((p) => p.primary) || null;
     const hint = this.primaryOption ? this.primaryOption.label.toLowerCase() : o.hint;
     const rows = order.map((s) => {

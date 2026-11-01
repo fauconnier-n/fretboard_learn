@@ -631,10 +631,13 @@ export class Quiz {
       return this.menu.show('Stopped', [
         { label: 'Resume the run', primary: true, act: () => this.resume() },
         { label: 'Restart the run', act: () => this.restart() },
-      ], { back: toMenu, backLabel: 'Back (cancel the run)' });
+      ], { back: toMenu, backLabel: 'Back to the main menu (cancel the run)' });
     }
     if (this.state === 'done') {
-      return this.menu.show('Next', [{ label: 'New run', primary: true, act: () => this.prepare() }], { back: toMenu, backLabel: 'Back to the menu' });
+      return this.menu.show('Next', [
+        { label: 'New run', primary: true, act: () => this.prepare() },
+        { label: 'Restart the run', act: () => this.restart() },
+      ], { back: toMenu });
     }
     if (sub === 'type') {
       return this.menu.show('Run type', RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),

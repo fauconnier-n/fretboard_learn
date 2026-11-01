@@ -45,13 +45,11 @@ export class IntervalsView {
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
-  // Between runs: the next step on the open strings (low E starts a run).
+  // Between runs: the next step on the open strings (the top row starts a run, the bottom one
+  // goes back to the Note position main menu).
   showMenu() {
     if (this.running) return this.menu.hide();
-    this.menu.show('Next', [
-      { label: 'Start a run', primary: true, act: () => this.primary() },
-      { label: 'Note position practice', act: () => this.goPractice?.() },
-    ]);
+    this.menu.show('Next', [{ label: 'Start a run', primary: true, act: () => this.primary() }], { back: () => this.goPractice?.() });
   }
 
   // A muted strum: during a run three in a row stop it; between runs two start a run (the
