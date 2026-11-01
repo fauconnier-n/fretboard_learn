@@ -8,12 +8,11 @@
 // awaiting it). <out>/index.html shows them all. The active user is set to "test" before the
 // app loads, so real data is never touched. The browser profile lives in the temp folder and
 // is kept between runs (the test user's data persists). Console errors are printed at the end.
-// The local server must be running (start.bat).
-import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+// The local server must be running (start.bat). The browser plumbing is in tools/cdp.mjs.
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { browserExe, launch, openApp, sleep } from './cdp.mjs';
 import { encodeGif } from './gif.mjs';
 
 const args = process.argv.slice(2);
@@ -26,68 +25,18 @@ const origin = opt('origin', 'http://localhost:8137');
 const out = resolve(opt('out', 'screenshots/latest'));
 const port = +opt('port', 9333);
 const page = opt('url', '');
-const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'];
-const exe = BROWSERS.find(existsSync);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-if (!stepsFile || !exe) {
-  console.log(!exe ? 'No Edge or Chrome found.' : 'usage: node tools/browser-check.mjs <steps.mjs> [--origin URL] [--out DIR] [--port N]');
+if (!stepsFile || !browserExe()) {
+  console.log(!browserExe() ? 'No Edge or Chrome found.' : 'usage: node tools/browser-check.mjs <steps.mjs> [--origin URL] [--out DIR] [--port N]');
   process.exit(1);
 }
 const steps = (await import(pathToFileURL(resolve(stepsFile)).href)).default;
-const profile = join(tmpdir(), `fretboard-browser-check-${port}`);
-const proc = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--mute-audio',
-  '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
 
-let ws;
-let id = 0;
-const pending = new Map();
-const errors = [];
-const send = (method, params = {}) => new Promise((res, rej) => {
-  const i = ++id;
-  pending.set(i, { res, rej });
-  ws.send(JSON.stringify({ id: i, method, params }));
-});
-const evaluate = async (expression) => {
-  const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, timeout: 240000 });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
-  return r.result.value;
-};
+let browser;
 try {
-  let target;
-  for (let i = 0; i < 50 && !target; i++) {
-    await sleep(200);
-    try {
-      target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page');
-    } catch {}
-  }
-  if (!target) throw new Error('browser did not start');
-  ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((r) => (ws.onopen = r));
-  ws.onmessage = (m) => {
-    const msg = JSON.parse(m.data);
-    if (msg.id && pending.has(msg.id)) {
-      const p = pending.get(msg.id);
-      pending.delete(msg.id);
-      msg.error ? p.rej(new Error(msg.error.message)) : p.res(msg.result);
-    } else if (msg.method === 'Runtime.exceptionThrown') {
-      errors.push('EXCEPTION ' + (msg.params.exceptionDetails.exception?.description || msg.params.exceptionDetails.text));
-    } else if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') {
-      errors.push('console.error ' + msg.params.args.map((a) => a.value ?? a.description).join(' '));
-    }
-  };
-  await send('Runtime.enable');
-  await send('Page.enable');
-  const size = (w, h, mobile = w < 600) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile });
+  browser = await launch({ port });
+  const { send, evaluate, size, errors } = browser;
   await size(1200, 900);
-  await send('Page.navigate', { url: origin + '/manifest.webmanifest' });
-  await sleep(1200);
-  await evaluate(`localStorage.setItem('ft:activeUser', JSON.stringify('test')); localStorage.setItem('ft:users', JSON.stringify(['user','test']))`);
-  await send('Page.navigate', { url: origin + '/' + page });
-  // wait until the database is open and the board is drawn
-  for (let i = 0; i < 80 && !page; i++) {
-    if (await evaluate(`!!(window.ft && !document.getElementById('loading') && document.querySelectorAll('#board .fb-num').length)`)) break;
-    await sleep(250);
-  }
+  await openApp(browser, { origin, path: page });
   await sleep(1500);
   mkdirSync(out, { recursive: true });
   const files = [];
@@ -101,7 +50,17 @@ try {
     }
     if (st.gif) {
       // an animation: frames of one element for gif.ms milliseconds, as fast as they come
-      const r = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(st.gif.clip || 'body')}); el.scrollIntoView({ block: 'center' }); const b = el.getBoundingClientRect(); return { x: b.x + scrollX, y: b.y + scrollY, width: b.width, height: b.height }; })()`);
+      // the element can still be laid out (a view switch or a zoom under way): wait until it has a size
+      let r;
+      for (let i = 0; i < 20; i++) {
+        r = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(st.gif.clip || 'body')}); if (!el) return null; el.scrollIntoView({ block: 'center' }); const b = el.getBoundingClientRect(); return { x: b.x + scrollX, y: b.y + scrollY, width: b.width, height: b.height }; })()`);
+        if (r?.width && r?.height) break;
+        await sleep(100);
+      }
+      if (!r?.width) {
+        console.log(st.name + ': GIF SKIPPED, ' + (st.gif.clip || 'body') + ' has no size');
+        continue;
+      }
       const pngs = [];
       const times = [];
       const start = Date.now();
@@ -135,6 +94,5 @@ ${files.map((n) => `<figure><figcaption>${n}</figcaption><img src="${n}" alt="${
   console.log('HARNESS ERROR', e.message);
   process.exitCode = 1;
 } finally {
-  try { ws?.close(); } catch {}
-  proc.kill();
+  browser?.close();
 }

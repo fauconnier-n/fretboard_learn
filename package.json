@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test tests/",
     "lint": "eslint .",
-    "typecheck": "tsc -p jsconfig.json"
+    "typecheck": "tsc -p jsconfig.json",
+    "perf": "node tools/perf.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
