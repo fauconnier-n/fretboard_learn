@@ -613,40 +613,38 @@ export class Quiz {
     this.missed();
   }
 
-  // What comes next, answered on the open strings (or by clicking a row, or keys 1–6).
-  // Low E carries the usual next step, in green; two muted strums go back.
+  // What comes next, answered on the open strings (or by clicking a row, or keys 1–6). The
+  // green option on top is what two muted strums do: New run, Start the run, Resume the run.
+  // The bottom row goes back. Run settings live only in the main menu, reached by going back.
   showMenu(sub = null) {
     const s = this.s;
     const a = this.actions;
     if (this.running) return this.menu.hide();
+    this.menuSub = sub;
+    const toMenu = () => this.reset();
     if (this.state === 'preview') {
-      this.menuSub = null;
       return this.menu.show('Zone', [{ label: 'Start the run', primary: true, act: () => this.begin() }, ...this.offers.map((o) => ({
         label: zoneLabel(o.zone, this.getStrings(), s.flats), active: o.zone === this.run.zone, act: () => this.prepare(o),
-      })), { label: 'Back to the menu', act: () => this.reset() }], 'back to the menu');
+      }))], { back: toMenu });
     }
-    this.menuSub = sub;
-    // a run stopped by hand: resume it (low string), restart it, or drop it (high string)
     if (this.state === 'done' && this.run?.stoppedAt) {
-      const n = this.getStrings().length;
-      const opts = Array(n);
-      opts[0] = { label: 'Resume the run', primary: true, act: () => this.resume() };
-      opts[1] = { label: 'Restart the run', act: () => this.restart() };
-      opts[n - 1] = { label: 'Cancel the run, back to the menu', act: () => this.reset() };
-      return this.menu.show('Stopped', opts, 'resume the run');
+      return this.menu.show('Stopped', [
+        { label: 'Resume the run', primary: true, act: () => this.resume() },
+        { label: 'Restart the run', act: () => this.restart() },
+      ], { back: toMenu, backLabel: 'Back (cancel the run)' });
+    }
+    if (this.state === 'done') {
+      return this.menu.show('Next', [{ label: 'New run', primary: true, act: () => this.prepare() }], { back: toMenu, backLabel: 'Back to the menu' });
     }
     if (sub === 'type') {
-      return this.menu.show('Run type', [
-        ...RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),
-        { label: 'Back', act: () => this.showMenu() },
-      ], 'back');
+      return this.menu.show('Run type', RUN_TYPES.map(([t, label]) => ({ label, active: (s.runTask || 'play') === t, act: () => { a.setTask(t); this.showMenu(); } })),
+        { back: () => this.showMenu(), hint: 'new run' });
     }
     if (sub === 'length') {
       return this.menu.show('Length', [
         ...[10, 20, 30, 50].map((n) => ({ label: `${n} prompts`, active: s.runMode === 'count' && s.runCount === n, act: () => { a.setLength('count', n); this.showMenu(); } })),
         ...[60, 120, 180].map((n) => ({ label: `${n} s sprint`, active: s.runMode === 'sprint' && s.sprintSec === n, act: () => { a.setLength('sprint', n); this.showMenu(); } })),
-        { label: 'Back', act: () => this.showMenu() },
-      ], 'back');
+      ], { back: () => this.showMenu(), hint: 'new run' });
     }
     const type = (RUN_TYPES.find(([t]) => t === s.runTask) || RUN_TYPES[0])[1];
     this.menu.show('Next', [
@@ -659,18 +657,16 @@ export class Quiz {
   }
 
   // A muted strum, n the strums in a row so far. During a run three stop it (logged as
-  // 'strum_stop'), and a single one skips the wait after a miss. Outside a run two go back to the
-  // previous menu (a single one does nothing, so a stray strum cannot start anything).
+  // 'strum_stop'), and a single one skips the wait after a miss. Outside a run two take the
+  // menu's green option (New run, Start the run, Resume the run; a new run from a submenu);
+  // a single one does nothing, so a stray strum cannot start anything.
   onStrum(n) {
     if (this.running) {
       if (n >= 3) return this.end('strum_stop');
       if (n === 1 && this.state === 'await' && this.cur?.graded) this.advance(0);
       return;
     }
-    if (n !== 2) return;
-    if (this.state === 'done' && this.run?.stoppedAt) return this.resume();
-    if (this.state === 'preview') return this.reset();
-    if (this.menuSub) this.showMenu();
+    if (n === 2 && !this.menu.primary()) this.prepare();
   }
 
   scheduleRetest(cur) {

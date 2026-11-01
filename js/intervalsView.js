@@ -54,10 +54,12 @@ export class IntervalsView {
     ]);
   }
 
-  // A muted strum: during a run three in a row stop it; between runs this menu has nothing to go
-  // back to, so strums do nothing.
+  // A muted strum: during a run three in a row stop it; between runs two start a run (the
+  // menu's green option).
   onStrum(n) {
-    if (this.running && n >= 3) this.end('strum_stop');
+    if (this.running) {
+      if (n >= 3) this.end('strum_stop');
+    } else if (n === 2) this.menu.primary();
   }
 
   get s() {
