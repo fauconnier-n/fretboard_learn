@@ -5,21 +5,20 @@
 //   attempts(...)    the answer log, one row per graded answer
 // Every write is also kept in an IndexedDB safety copy (mirror.js); on open, the DuckDB
 // file is checked against it and rebuilt if it lost data.
-// Both of those live in the browser, so every write is also sent to the disk copy kept
-// by the local server (disk.js); on open, whatever is missing on either side is copied
-// across, so a wiped browser refills itself from the disk.
-// The user list and active user are small per-browser preferences in localStorage.
-// Swap this module to add sync or accounts later.
+// Both of those live in the browser, so every write also goes to the disk copy (disk.js: a
+// folder the user picked, or the local server's data folder); on open, whatever is missing on
+// either side is copied across, so a wiped browser refills itself from the disk.
+// Profiles (name, where the copy lives, last use) are a small per-browser list in localStorage.
 
 import * as duckdb from '../vendor/duckdb/duckdb-wasm.mjs';
 import * as mirror from './mirror.js';
 import { missingColumnStatements } from './schema.js';
 import * as disk from './disk.js';
+import { attemptKey, sanitizeUser } from './disklayout.js';
 
-const USERS_KEY = 'ft:users';
+const PROFILES_KEY = 'ft:profiles';
 const ACTIVE_KEY = 'ft:activeUser';
 const LAST_SETTINGS_KEY = 'ft:lastSettings';
-const DEFAULT_USERS = ['user', 'test'];
 const FLUSH_MS = 1500;
 const OPEN_RETRIES = 6;
 const LOCK_WAIT_MS = 5000;
@@ -40,31 +39,55 @@ const ls = {
   },
 };
 
-// ---------- users ----------
+// ---------- profiles ----------
+// {name: {store: 'folder' | 'server' | 'browser', lastUsed, instrument, tuning}}: where each
+// profile's disk copy lives and what the picker shows. Each profile has its own database.
 
-export const sanitizeUser = (name) => String(name || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+export { sanitizeUser };
 
+export const profiles = () => ls.get(PROFILES_KEY, null) || {};
+
+// most recently used first
 export function listUsers() {
-  const users = ls.get(USERS_KEY, []);
-  return [...new Set([...DEFAULT_USERS, ...users.map(sanitizeUser).filter(Boolean)])];
+  return Object.entries(profiles()).sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0)).map(([n]) => n);
 }
 
 export function activeUser() {
-  const u = sanitizeUser(ls.get(ACTIVE_KEY, 'user'));
-  return u || 'user';
+  const u = sanitizeUser(ls.get(ACTIVE_KEY, ''));
+  return u && profiles()[u] ? u : listUsers()[0] || '';
 }
 
-export function setActiveUser(name) {
+export function setActiveUser(name, store) {
   const u = sanitizeUser(name);
-  if (!u) throw new Error('Invalid user name');
-  ls.set(USERS_KEY, [...new Set([...listUsers(), u])]);
+  if (!u) throw new Error('Invalid profile name');
+  const all = profiles();
+  all[u] = { store: 'browser', ...all[u], ...(store ? { store } : {}), lastUsed: Date.now() };
+  ls.set(PROFILES_KEY, all);
   ls.set(ACTIVE_KEY, u);
   return u;
 }
 
-// settings of the last user seen, so a new user starts with the same audio setup
+// Earlier versions kept a plain user list, with "user" always present: those become profiles
+// (user only if it has answers), kept by the server on localhost, in the browser elsewhere.
+export async function migrateProfiles() {
+  if (ls.get(PROFILES_KEY, null)) return;
+  const store = disk.status().local ? 'server' : 'browser';
+  const all = {};
+  for (const n of ls.get('ft:users', []).map(sanitizeUser).filter(Boolean)) all[n] = { store };
+  if (!all.user && (await mirror.countAttempts('user').catch(() => 0)) > 0) all.user = { store };
+  ls.set(PROFILES_KEY, all);
+}
+
+// settings of the last profile seen, so a new one starts with the same audio setup; the
+// instrument and tuning also go on the profile, for the picker
 export const lastSettings = () => ls.get(LAST_SETTINGS_KEY, {});
-export const rememberSettings = (s) => ls.set(LAST_SETTINGS_KEY, s);
+export function rememberSettings(s) {
+  ls.set(LAST_SETTINGS_KEY, s);
+  const all = profiles();
+  if (!all[info.user]) return;
+  Object.assign(all[info.user], { instrument: s.instrument, tuning: s.tuning });
+  ls.set(PROFILES_KEY, all);
+}
 
 // ---------- database ----------
 
@@ -143,6 +166,7 @@ export const TABLES = {
       ['special', 'VARCHAR', "A prompt chosen for a role, not by the usual weights: 'boss' (second to last in a prompts run: the note of the zone the model thinks hardest), 'finale' (last: the best-known note, so the run ends on a success) or 'golden' (a rare prompt on a note you have been missing). Empty for ordinary prompts."],
       ['shown_name', 'VARCHAR', "In 'truefalse' prompts: the name shown next to the marked position (answer_name is then 'yes' or 'no'). Right half the time; otherwise a name you mixed it up with, or a semitone or tone away."],
       ['bpm', 'DOUBLE', 'Tempo of the metronome in beat mode when this prompt was shown, in beats per minute. Empty outside beat mode.'],
+      ['origin', 'VARCHAR', 'Profile this row was brought from (Settings → Data → Bring data from another profile). Empty for rows of this profile.'],
     ],
   },
   runs: {
@@ -181,6 +205,7 @@ export const TABLES = {
       ['focus', 'VARCHAR', "'confusions' for a mix-ups run (only notes you have mixed up and the notes you played instead), empty otherwise."],
       ['bpm_start', 'DOUBLE', 'Beat mode: tempo at the start of the run, in beats per minute. Empty outside beat mode.'],
       ['bpm_end', 'DOUBLE', 'Beat mode: tempo at the end of the run (it rises after right answers and falls after misses).'],
+      ['origin', 'VARCHAR', 'Profile this run was brought from (see attempts.origin). Empty for runs of this profile.'],
     ],
   },
 };
@@ -293,6 +318,7 @@ export async function open() {
     }
     performance.mark('db:reconcile');
     await closeOpenRuns();
+    await disk.start(info.user, profiles()[info.user]?.store);
     await syncDisk();
     performance.mark('db:sync');
     pushDisk(false); // starts the retries if the server was not reachable
@@ -306,7 +332,7 @@ export async function open() {
   return { ...info };
 }
 
-export const status = () => ({ ...info, disk: { ...info.disk, waiting: pending.attempts.length + pending.runs.length + (pending.kv ? 1 : 0) } });
+export const status = () => ({ ...info, disk: { ...info.disk, ...disk.status(), waiting: pending.attempts.length + pending.runs.length + (pending.kv ? 1 : 0) } });
 
 function markDirty() {
   dirty = true;
@@ -334,7 +360,6 @@ export async function flush() {
 
 // ---------- disk copy ----------
 
-const attemptKey = (a) => `${a.t}|${a.s}|${a.f}`;
 const runText = (r) => JSON.stringify(runValues(toRun(r)));
 
 // Copy whatever is missing across, both ways. Answers are matched by time and position,
@@ -347,7 +372,7 @@ async function syncDisk() {
   try {
     info.disk.dir = await disk.probe();
     if (!info.disk.dir) return;
-    const remote = await disk.load(user);
+    const remote = await disk.load();
     pending.attempts = [];
     pending.runs = [];
 
@@ -372,15 +397,7 @@ async function syncDisk() {
 
     const localKv = await duckKvText();
     const kvToLocal = Object.entries(remote.kv).filter(([k, v]) => typeof v === 'string' && !(k in localKv));
-    if (toLocal.length) {
-      // the models were built from fewer answers: `stale` makes the app replay the log
-      for (const [k, v] of [...Object.entries(localKv), ...kvToLocal]) {
-        if (!k.startsWith('model:')) continue;
-        try {
-          kvToLocal.push([k, JSON.stringify({ ...JSON.parse(v), stale: true })]);
-        } catch {}
-      }
-    }
+    if (toLocal.length) kvToLocal.push(...staleEntries({ ...localKv, ...Object.fromEntries(kvToLocal) }));
 
     if (toLocal.length || runsToLocal.length || kvToLocal.length) {
       await insertAttempts(toLocal);
@@ -395,10 +412,10 @@ async function syncDisk() {
       info.disk.restored = { attempts: toLocal.length, runs: runsToLocal.length, kv: kvToLocal.length };
     }
 
-    if (toDisk.length) await disk.append(user, 'attempts.jsonl', toDisk);
-    if (runsToDisk.length) await disk.append(user, 'runs.jsonl', runsToDisk);
+    if (toDisk.length) await disk.append('attempts', toDisk);
+    if (runsToDisk.length) await disk.append('runs', runsToDisk);
     const merged = { ...localKv, ...Object.fromEntries(kvToLocal) };
-    if (!sameKv(merged, remote.kv)) await disk.putKv(user, merged);
+    if (!sameKv(merged, remote.kv)) await disk.putKv(merged);
     info.disk.error = '';
     info.disk.savedAt = Date.now();
   } catch (e) {
@@ -409,29 +426,51 @@ async function syncDisk() {
   }
 }
 
+// the models were built from fewer answers: `stale` makes the app replay the log
+function staleEntries(kvText) {
+  const out = [];
+  for (const [k, v] of Object.entries(kvText)) {
+    if (!k.startsWith('model:')) continue;
+    try {
+      out.push([k, JSON.stringify({ ...JSON.parse(v), stale: true })]);
+    } catch {}
+  }
+  return out;
+}
+
+async function staleModels() {
+  const entries = staleEntries(await duckKvText());
+  for (const [k, v] of entries) await stmts.putKv.query(k, v);
+  await mirrored(async () => {
+    for (const [k, v] of entries) await mirror.putKv(info.user, k, v);
+  });
+  queueDisk('kv');
+}
+
+// Without a copy to write to (a static host, no folder chosen, or a folder waiting for
+// permission) nothing is queued: a later sync catches up by comparing keys.
 function queueDisk(kind, item) {
-  if (!info.persistent) return;
+  if (!info.persistent || !disk.configured()) return;
   if (kind === 'kv') pending.kv = true;
   else pending[kind].push(item);
 }
 
-// Send waiting writes to the disk copy. Runs with every flush. When the server was not
-// reachable, a full sync is tried again every 30 s instead.
+// Send waiting writes to the disk copy. Runs with every flush. When the copy was not
+// reachable (the server down), a full sync is tried again every 30 s instead.
 async function pushDisk(keepalive) {
-  if (!info.persistent || diskBusy) return;
+  if (!info.persistent || diskBusy || !disk.configured()) return;
   diskBusy = true;
-  const user = info.user;
   try {
     if (!info.disk.dir) {
       if (Date.now() - diskTriedAt > DISK_RETRY_MS) await syncDisk();
       return;
     }
-    for (const [kind, file] of [['attempts', 'attempts.jsonl'], ['runs', 'runs.jsonl']]) {
+    for (const kind of ['attempts', 'runs']) {
       const batch = pending[kind];
       if (!batch.length) continue;
       pending[kind] = [];
       try {
-        await disk.append(user, file, batch, keepalive);
+        await disk.append(kind, batch, keepalive);
       } catch (e) {
         pending[kind] = batch.concat(pending[kind]);
         throw e;
@@ -440,7 +479,7 @@ async function pushDisk(keepalive) {
     if (pending.kv) {
       pending.kv = false;
       try {
-        await disk.putKv(user, await duckKvText(), keepalive);
+        await disk.putKv(await duckKvText(), keepalive);
       } catch (e) {
         pending.kv = true;
         throw e;
@@ -454,25 +493,121 @@ async function pushDisk(keepalive) {
     diskBusy = false;
     // try again later while something is still waiting (the server may be down)
     clearTimeout(diskRetryTimer);
-    if (pending.attempts.length || pending.runs.length || pending.kv || !info.disk.dir) diskRetryTimer = setTimeout(() => pushDisk(false), DISK_RETRY_MS);
+    if (disk.configured() && (pending.attempts.length || pending.runs.length || pending.kv || !info.disk.dir)) diskRetryTimer = setTimeout(() => pushDisk(false), DISK_RETRY_MS);
   }
 }
 
 // Replace the disk copy with what DuckDB holds now (after a reset or an import).
 async function replaceDisk() {
   if (!info.persistent || !info.disk.dir) return;
-  const user = info.user;
   try {
     pending.attempts = [];
     pending.runs = [];
     pending.kv = false;
-    await disk.replaceLines(user, 'attempts.jsonl', await allAttempts());
-    await disk.replaceLines(user, 'runs.jsonl', await allRuns());
-    await disk.putKv(user, await duckKvText());
+    await disk.replaceLines('attempts', await allAttempts());
+    await disk.replaceLines('runs', await allRuns());
+    await disk.putKv(await duckKvText());
     info.disk.error = '';
   } catch (e) {
     info.disk.error = e.message || String(e);
   }
+}
+
+// ---------- the profile's folder (Settings → Data; each needs a click) ----------
+
+// after a change of transport: forget what was waiting, merge both ways, then keep writing
+async function resync() {
+  info.disk.dir = null;
+  info.disk.error = '';
+  await syncDisk();
+  pushDisk(false);
+}
+
+// a new fretboard-<name> folder in a location the user picks; also moves the copy there
+export async function createFolder() {
+  await disk.createFolder(info.user);
+  await resync();
+}
+
+// an existing profile folder becomes this profile's copy; when the folder holds another
+// profile's data, `accept(name)` is asked first
+export async function connectFolder(accept) {
+  const { handle, name } = await disk.openFolder();
+  if (name !== info.user && !(await accept(name))) return false;
+  await disk.useFolder(info.user, handle);
+  await resync();
+  return true;
+}
+
+// before open, on the welcome screen: a new profile's folder, or a folder found (its name)
+export const diskStatus = disk.status;
+export const createProfileFolder = (name) => disk.createFolder(name);
+export async function openProfileFolder() {
+  const { handle, name } = await disk.openFolder();
+  await disk.useFolder(name, handle);
+  return name;
+}
+
+export async function reconnectFolder() {
+  if (!(await disk.reconnect())) return false;
+  await resync();
+  return true;
+}
+
+export async function disconnectFolder() {
+  await disk.forget(info.user, profiles()[info.user]?.store);
+  await resync();
+}
+
+// ---------- data of other profiles ----------
+// Answers and runs are logs: bringing another profile's in is a union of rows, tagged with
+// `origin`, that the models are then rebuilt from. Settings and models are not brought.
+// Anything that changes the tables must keep this a union (docs/learning-algorithm.md).
+
+// another profile's answers and runs: its safety copy in this browser, else its folder
+export async function profileData(name) {
+  const copy = await mirror.load(name);
+  return copy.attempts.length ? copy : (await disk.loadStored(name)) || copy;
+}
+export const folderData = disk.loadPicked;
+
+export async function bringIn(data, origin) {
+  const have = new Set(rows(await conn.query('SELECT t, string_idx AS s, fret AS f FROM attempts')).map(attemptKey));
+  const attempts = [];
+  for (const a of data.attempts) {
+    if (have.has(attemptKey(a))) continue;
+    have.add(attemptKey(a));
+    attempts.push(toAttemptCopy({ ...a, origin }));
+  }
+  const known = await duckRuns();
+  const runs = Object.values(data.runs).filter((r) => r?.run_id && !known[r.run_id]).map((r) => toRun({ ...r, origin }));
+  await insertAttempts(attempts);
+  for (const r of runs) await stmts.putRun.query(...runValues(r));
+  await mirrored(async () => {
+    await mirror.addAttempts(info.user, attempts);
+    for (const r of runs) await mirror.putRun(info.user, r);
+  });
+  for (const a of attempts) queueDisk('attempts', a);
+  for (const r of runs) queueDisk('runs', r);
+  if (attempts.length) await staleModels();
+  markDirty();
+  return { attempts: attempts.length, runs: runs.length };
+}
+
+// {origin: answers} of what was brought in
+export async function origins() {
+  const out = {};
+  for (const r of rows(await conn.query('SELECT origin, count(*)::INT AS n FROM attempts WHERE origin IS NOT NULL GROUP BY origin ORDER BY origin'))) out[r.origin] = r.n;
+  return out;
+}
+
+export async function removeOrigin(origin) {
+  await conn.query(`DELETE FROM attempts WHERE origin = ${literal(origin)}`);
+  await conn.query(`DELETE FROM runs WHERE origin = ${literal(origin)}`);
+  await mirrored(async () => mirror.replace(info.user, await duckKvText(), await allAttempts(), await duckRuns()));
+  await replaceDisk();
+  await staleModels();
+  markDirty();
 }
 
 const rows = (table) => table.toArray().map((r) => r.toJSON());
@@ -518,13 +653,16 @@ const attemptRow = (a) => {
     pred_p: a.predP, pred_ms: a.predMs, pred_r: a.predR, pred_s: a.predS, pred_d: a.predD,
     interval: a.interval, task: a.task, answer_name: a.answerName, error_type: a.errorType, probe: a.probe,
     cue_mode: a.cueMode, cue_target: a.cueTarget, cue_n: a.cueN, cue_labels: a.cueLabels, cue_dist: a.cueDist, cue_nearest: a.cueNearest,
-    special: a.special, shown_name: a.shownName, bpm: a.bpm,
+    special: a.special, shown_name: a.shownName, bpm: a.bpm, origin: a.origin,
   };
 };
 // every column must have a field: a missing one would be saved empty
 {
   const missing = ATTEMPT_COLS.filter((c) => !(c in attemptRow({})));
   if (missing.length) console.error('attemptRow is missing columns', missing);
+  // the log tables stay a union of rows (bringIn): every column nullable, rows built by name
+  const required = Object.values(TABLES).flatMap(({ cols }) => cols.filter(([, type]) => /NOT NULL/i.test(type)).map(([n]) => n));
+  if (required.length) console.error('log table columns must be nullable', required);
 }
 const attemptValues = (a) => {
   const row = attemptRow(a);
@@ -665,7 +803,7 @@ function toAttempt(r) {
     task: r.task, answerName: r.answer_name, errorType: r.error_type, probe: r.probe,
     cueMode: r.cue_mode, cueTarget: r.cue_target, cueN: r.cue_n, cueLabels: r.cue_labels, cueDist: r.cue_dist, cueNearest: r.cue_nearest,
     special: r.special, shownName: r.shown_name, bpm: r.bpm,
-    instrument: r.instrument, strings: r.strings,
+    instrument: r.instrument, strings: r.strings, origin: r.origin,
   };
 }
 

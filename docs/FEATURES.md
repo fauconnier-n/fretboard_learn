@@ -3,11 +3,12 @@
 Everything the app does today, grouped by area. Keep this file up to date: add a line whenever a feature is added, changed or removed, and a dated entry under [Changes](#changes). Why each learning feature works the way it does: [learning-algorithm.md](learning-algorithm.md). Ideas not built yet: [the report](../reports/Fretboard%20learning%20science%20ideas.md).
 
 ## Running the app
-- Static PWA with no build step, ES modules only. It installs from Chrome or Edge and works offline (service worker: the app's files network first with the cache as fallback; the vendored DuckDB files cache first, since they are version pinned and 34 MB).
+- Static PWA with no build step, ES modules only. It installs from Chrome or Edge and works offline (service worker: the app's files network first with the cache as fallback; the vendored DuckDB files cache first, since they are version pinned and 34 MB; it clears only its own caches, since every site on `user.github.io` shares the origin).
+- Hosted at <https://fauconnier-n.github.io/fretboard_learn/> by GitHub Pages: a push to `main` runs `npm test`, `npm run lint` and `npm run typecheck` and publishes the app's files; pull requests run the same checks (`.github/workflows/pages.yml`).
 - `start.bat` starts `serve.ps1`, a small PowerShell server on <http://localhost:8137>, and opens the browser. If the server is already running, it just opens the browser.
 - The server keeps running through browser-cancelled requests and restarts its listener after any error.
 - At any other local address (another port), a banner links back to the usual one, since each address has its own, separate storage.
-- Local only, with no login.
+- No login. **Profiles** instead: the first start asks who is practising and where the data lives (a folder you choose, the `data` folder next to the app, or just this browser; or *Open my folder…* for a profile folder from another computer), then shows the instrument and tuning page ("no stress, you can change them later"). With two or more profiles the app asks which one on every start; the header switch changes mid-session, *+ New profile…* adds one.
 
 ## Audio input and pitch
 - A single audio-input control, in Settings: device, input channel (for interfaces with several inputs), gain, noise gate, pitch clarity, latency offset, A4 reference.
@@ -98,8 +99,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - **Reliance on note names:** results by what the board showed, and a fitted odds multiplier for the asked note's own name and for nearby names.
 
 ## Data and storage
-- Users: `user` for real progress, `test` for trying things (shown with a TEST DATA badge). More can be added.
-- DuckDB-WASM (core v2.0.0-dev) with one file per user in the browser's private file system (OPFS). The worker is patched so a checkpoint really reaches the disk. Data is flushed after writes, at the end of each run, and when the page is hidden or closed.
+- Profiles, each with its own database; `test` is for trying things (shown with a TEST DATA badge).
+- DuckDB-WASM (core v2.0.0-dev) with one file per profile in the browser's private file system (OPFS). The worker is patched so a checkpoint really reaches the disk. Data is flushed after writes, at the end of each run, and when the page is hidden or closed.
 - Tables: `kv` (settings, and per instrument the model's version and `meta`: target, run history, best runs, fitted decay; the cards themselves are replayed from the log at every start), `attempts` (one row per prompt), `runs` (one row per run).
 - `attempts` logs:
   - time to answer, time to the right note, each wrong note and when it was played;
@@ -108,12 +109,14 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
   - error type, check-up, re-test and queue flags;
   - the names on the board and their distances.
 - **IndexedDB safety copy** of every write. On start, the DuckDB file is repaired from it.
-- **Disk copy** through the local server in `data\<user>\` (`attempts.jsonl`, `runs.jsonl`, `kv.json`).
-  - On start, data missing on either side is copied across, so a wiped browser refills itself.
-  - Saves wait and retry while the server is down.
+- **Disk copy** in the profile's folder: one the user picked (written by the browser, File System Access API, Chrome and Edge on a computer; the browser may ask for permission again on a later visit: *Reconnect*) or `data\<name>\` next to the app through the local server. Same layout in both: `profile.json`, `kv.json`, and one small append-only file per run under `attempts/` and `runs/`; the flat files of earlier versions are still read.
+  - On start, data missing on either side is copied across, so a wiped browser refills itself; a profile folder opened on another computer brings everything along.
+  - Saves wait and retry while the server is down; without any copy (a hosted site, no folder chosen) nothing is queued and a later sync catches up by comparing keys.
+  - Settings → Data: create or move to a new `fretboard-<name>` folder, use an existing one, disconnect.
+- **Bring / sync from another profile** (Settings → Data): another profile's answers and runs are added to this one, tagged with `origin` (a column of both log tables), only what is new on a second pass; each origin can be removed again. Settings and models are not copied; the model is rebuilt from the log. The log tables stay a union of rows: every column nullable, rows built by column name (checked at start).
 - Automatic backups after each run (newest 10 plus the largest), restore from Settings, JSON export and import, reset. The list of backups is read from their summaries; the full copies are opened only to restore one.
 - Settings → Database tables shows the newest rows of each table, with a description of every column.
-- Storage persistence is requested. A header badge shows saved / saved in browser only / NOT SAVED.
+- Storage persistence is requested. A header badge shows saved to disk / saved to folder / folder: reconnect / saved in browser only / NOT SAVED.
 
 ## Docs
 - [README.md](../README.md): running, storage, how it works.
@@ -123,6 +126,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — Hosted on GitHub Pages, with the checks run by GitHub on every pull request. Profiles: a welcome screen on the first start (name, where the data lives, instrument step), a picker when there are several, *+ New profile…* in the header. The disk copy can live in a folder the user picks (File System Access API), with one small file per run (`attempts/`, `runs/`) in both the folder and the server's `data` folder; Settings → Data creates, moves, connects or disconnects the folder. *Bring / sync* adds another profile's answers and runs, tagged with the new `origin` column and removable again. The service worker clears only its own caches.
 
 - **2026-11-01** — Lighter run end and Stats map: backups keep a summary next to each full copy, so listing them (every run end, every visit to Settings) no longer deserialises up to 11 full copies of the log, and the end-of-run backup is made just after the summary shows; on the mastery map all clouds share one blur filter (one pass per repaint instead of one per cloud) and clouds of the same colour and width share a gradient.
 - **2026-11-01** — Quicker New run and Stats: the mix-ups lookup is indexed once per pick instead of walking every logged mix-up for every cell of every zone; the prior of a position and its octave shapes are computed once per pick; zones and their descriptions are reused while strings, frets and shapes stay the same, and changing the A4 reference no longer rebuilds the board; the model check's AUC is rank-based (a 50k-answer log took seconds) and the decay fit yields between its seven replays; the Stats note list groups octaves in one pass and runs its first queries together. Nothing changes in what is asked or how answers count.

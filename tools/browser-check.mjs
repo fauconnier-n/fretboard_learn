@@ -1,6 +1,11 @@
 // Drive the app in headless Edge (or Chrome) and take screenshots, without a browser window.
 //   node tools/browser-check.mjs <steps.mjs> [--origin http://localhost:8137] [--out <dir>] [--port 9333] [--url <page>]
-// --url opens that page (a path relative to the origin) instead of the app.
+//                                [--fresh] [--no-seed] [--host <name>] [--secure]
+// --url opens that page (a path relative to the origin) instead of the app. --fresh starts from an
+// empty browser profile and --no-seed leaves the app's storage alone (the welcome screen shows).
+// --host <name> makes the browser resolve that name to this machine, so an origin like
+// http://fretboard.test:8140 stands in for a hosted site; with --secure that origin also counts as
+// secure (what https gives), so the folder feature is on.
 // <steps.mjs> default-exports [{ name, js, shot = true, width = 1200, height = 900, full, mobile, gif }]: each
 // `js` is the body of an async function run in the page (use `return ...` to print a result);
 // then, if shot, a PNG <out>/<name>.png is saved; with gif: { clip: selector, ms, scale } an
@@ -25,6 +30,10 @@ const origin = opt('origin', 'http://localhost:8137');
 const out = resolve(opt('out', 'screenshots/latest'));
 const port = +opt('port', 9333);
 const page = opt('url', '');
+const host = opt('host', '');
+const flags = [];
+if (host) flags.push(`--host-resolver-rules=MAP ${host} 127.0.0.1`);
+if (host && args.includes('--secure')) flags.push(`--unsafely-treat-insecure-origin-as-secure=${origin}`);
 if (!stepsFile || !browserExe()) {
   console.log(!browserExe() ? 'No Edge or Chrome found.' : 'usage: node tools/browser-check.mjs <steps.mjs> [--origin URL] [--out DIR] [--port N]');
   process.exit(1);
@@ -33,10 +42,10 @@ const steps = (await import(pathToFileURL(resolve(stepsFile)).href)).default;
 
 let browser;
 try {
-  browser = await launch({ port });
+  browser = await launch({ port, fresh: args.includes('--fresh'), flags });
   const { send, evaluate, size, errors } = browser;
   await size(1200, 900);
-  await openApp(browser, { origin, path: page });
+  await openApp(browser, { origin, path: page, seed: !args.includes('--no-seed') });
   await sleep(1500);
   mkdirSync(out, { recursive: true });
   const files = [];

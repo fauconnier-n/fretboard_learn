@@ -35,6 +35,32 @@
 
   <main>
     <div id="loading" class="loading">Loading database…</div>
+    <!-- first start, or several profiles: who is practising, and where their data lives -->
+    <section id="welcome" class="welcome hidden">
+      <div class="panel spage-body">
+        <h2 id="welcomeTitle">Welcome</h2>
+        <div id="welcomeChoice">
+          <p class="muted small">Your practice data is yours: it lives in a folder you choose, as plain files, and this browser keeps a working copy.</p>
+          <ul class="backup-list" id="profileList"></ul>
+          <div class="btn-row">
+            <button class="btn primary" id="newProfileBtn">New profile</button>
+            <button class="btn" id="openFolderBtn">Open my folder…</button>
+          </div>
+        </div>
+        <form id="newProfile" class="hidden">
+          <label>Your name <input id="profileName" maxlength="32" autocomplete="off" placeholder="letters, digits, - and _"></label>
+          <p class="small">Where to keep your data <span class="muted" id="profileFolder"></span></p>
+          <label class="check" id="storeFolder"><input type="radio" name="store" value="folder"> A folder I choose <span class="muted small">— tip: one inside OneDrive, Dropbox or Google Drive follows you to another computer</span></label>
+          <label class="check" id="storeServer"><input type="radio" name="store" value="server"> The <code>data</code> folder next to the app</label>
+          <label class="check"><input type="radio" name="store" value="browser"> Just this browser <span class="muted small" id="browserOnlyNote">— no copy anywhere else; export a JSON backup now and then</span></label>
+          <div class="btn-row">
+            <button class="btn primary" type="submit">Create</button>
+            <button class="btn" type="button" id="cancelProfileBtn">Back</button>
+          </div>
+          <p class="small" id="welcomeError"></p>
+        </form>
+      </div>
+    </section>
     <div id="restoreBanner" class="banner hidden">
       <span></span>
       <button class="btn small primary" data-restore="">Restore backup</button>
@@ -186,6 +212,7 @@
           <button class="btn small back" data-open="home">← Settings</button>
           <h2>Instrument &amp; tuning</h2>
           <div class="panel spage-body">
+          <div id="firstRunNote" class="banner hidden"><span>Pick your instrument and tuning. No stress: you can change them later, right here.</span><button class="btn small primary" id="firstRunDone">Start practising</button></div>
           <label>Instrument
             <select id="instrumentSelect" data-setting="instrument"></select>
           </label>
@@ -263,8 +290,17 @@
           <button class="btn small back" data-open="home">← Settings</button>
           <h2>Data &amp; backups</h2>
           <div class="panel spage-body">
-          <p class="muted small">Everything is kept in this browser, in a DuckDB database per user, and copied to files on this computer by the local server (the <code>data</code> folder next to the app). If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it to another device.</p>
+          <p class="muted small">Everything is kept in this browser, in a DuckDB database per profile, and copied as plain files to the profile's folder: one you picked, or the <code>data</code> folder next to the app when it runs from <code>start.bat</code>. If the browser loses its data, the app copies it back from those files on the next start. Export a JSON backup to move it by hand.</p>
           <p class="small" id="dbInfo"></p>
+          <h4 class="backups-head">Data folder <span class="btn-row">
+            <button class="btn small primary hidden" id="folderReconnectBtn">Reconnect</button>
+            <button class="btn small hidden" id="folderCreateBtn">Move to a new folder…</button>
+            <button class="btn small hidden" id="folderChooseBtn">Use an existing folder…</button>
+            <button class="btn small hidden" id="folderForgetBtn">Disconnect</button></span></h4>
+          <p class="small" id="folderInfo"></p>
+          <h4 class="backups-head">Bring data from another profile <span class="btn-row"><select id="bringFrom" aria-label="Profile to bring data from"></select> <button class="btn small" id="bringBtn">Bring / sync</button></span></h4>
+          <p class="muted small">Adds that profile's answers and runs to this one (settings and models are not copied; the model is rebuilt from the whole log). Doing it again only adds what is new. Anything brought in can be removed again below.</p>
+          <ul class="backup-list" id="originList"></ul>
           <div class="btn-row">
             <button class="btn" id="exportBtn">Export JSON</button>
             <label class="btn file">Import JSON<input type="file" id="importFile" accept="application/json,.json" hidden></label>
