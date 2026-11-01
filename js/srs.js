@@ -178,6 +178,7 @@ export class Scheduler {
     this.frets = frets;
     this.keys = keys;
     this.diffCache = new Map();
+    this.shapeCache = new Map(); // shapeNeighbours per position
     this.migrate();
     setDecay(model.meta.decay || DEFAULT_DECAY);
   }
@@ -426,8 +427,12 @@ export class Scheduler {
   // Same note on other strings close by: the octave and unison shapes a guitarist uses
   // to move between strings. The string tuned like this one (low E for high e) counts most.
   shapeNeighbours(s, f) {
+    const key = s + ':' + f;
+    const cached = this.shapeCache.get(key);
+    if (cached) return cached;
     const pc = pcOf(this.strings[s] + f);
     const out = [];
+    this.shapeCache.set(key, out);
     for (let t = 0; t < this.strings.length; t++) {
       if (t === s) continue;
       for (let g = Math.max(0, f - 4); g <= Math.min(this.frets, f + 4); g++) {
@@ -442,6 +447,15 @@ export class Scheduler {
   // Expected success on a never-played position: built-in difficulty, the shared factors,
   // nearby cells, the same note through octave shapes, and the same note anywhere.
   prior(s, f, snap) {
+    const key = s + ':' + f;
+    const cached = snap.priors?.get(key);
+    if (cached !== undefined) return cached;
+    const p = this.priorOf(s, f, snap);
+    (snap.priors ||= new Map()).set(key, p);
+    return p;
+  }
+
+  priorOf(s, f, snap) {
     let base = 0.9 - 0.9 * this.cellDifficulty(s, f);
     if (this.model.meta.fx.g.n >= 20) base = 0.5 * base + 0.5 * this.factorP(s + ':' + f);
     let nsum = 0;
@@ -556,7 +570,8 @@ export class Scheduler {
     let review = due.size >= BACKLOG_GATE;
 
     let pool = zones.filter((z) => this.isUnlocked(z, snap));
-    const mixed = focus === 'confusions' ? pool.filter((z) => this.confusionCells(z).size >= 2) : [];
+    const cidx = focus === 'confusions' ? this.confusionIndex() : null;
+    const mixed = cidx ? pool.filter((z) => this.confusionCells(z, cidx).size >= 2) : [];
     if (mixed.length) {
       pool = mixed;
       review = false;
@@ -569,7 +584,7 @@ export class Scheduler {
     const scored = pool.map((z) => {
       const P = this.zonePredicted(z, snap, now);
       let lg = focus
-        ? 0.5 * this.confusionCells(z).size - 0.5 * ((P - meta.target) / 0.12) ** 2
+        ? 0.5 * this.confusionCells(z, cidx).size - 0.5 * ((P - meta.target) / 0.12) ** 2
         : review
           ? 0.6 * dueIn(z) - 0.5 * ((P - meta.target) / 0.12) ** 2
           : -0.5 * ((P - meta.target) / 0.06) ** 2 - 1.5 * this.zoneDifficulty(z) + 0.15 * dueIn(z);
@@ -591,10 +606,10 @@ export class Scheduler {
 
   // Cells of a zone involved in a mix-up: notes you played wrong there, and the notes you
   // played instead of them (or instead of which they were played).
-  confusionCells(zone) {
+  confusionCells(zone, idx = this.confusionIndex()) {
     const out = new Set();
     for (const c of zone.cells) {
-      const others = this.confusedWith(c);
+      const others = this.confusedWith(c, idx);
       if (!others.size) continue;
       out.add(c.key);
       for (const pc of others) if (zone.byPc[pc]) out.add(zone.byPc[pc].key);
@@ -687,14 +702,30 @@ export class Scheduler {
   // ---------- confusions ----------
 
   // Pitch classes you have played instead of this cell's note, or played this note instead of.
-  confusedWith(cell) {
-    const out = new Set();
+  // The mix-ups logged, indexed: for each cell the notes played instead of it, and for each note
+  // the notes of the cells it was played instead of. pickZone asks about every cell of every
+  // zone, so it builds this once rather than walking model.conf each time.
+  confusionIndex() {
+    const byCell = new Map(); // cell key -> Set of pitch classes played instead
+    const byPlayed = Array.from({ length: 12 }, () => new Set()); // pitch class played -> Set of the cells' pitch classes
     for (const [key, played] of Object.entries(this.model.conf)) {
       const [s, f] = key.split(':');
+      const cellKey = s + ':' + f;
       const pc = pcOf(this.strings[s] + +f);
-      if (key.startsWith(cell.key + ':') || key === cell.key) for (const m of Object.keys(played)) out.add(pcOf(+m));
-      else if (Object.keys(played).some((m) => pcOf(+m) === cell.pc)) out.add(pc);
+      let set = byCell.get(cellKey);
+      if (!set) byCell.set(cellKey, (set = new Set()));
+      for (const m of Object.keys(played)) {
+        const mp = pcOf(+m);
+        set.add(mp);
+        byPlayed[mp].add(pc);
+      }
     }
+    return { byCell, byPlayed };
+  }
+
+  confusedWith(cell, idx = this.confusionIndex()) {
+    const out = new Set(idx.byCell.get(cell.key));
+    for (const pc of idx.byPlayed[cell.pc]) out.add(pc);
     out.delete(cell.pc);
     return out;
   }

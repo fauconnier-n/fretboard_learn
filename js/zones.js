@@ -8,10 +8,14 @@ const MAX_BOX_SPAN = 5; // highest fret - lowest fret inside a box
 const MIN_RUN = 2;      // at least two cells per string in a box
 const MAX_BOX_STRINGS = 4;
 
+let lastZones = null; // { key, zones }
 export function generateZones(strings, frets, types = 'both') {
+  const key = `${strings.join(',')}|${frets}|${types}`;
+  if (lastZones?.key === key) return lastZones.zones;
   const zones = [];
   if (types !== 'string') zones.push(...curateBoxes(strings, frets));
   if (types !== 'box') zones.push(...singleStringZones(strings, frets));
+  lastZones = { key, zones };
   return zones;
 }
 
@@ -138,7 +142,7 @@ function makeZone(type, strings, runs) {
 
 // Shape descriptor stored with every attempt; independent of zone ids.
 export function describe(zone) {
-  return {
+  return (zone._desc ||= {
     type: zone.type,
     sk: zone.strings.join(','),
     cs: +zone.cs.toFixed(3),
@@ -146,7 +150,7 @@ export function describe(zone) {
     span: zone.span,
     fretMin: zone.fretMin,
     fretMax: zone.fretMax,
-  };
+  });
 }
 
 export function zoneLabel(zone, strings, flats) {
