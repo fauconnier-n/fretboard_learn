@@ -724,7 +724,8 @@ export class Quiz {
       return;
     }
     const cur = this.cur;
-    if (this.state !== 'await' || !cur || cur.task === 'name') return;
+    // name and true/false prompts are answered by name or Y/N, never by a played note, a board click or a letter key
+    if (this.state !== 'await' || !cur || noGuitar(cur.task)) return;
     if (ev.t < cur.shownAt || ev.t < this.muteUntil) return;
     const s = this.s;
     const cell = cur.cell;
@@ -914,7 +915,9 @@ export class Quiz {
   resume() {
     const run = this.run;
     if (this.state !== 'done' || !run?.stoppedAt) return;
-    if (run.endsAt) run.endsAt += performance.now() - run.stoppedAt;
+    const paused = performance.now() - run.stoppedAt;
+    // both ends move, so the time bar keeps its full length
+    if (run.endsAt) { run.endsAt += paused; run.startedAt += paused; }
     run.stoppedAt = null;
     this.els.summary.classList.add('hidden');
     this.menu.hide();

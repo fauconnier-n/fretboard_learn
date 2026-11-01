@@ -972,6 +972,8 @@ async function init() {
     ensureAudio: () => { if (!app.audio.running) connectAudio(); },
     sound,
   });
+  // closing or reloading the page ends a run like a tab switch: the answer on screen and the run row are saved
+  window.addEventListener('pagehide', () => { app.quiz.leave(); app.intervals.leave(); });
 
   document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => {
     if (b.dataset.tab === 'settings' && app.view === 'settings') return openSettings('home'); // second click: back to the cards
