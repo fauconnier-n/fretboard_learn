@@ -24,6 +24,7 @@ const ERROR_TEXT = {
 };
 // note names for "Name the note": both spellings of an accidental are right
 const NAME_LABELS = ['C', 'C#/Db', 'D', 'D#/Eb', 'E', 'F', 'F#/Gb', 'G', 'G#/Ab', 'A', 'A#/Bb', 'B'];
+const NATURALS = [0, 2, 4, 5, 7, 9, 11];
 
 const NEXT_DELAY = 550;
 const NEXT_DELAY_AFTER_MISS = 900;
@@ -79,7 +80,6 @@ export class Quiz {
     this.cueMarks = new Map(); // cell key -> label mark on the board for the current prompt
     this.board.onCellClick = (s, f) => this.simulate(this.getStrings()[s] + f);
     this.els.showMe.onclick = () => this.giveUp('show');
-    this.els.names.innerHTML = NAME_LABELS.map((n, pc) => `<button class="btn small" data-pc="${pc}">${n}</button>`).join('');
     this.els.names.onclick = (e) => {
       const b = e.target.closest('[data-pc]');
       if (b) this.answerName(+b.dataset.pc, b.textContent);
@@ -114,6 +114,22 @@ export class Quiz {
     if (this.state === 'preview') this.begin();
     else if (this.running) this.end('stopped');
     else this.prepare();
+  }
+
+  // "Name the note": a name with sharps or with flats, as set in Settings
+  nameOf(pc) {
+    const [sharp, flat = sharp] = NAME_LABELS[pc].split('/');
+    return this.s.nameAccidentals === 'flats' ? flat : sharp;
+  }
+
+  // the name buttons, laid out like a piano: naturals along the bottom, each sharp or flat
+  // above, centred between its two neighbours (a grid of half-button columns)
+  renderNames() {
+    this.els.names.innerHTML = NAME_LABELS.map((_, pc) => {
+      const i = NATURALS.indexOf(pc);
+      const at = i >= 0 ? `2 / ${2 * i + 1}` : `1 / ${2 * NATURALS.indexOf(pc - 1) + 2}`;
+      return `<button class="btn small" data-pc="${pc}" style="grid-area: ${at} / span 1 / span 2">${this.nameOf(pc)}</button>`;
+    }).join('');
   }
 
   updateButton() {
@@ -420,6 +436,7 @@ export class Quiz {
     void e.note.offsetWidth;
     e.note.classList.add('pop');
     if (noGuitar(task)) this.board.mark(cell.s, cell.f, 'ask', tf ? this.cur.shown.name : '?');
+    if (naming) this.renderNames();
     e.names.classList.toggle('hidden', !naming);
     e.tf.classList.toggle('hidden', !tf);
     e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again — you missed this one a moment ago'
@@ -485,7 +502,8 @@ export class Quiz {
   // a miss until the position is mastered, so the "algorithm" fades into direct recall.
   structuralHint(cell) {
     const strings = this.getStrings();
-    const flats = this.cur?.sp === 'f';
+    // a "Name the note" prompt (sp 'r') spells its hint like the buttons
+    const flats = this.cur?.sp === 'f' || (this.cur?.sp === 'r' && this.s.nameAccidentals === 'flats');
     const name = (m) => noteName(m, flats);
     const str = (s) => `${stringName(strings, s, this.s.flats)} string`;
     const out = [];
@@ -528,8 +546,8 @@ export class Quiz {
       this.closePrompt();
       this.els.showMe.classList.add('invisible');
       this.dropCue(cell);
-      this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', NAME_LABELS[cell.pc].split('/')[0]);
-      this.feedback('good', cur.revealed ? `✓ That's it — ${NAME_LABELS[cell.pc]}. It comes back in a few prompts.` : this.goodText(NAME_LABELS[cell.pc], ms));
+      this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', this.nameOf(cell.pc));
+      this.feedback('good', cur.revealed ? `✓ That's it — ${this.nameOf(cell.pc)}. It comes back in a few prompts.` : this.goodText(this.nameOf(cell.pc), ms));
       this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
       this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
       return;
@@ -712,7 +730,7 @@ export class Quiz {
     if (!cur || cur.revealed) return;
     cur.revealed = true;
     this.dropCue(cur.cell);
-    this.board.reveal(cur.cell.s, cur.cell.f, noGuitar(cur.task) ? NAME_LABELS[cur.cell.pc].split('/')[0] : midiLabel(cur.cell.midi, cur.sp === 'f'));
+    this.board.reveal(cur.cell.s, cur.cell.f, noGuitar(cur.task) ? this.nameOf(cur.cell.pc) : midiLabel(cur.cell.midi, cur.sp === 'f'));
   }
 
   grade(correct, ms, played, extra = {}) {

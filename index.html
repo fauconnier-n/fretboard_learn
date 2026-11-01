@@ -243,6 +243,12 @@
             </select>
           </label>
           <p class="muted small">Fade shows a name where you are still unsure, drops it once you answer that note right, and brings it back after a miss. A right answer with its own name showing counts only as Hard and its time is not used for speed. Check-up prompts (every 10th) and re-tests never show the asked note's name, and "Name the note" runs show none.</p>
+          <label>Name the note: buttons show
+            <select data-setting="nameAccidentals">
+              <option value="sharps">Sharps (C# D# F# G# A#)</option>
+              <option value="flats">Flats (Db Eb Gb Ab Bb)</option>
+            </select>
+          </label>
           <label class="check"><input type="checkbox" data-setting="showQueue"> Show the next notes in advance (makes recall easier, so those answer times are not used for speed)</label>
           <label class="check"><input type="checkbox" data-setting="sound"> Sound effects</label>
           </div>
