@@ -1,7 +1,7 @@
 // The per-run file layout of a profile's data copy: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fold, groupByRun, parseJsonl, profileNameFromFolder, runFile, FILE_RE } from '../js/disklayout.js';
+import { fold, groupByRun, kvFromDisk, parseJsonl, profileNameFromFolder, runFile, FILE_RE } from '../js/disklayout.js';
 
 test('a run file is named after the start time held in the run id', () => {
   const id = (1700000000000).toString(36); // 2023-11-14T22:13:20Z
@@ -38,4 +38,14 @@ test('fold keeps every answer once and lets a finished run beat an open one', ()
 test('a profile folder gives back the profile name', () => {
   assert.equal(profileNameFromFolder('fretboard-Nico'), 'nico');
   assert.equal(profileNameFromFolder('user'), 'user');
+});
+
+test('kv from the disk: keys the browser lacks, and settings saved later', () => {
+  const set = (frets, savedAt) => JSON.stringify({ frets, savedAt });
+  const local = { settings: set(15, 200), 'model:a': '{"v":1}' };
+  assert.deepEqual(kvFromDisk({ 'model:b': '{"v":2}', 'model:a': '{"v":9}' }, local), [['model:b', '{"v":2}']]);
+  assert.deepEqual(kvFromDisk({ settings: set(21, 300) }, local), [['settings', set(21, 300)]]);
+  assert.deepEqual(kvFromDisk({ settings: set(9, 100) }, local), []);
+  assert.deepEqual(kvFromDisk({ settings: set(9, 200) }, local), []); // a tie: the browser's
+  assert.deepEqual(kvFromDisk({ settings: '{"frets":12}' }, { settings: '{"frets":15}' }), []); // neither dated
 });
