@@ -82,26 +82,25 @@ export class Fretboard {
     this.top = 24;
     this.boardTop = this.top - 15;
     this.boardBot = this.top + (n - 1) * this.sp + 15;
-    this.H = this.boardBot + 24;
-    this.openW = 64;
+    this.H = this.boardBot + 30; // dots under the marker frets, then the fret numbers
+    // every space is as wide as the others, the open strings' too, so every position's card is
+    // the same size
+    const margin = 12;
+    this.fw = (this.W - 2 * margin - 6) / (this.frets + 1);
+    this.openW = margin + this.fw;
     this.nutX = this.openW + 6;
-    const end = this.W - 12;
-    const widths = [];
-    for (let f = 1; f <= this.frets; f++) widths.push(Math.pow(0.96, f - 1));
-    const total = widths.reduce((a, b) => a + b, 0);
-    this.wire = [this.nutX];
-    let x = this.nutX;
-    for (const w of widths) this.wire.push((x += (w * (end - this.nutX)) / total));
+    this.wire = [];
+    for (let f = 0; f <= this.frets; f++) this.wire.push(this.nutX + f * this.fw);
   }
 
   X(x) {
     return this.left ? this.W - x : x;
   }
   cx(f) {
-    return this.X(f === 0 ? this.openW * 0.62 : (this.wire[f - 1] + this.wire[f]) / 2);
+    return this.X(f === 0 ? this.openW - this.fw / 2 : (this.wire[f - 1] + this.wire[f]) / 2);
   }
-  cw(f) {
-    return f === 0 ? this.openW * 0.6 : this.wire[f] - this.wire[f - 1];
+  cw() {
+    return this.fw;
   }
   cy(s) {
     return this.top + (this.lowAtBottom ? this.strings.length - 1 - s : s) * this.sp;
@@ -151,7 +150,10 @@ export class Fretboard {
     this.vibes = new Map();
     for (let f = 0; f <= this.frets; f++) {
       const marked = f === 0 || f === 12 || f === 24 || INLAYS.includes(f);
-      el('text', { x: this.cx(f), y: this.boardBot + 16, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
+      // like the side dots of a neck: one under each marker fret, two under the octaves
+      const dots = f === 12 || f === 24 ? [-4, 4] : INLAYS.includes(f) ? [0] : [];
+      for (const dx of dots) el('circle', { cx: this.cx(f) + dx, cy: this.boardBot + 7, r: 2.2, class: 'fb-side-dot' }, g);
+      el('text', { x: this.cx(f), y: this.boardBot + 23, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
     }
 
     this.layers = {
