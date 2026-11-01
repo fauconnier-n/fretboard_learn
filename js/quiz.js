@@ -147,6 +147,7 @@ export class Quiz {
     if (this.running && !document.body.classList.contains('in-run') && matchMedia('(max-width: 720px), (max-height: 500px)').matches) scrollTo(0, 0);
     document.body.classList.toggle('in-run', this.running);
     this.board.zoomTo(this.running ? this.run.zone.cells : null);
+    this.board.setLongStrings(!this.running);
   }
 
   reset() {

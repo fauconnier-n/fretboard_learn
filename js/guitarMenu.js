@@ -48,7 +48,7 @@ export class GuitarMenu {
       const o = this.options[s];
       const name = stringName(strings, s, this.getFlats());
       return `<div class="gm-row${o ? ' has-opt' : ''}${o?.active ? ' active' : ''}${o?.primary ? ' primary' : ''}"${o ? ` data-opt="${s}" role="button" tabindex="0"` : ''}>
-        <span class="gm-str">${name}</span><span class="gm-line"></span>${o ? `<span class="gm-opt">${o.label}</span>` : ''}</div>`;
+        <span class="gm-str">${name}</span><span class="gm-line" style="height:${(0.9 + (n - 1 - s) * 0.5).toFixed(2)}px"></span>${o ? `<span class="gm-opt">${o.label}</span>` : ''}</div>`;
     }).join('');
     this.el.innerHTML = `<div class="gm-title">${title}<span class="muted"> · play an open string to select${strumHint ? ` · two muted strums: ${strumHint}` : ''}</span></div><div class="gm-neck">${rows}</div>`;
     this.el.classList.remove('hidden');

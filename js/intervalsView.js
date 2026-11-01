@@ -111,6 +111,7 @@ export class IntervalsView {
     b.textContent = this.running ? 'Stop' : 'Start ⏎';
     b.classList.toggle('danger', this.running);
     document.body.classList.toggle('in-run', this.running);
+    this.board.setLongStrings(!this.running);
   }
 
   primary() {
