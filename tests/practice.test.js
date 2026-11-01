@@ -60,7 +60,7 @@ test('knowledge map: note names, bars and a popup with how often it was asked', 
   assert.equal(once.label, 'A');
   assert.ok(['known', 'fast', 'auto'].every((k) => often.bars[k] >= 0 && often.bars[k] <= 1));
   assert.ok(once.tip.html.includes('Asked 1×') && often.tip.html.includes('Asked 21×'));
-  assert.equal((often.tip.html.match(/class="ok"/g) || []).length, 10, 'the last 10 answers, all right');
+  assert.equal((often.tip.html.match(/class="ok"/g) || []).length, 15, 'the last 15 answers, all right');
   const unplayed = mapCell(sch, sch.snapshot(), 0, 1, true);
   assert.deepEqual([unplayed.label, unplayed.faint], ['F', true]);
 });

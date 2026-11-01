@@ -49,6 +49,7 @@ const DAY = 86400000;
 const CTX_MAX = 24;
 const UNLOCK_FRACTION = 0.5;
 const STARTER_DIFF = 0.2;
+const SESSION_GAP = 30 * 60000; // answers this far apart belong to different sessions
 // open strings, the octave and the dot-marker frets are easier to find
 const markerBonus = (f) => (f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0);
 const TWIN_LINK = 0.85; // an unseen spelling starts from what is known of its twin, slightly discounted
@@ -758,6 +759,9 @@ export class Scheduler {
     if (correct) G = Math.min(G, opts.maxG ?? 4);
     this.updateFactors(key, correct, correct && useSpeed ? ms : null);
     let c = cards[key];
+    // a new session on this item (30 min or more since its last answer): remember its bars as
+    // they stand now, the mark "before your last session" in its popup
+    if (c && now - c.last >= SESSION_GAP) c.mark = this.noteRings(key, now);
     if (!c) {
       c = cards[key] = {
         S: initS(G), D: initD(G),
@@ -785,8 +789,8 @@ export class Scheduler {
       c.days ||= [];
       if (!c.days.includes(d)) c.days = [...c.days, d].slice(-5);
     }
-    // the last 10 answers, [right 0/1, ms], for the position's popup
-    c.hist = [...(c.hist || []), [ok, ms]].slice(-10);
+    // the last 15 answers, [right 0/1, ms], for the position's popup
+    c.hist = [...(c.hist || []), [ok, ms]].slice(-15);
 
     if (sp !== 'r') {
       const n = (notes[spellName(cell.midi, sp)] ||= { acc: 0.6, n: 0, time: newTime() });

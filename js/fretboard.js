@@ -193,18 +193,14 @@ export class Fretboard {
     t.g.classList.add('sel');
     if (!this.tip) {
       this.tip = Object.assign(document.createElement('div'), { className: 'fb-tip' });
-      this.tip.innerHTML = '<svg class="fb-tip-card sel" width="64" height="28" viewBox="-32 -14 64 28"></svg><span></span><button class="fb-tip-x" aria-label="Close">×</button>';
+      this.tip.innerHTML = '<span></span><button class="fb-tip-x" aria-label="Close">×</button>';
       this.tip.lastChild.addEventListener('click', () => this.showTip());
       document.body.append(this.tip);
       document.addEventListener('pointerdown', (e) => {
         if (this.pinned && !this.tip.contains(/** @type {Node} */ (e.target)) && !this.layers.hits.contains(/** @type {Node} */ (e.target))) this.showTip();
       });
     }
-    const card = this.tip.firstChild;
-    card.innerHTML = '';
-    if (t.v.bars) barsCard(card, t.v, 62);
-    card.classList.toggle('hidden', !t.v.bars);
-    const body = this.tip.children[1];
+    const body = this.tip.firstChild;
     if (typeof t.text === 'string') body.textContent = t.text;
     else body.innerHTML = t.text.html;
     this.tip.classList.toggle('pinned', this.pinned);

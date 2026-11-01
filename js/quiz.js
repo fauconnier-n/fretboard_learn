@@ -299,8 +299,6 @@ export class Quiz {
         const key = itemKey(c.key, sp);
         return [key, sch.model.cards[key] ? sch.expectedMs(key) : null];
       }))),
-      // each item's bars before the run, marked in its popup afterwards
-      beforeBars: new Map(run.zone.cells.flatMap((c) => ['n', 's', 'f', 'r'].map((sp) => [itemKey(c.key, sp), sch.noteRings(itemKey(c.key, sp))]))),
     });
     // cells that carry a name label; in "fade" mode it changes during the run
     run.labelled = initialCues(run.cueMode, run.zone, sch, run.desc, Date.now());
@@ -918,8 +916,7 @@ export class Quiz {
       const label = r.sp === 'r' ? this.nameOf(r.cell.pc) : spellName(r.cell.midi, r.sp);
       const right = rs.filter((x) => x.correct).length;
       const html = detailHtml(sch, r.key, {
-        title: `${label} · fret ${f} · this run: ${right} of ${rs.length} right`,
-        before: this.run.beforeBars?.get(r.key), runMs: rs.map((x) => [x.correct ? 1 : 0, x.ms]),
+        note: `${label} · fret ${f}`, title: `this run: ${right} of ${rs.length} right`, runMs: rs.map((x) => [x.correct ? 1 : 0, x.ms]),
       });
       return { bars: sch.noteRings(r.key), label, missed: c.missed, tip: { html } };
     };

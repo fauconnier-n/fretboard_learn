@@ -387,6 +387,9 @@ body.in-run .prompt-note { grid-column: 1; grid-row: 1 / span 3; justify-self: e
 body.in-run .prompt-area .show-me { grid-column: 1; grid-row: 4; justify-self: end; margin-top: 2px; }
 body.in-run .prompt-area .name-buttons, body.in-run .prompt-area .tf-buttons { grid-column: 2; grid-row: 4; justify-content: start; margin-top: 2px; }
 body.in-run .prompt-queue:empty { display: none; }
+/* during a run nothing waits below the board: the page does not scroll */
+body.in-run .hint { display: none; }
+body.in-run .practice-bar { padding: 0 8px; }
 
 /* phones: during a run the header and banners slide up out of the way, so the board fits */
 @media (max-width: 720px), (max-height: 500px) {
@@ -403,6 +406,8 @@ body.in-run .prompt-queue:empty { display: none; }
   body.in-run .name-buttons .btn { padding-top: 3px; padding-bottom: 3px; }
   body.in-run .progress { margin: 6px 0; }
   body.in-run .tf-buttons .btn { font-size: 14px; padding: 5px 12px; }
+  body.in-run main { padding-bottom: 0; }
+  body.in-run .feedback { display: none; }
 }
 
 /* progress on the practice board: mastery colours, and white fog over positions not unlocked yet */
@@ -472,7 +477,6 @@ body.in-run .prompt-queue:empty { display: none; }
 /* the position whose popup is open, and the same card at the top of the popup */
 .sel .fb-bars-bg { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; opacity: 1; }
 .sel .fb-heat { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: none; fill: var(--yellow); }
-.fb-tip-card { display: block; margin-bottom: 4px; }
 .legend i.bar-known, .legend i.bar-fast, .legend i.bar-auto { width: 22px; height: 5px; border-radius: 2px; }
 .legend i.bar-known { width: 34px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
 .legend i.bar-fast { background: var(--steel); }
@@ -499,9 +503,11 @@ body.in-run .prompt-queue:empty { display: none; }
 .tip-lbl i.floor { background: var(--green); }
 .tip-lbl i.usual { background: var(--ink); }
 .tip-lbl i.run { background: var(--steel); border-radius: 1px; transform: rotate(45deg); }
-.tip-hist { display: flex; align-items: center; gap: 4px; min-height: 18px; }
+.tip-hist { display: flex; align-items: center; gap: 3px; min-height: 18px; }
 .tip-hist .tip-lbl { margin: 0 4px 0 0; }
-.tip-hist span.ok, .tip-hist span.miss { border-radius: 50%; display: inline-block; }
+.tip-hist span.ok, .tip-hist span.miss { border-radius: 50%; display: inline-block; width: 8px; height: 8px; }
+.tip-note { display: inline-block; padding: 1px 7px; margin-right: 4px; border: 2px solid var(--ink); border-radius: 6px; background: var(--yellow); }
+.tip-lbl i.mark { width: 2px; height: 10px; border-radius: 0; background: var(--ink); }
 .tip-hist .ok { background: var(--green); }
 .tip-hist .miss { background: var(--red); }
 .tip-time i { position: relative; display: block; height: 22px; margin: 2px 4px 0; border-top: 2px solid var(--line); }
