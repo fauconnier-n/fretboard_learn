@@ -241,6 +241,11 @@ async function connectAudio() {
   try {
     label.textContent = 'Connecting…';
     await app.audio.start({ deviceId: s.deviceId, channel: s.channel, gain: s.gain });
+    if (!app.audio.running) return; // overtaken by a newer connect, which finishes the job
+    app.audio.onLost = () => {
+      updateAudioLabel();
+      $('connectBtn').textContent = 'Connect input';
+    };
     await refreshDevices();
     refreshChannels();
     updateAudioLabel();
@@ -329,7 +334,7 @@ async function refreshDevices() {
   } catch {}
   sel.innerHTML = '<option value="">System default input</option>' +
     inputs.filter((d) => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
-      .map((d, i) => `<option value="${d.deviceId}">${d.label || 'Input ' + (i + 1)}</option>`).join('');
+      .map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Input ' + (i + 1))}</option>`).join('');
   sel.value = app.settings.deviceId;
   if (sel.value !== app.settings.deviceId) sel.value = '';
 }
@@ -450,7 +455,10 @@ function bindSettings() {
       saveSettings();
       if (key === 'instrument') fillTunings();
       if (BOARD_KEYS.includes(key)) await applyBoardSettings();
-      else if (key === 'a4') setDetectRange(); // the reference pitch changes the detector's range, nothing on the board
+      else if (key === 'a4') { // the reference pitch changes the detector's range and the tuner's targets, nothing on the board
+        setDetectRange();
+        app.tuner.setStrings(app.strings, app.settings.flats);
+      }
       if (key === 'deviceId') connectAudio();
       if (key === 'gate') updateGateMarker();
       if (key === 'channel') { app.audio.setChannel(v); updateAudioLabel(); }
