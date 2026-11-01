@@ -128,6 +128,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
 
+- **2026-11-01** — During a run, Stop is 6 px less tall around the same centre (so it no longer touches the top of the screen) and the score ring is as tall, its digits as tall as the button's lower-case letters. Popups have a legend for the line on the bars: a small bar with its line, "line: before your last session".
+
 - **2026-11-01** — Popups: the note and fret in a yellow box instead of a copy of the card; the last 15 answers as same-size dots; every bar has a mark where it stood before your last session on that position (a session starts after 30 min without answering it), on Stats too; "fast end" is called *quickest 10%*. During a run the page no longer scrolls (nothing waits below the board; on a phone held sideways the feedback line hides too), and the run bar sits a little in from the edges.
 
 - **2026-11-01** — Note position has no settings bar: the menu under the prompt holds run type, length (10–50 prompts or a 60–180 s sprint), beat mode and interval practice, and Ready offers *Back to the menu*. Ready shows only the zone, no knowledge bars. Position popups in detail: labelled bars with a mark where each stood before the run, the last 10 answers, and a time line with your fast end, your usual time and this run's answers. Side dots above the board, fret numbers below. The answer shown after a miss is green again, with a white contour. On phones a run starts at the top of the page.
