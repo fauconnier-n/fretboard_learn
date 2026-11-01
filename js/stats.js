@@ -21,10 +21,24 @@ export function mapCell(scheduler, snap, s, f, flats) {
     const asked = spellingsOf(pcOf(midi)).reduce((t, sp) => t + (scheduler.model.cards[sp === 'n' ? key : key + ':' + sp]?.seen || 0), 0);
     const t = Math.min(1, Math.log2(1 + asked) / Math.log2(41)); // 40 questions or more: full size
     // density rises fast: a well-practised position is a solid band of colour
-    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t, core: t }, fill: masteryColor(m), opacity: Math.min(0.85, 0.2 + 0.95 * t), label };
+    return { cloud: { w: 0.5 + 0.55 * t, h: 0.8 + 0.25 * t, core: t }, fill: masteryColor(m), opacity: Math.min(0.85, 0.2 + 0.95 * t), label, tip: positionTip(scheduler, s, f, label) };
   }
-  if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true };
+  if (scheduler.isReachable(s, f, snap)) return { stroke: PALETTE.steel, dash: '3 3', label, faint: true, tip: `${label} · fret ${f}\nNot played yet` };
   return null;
+}
+
+// The popup of a position over all runs on this instrument and tuning: how often it was asked,
+// right answers, usual time, and its known / fast / automatic levels.
+export function positionTip(scheduler, s, f, label) {
+  const key = s + ':' + f;
+  const keys = spellingsOf(pcOf(scheduler.strings[s] + f)).map((sp) => (sp === 'n' ? key : key + ':' + sp)).filter((k) => scheduler.model.cards[k]);
+  if (!keys.length) return `${label} · fret ${f}\nNot played yet`;
+  const cards = keys.map((k) => scheduler.model.cards[k]);
+  const seen = cards.reduce((t, c) => t + c.seen, 0);
+  const acc = seen ? cards.reduce((t, c) => t + c.acc * c.seen, 0) / seen : 0;
+  const bars = scheduler.noteRings(keys[0]);
+  return `${label} · fret ${f} · all runs\nAsked ${seen}× · ${pct(acc)} right · usually ${(scheduler.expectedMs(keys[0]) / 1000).toFixed(1)} s\n` +
+    `Known ${pct(bars.known)} · fast ${pct(bars.fast)} · automatic ${pct(bars.auto)}`;
 }
 
 // Every note name (e.g. "C#") split by octave (C#2, C#3…): right answers and expected time of

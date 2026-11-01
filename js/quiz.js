@@ -46,7 +46,7 @@ const BPM_UP = 1.03;
 const BPM_DOWN = 0.93;
 const BPM_MIN = 40;
 const BPM_MAX = 220;
-const SPECIAL_TEXT = { boss: 'Boss note: the hardest one in this zone', finale: 'Last one', golden: '★ Golden note: one you have been missing' };
+const SPECIAL_TEXT = { boss: 'Boss: the hardest here', finale: 'Last one', golden: '★ Golden: one you keep missing' };
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const hz = (ev) => ev.freq || 440 * 2 ** ((ev.midi - 69) / 12); // typed or clicked notes have no measured frequency
@@ -56,8 +56,8 @@ const itemTask = (task) => (noGuitar(task) ? 'name' : 'play'); // both no-guitar
 const spellFor = (cell, task) => (noGuitar(task) ? 'r' : isAccidental(cell.pc) ? (Math.random() < 0.5 ? 's' : 'f') : 'n');
 // run types: [value, label]; the guitar ones first
 export const RUN_TYPES = [
-  ['play', 'Play the note (guitar)'],
-  ['confusions', 'Mix-ups (guitar)'],
+  ['play', 'Play the note (instrument)'],
+  ['confusions', 'Mix-ups (instrument)'],
   ['name', 'Name the note (buttons)'],
   ['truefalse', 'True or false (buttons)'],
 ];
@@ -82,6 +82,11 @@ export class Quiz {
     this.cueMarks = new Map(); // cell key -> label mark on the board for the current prompt
     this.board.onCellClick = (s, f) => this.simulate(this.getStrings()[s] + f);
     this.els.showMe.onclick = () => this.giveUp('show');
+    this.boardView = 'run'; // after a run the board shows 'run' (this run) or 'all' (all runs on this tuning)
+    this.els.boardView.onclick = (e) => {
+      const b = e.target.closest('[data-view]');
+      if (b) { this.boardView = b.dataset.view; this.paintProgress(); }
+    };
     this.els.names.onclick = (e) => {
       const b = e.target.closest('[data-pc]');
       if (b) this.answerName(+b.dataset.pc, b.textContent);
@@ -170,12 +175,16 @@ export class Quiz {
   paintProgress() {
     const sch = this.getScheduler();
     if (!sch || !this.board.layers) return;
-    const map = !this.running && !(this.state === 'done' && this.run);
-    this.els.mapLegend.classList.toggle('hidden', !map);
+    const done = this.state === 'done' && !!this.run;
+    const runView = done && this.boardView !== 'all';
+    this.els.boardView.classList.toggle('hidden', !done);
+    this.els.boardView.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', (b.dataset.view === 'run') === runView));
+    this.els.neckLegend.classList.toggle('hidden', !runView);
+    this.els.mapLegend.classList.toggle('hidden', this.running || runView);
     // during a run the board shows only the run: no knowledge colours
     if (this.running) return this.board.setHeat(() => null);
-    // a finished run: its notes on the neck, with their progress rings
-    if (this.state === 'done' && this.run) return this.board.setHeat(this.runResultsCell(sch));
+    // a finished run: its notes on the neck, each with its name and progress bars
+    if (runView) return this.board.setHeat(this.runResultsCell(sch));
     const snap = sch.snapshot();
     this.board.setHeat((s, f) => mapCell(sch, snap, s, f, this.s.flats) || { fog: true });
   }
@@ -254,9 +263,7 @@ export class Quiz {
     e.feedback.textContent = '';
     e.feedback.className = 'feedback';
     e.note.textContent = 'Ready?';
-    e.sub.textContent = 'This is the zone. The natural notes are shown as a reminder' +
-      (noGuitar(s.runTask) || s.cueMode === 'off' ? '; they hide when the run starts.' : '; during the run, names show according to your Note names setting.') +
-      ' Press Start run or Enter.';
+    e.sub.textContent = 'This is the zone. Press Start run or Enter.';
     e.timer.textContent = '';
     e.queue.innerHTML = '';
     e.progress.textContent = s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`;
@@ -443,10 +450,10 @@ export class Quiz {
     if (naming) this.renderNames();
     e.names.classList.toggle('hidden', !naming);
     e.tf.classList.toggle('hidden', !tf);
-    e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again — you missed this one a moment ago'
-      : naming ? 'Name the marked note: type its letter (Shift = sharp) or click it below'
-        : tf ? `Is the marked note ${this.cur.shown.name}? Yes (Y or →) or No (N or ←)`
-        : 'Play it inside the zone');
+    e.sub.textContent = (special ? SPECIAL_TEXT[special] + ' · ' : '') + (retest ? 'Again: missed a moment ago'
+      : naming ? 'Name the marked note'
+        : tf ? `Is it ${this.cur.shown.name}? (Y / N)`
+        : 'Play it in the zone');
     e.queue.innerHTML = s.showQueue && run.task === 'play' ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
       `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
     e.showMe.classList.remove('invisible');
@@ -490,9 +497,7 @@ export class Quiz {
     const hint = this.getScheduler().positionMastered(cur.cell) ? '' : this.structuralHint(cur.cell);
     // beat mode keeps the beat going: no waiting for a play-along
     if (this.s.retry && !this.run.beat && cur.task !== 'truefalse') {
-      this.els.sub.textContent = (hint ? hint + ' ' : '') +
-        (naming ? 'Type or click its name once (not graded).' : 'Play it once where it is shown (not graded).') +
-        ' It comes back in a few prompts.';
+      this.els.sub.textContent = (hint ? hint + ' ' : '') + (naming ? 'Name it once (not graded).' : 'Play it once (not graded).');
       this.clearTimers();
       this.later(() => this.cur === cur && this.state === 'await' && this.advance(0), PLAYALONG_MS);
     } else {
@@ -514,7 +519,7 @@ export class Quiz {
     const lm = LANDMARKS.filter((f) => f <= this.s.frets).sort((a, b) => Math.abs(a - cell.f) - Math.abs(b - cell.f))[0];
     if (lm !== undefined && lm !== cell.f && Math.abs(lm - cell.f) <= 2) {
       const d = cell.f - lm;
-      out.push(`Fret ${cell.f} is ${Math.abs(d)} fret${Math.abs(d) > 1 ? 's' : ''} ${d > 0 ? 'above' : 'below'} the ${lm === 0 ? 'open string' : `fret-${lm} marker`} (${name(strings[cell.s] + lm)}).`);
+      out.push(`${Math.abs(d)} ${d > 0 ? 'above' : 'below'} ${lm === 0 ? 'the open string' : `fret ${lm}`} (${name(strings[cell.s] + lm)}).`);
     }
     for (const ds of [-2, 2]) {
       const t = cell.s + ds;
@@ -523,8 +528,7 @@ export class Quiz {
       for (let f = Math.max(0, cell.f - 4); f <= Math.min(this.s.frets, cell.f + 4); f++) if (pcOf(strings[t] + f) === cell.pc) fs.push(f);
       if (!fs.length) continue;
       const f = fs.sort((a, b) => Math.abs(a - cell.f) - Math.abs(b - cell.f))[0];
-      const lower = ds < 0;
-      out.push(`Octave shape: ${name(cell.midi)} is also on the ${str(t)}, fret ${f} (${lower ? 'two strings lower' : 'two strings higher'}${this.crossesB(cell.s, t) ? ', the shape shifts one fret where it crosses the B string' : ''}).`);
+      out.push(`Octave: ${str(t)}, fret ${f}${this.crossesB(cell.s, t) ? ' (B shift)' : ''}.`);
       break;
     }
     return out.join(' ');
@@ -551,7 +555,7 @@ export class Quiz {
       this.els.showMe.classList.add('invisible');
       this.dropCue(cell);
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', this.nameOf(cell.pc));
-      this.feedback('good', cur.revealed ? `✓ That's it — ${this.nameOf(cell.pc)}. It comes back in a few prompts.` : this.goodText(this.nameOf(cell.pc), ms));
+      this.feedback('good', cur.revealed ? `✓ That's it: ${this.nameOf(cell.pc)}` : this.goodText(this.nameOf(cell.pc), ms));
       this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
       this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
       return;
@@ -710,7 +714,7 @@ export class Quiz {
       this.dropCue(cell);
       this.board.vibrate(cell.s, cell.f, hz(ev));
       this.board.flash(cell.s, cell.f, cur.special === 'golden' ? 'golden' : 'good', spellName(cell.midi, cur.sp));
-      this.feedback('good', cur.revealed ? `✓ That's it — ${midiLabel(cell.midi, flats)}. It comes back in a few prompts.` : this.goodText(spellName(cell.midi, cur.sp), ms));
+      this.feedback('good', cur.revealed ? `✓ That's it: ${midiLabel(cell.midi, flats)}` : this.goodText(spellName(cell.midi, cur.sp), ms));
       this.sound?.(cur.special === 'golden' ? 'golden' : 'good');
       this.muteUntil = performance.now() + 250;
       this.advance(cur.attempts ? NEXT_DELAY_AFTER_MISS : NEXT_DELAY);
@@ -832,6 +836,7 @@ export class Quiz {
     cancelAnimationFrame(this.raf);
     this.closePrompt();
     this.state = 'done';
+    this.boardView = 'run';
     this.cur = null;
     this.ring();
     this.paintProgress();
@@ -884,20 +889,28 @@ export class Quiz {
     return out.join(' ');
   }
 
-  // The board after a run: each position asked, with the rings of the spelling asked first and
-  // its name, red when it was missed in this run.
+  // The board after a run: each position asked, with its name (red when missed in this run),
+  // the bars of the spelling asked first, and a popup with what happened in the run.
   runResultsCell(sch) {
     const byCell = new Map();
     for (const r of this.run.results) {
-      const c = byCell.get(r.cell.key) || { r, missed: false };
+      const c = byCell.get(r.cell.key) || { r, missed: false, rs: [] };
       c.missed ||= !r.correct;
+      c.rs.push(r);
       byCell.set(r.cell.key, c);
     }
+    const pct = (x) => Math.round(100 * x) + '%';
     return (s, f) => {
       const c = byCell.get(s + ':' + f);
       if (!c) return null;
-      const { r } = c;
-      return { rings: sch.noteRings(r.key), label: r.sp === 'r' ? NAME_LABELS[r.cell.pc].split('/')[0] : spellName(r.cell.midi, r.sp), missed: c.missed };
+      const { r, rs } = c;
+      const label = r.sp === 'r' ? this.nameOf(r.cell.pc) : spellName(r.cell.midi, r.sp);
+      const bars = sch.noteRings(r.key);
+      const right = rs.filter((x) => x.correct);
+      const times = right.map((x) => (x.ms / 1000).toFixed(1) + ' s').join(', ');
+      const tip = `${label} · fret ${f} · this run\nAsked ${rs.length}× · ${right.length} right${times ? ' · ' + times : ''}\n` +
+        `Now: known ${pct(bars.known)} · fast ${pct(bars.fast)} · automatic ${pct(bars.auto)}`;
+      return { bars, label, missed: c.missed, tip };
     };
   }
 
@@ -958,7 +971,6 @@ export class Quiz {
       </div>
       <button class="btn primary" id="nextRunBtn">New run ⏎</button>`;
     e.classList.remove('hidden');
-    this.els.neckLegend.classList.remove('hidden');
     e.querySelector('#nextRunBtn').onclick = () => this.prepare();
   }
 

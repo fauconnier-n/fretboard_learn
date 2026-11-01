@@ -165,8 +165,24 @@ export class Fretboard {
           e.preventDefault();
           this.onCellClick?.(s, f);
         });
+        r.addEventListener('pointerenter', () => this.showTip(s, f, r));
+        r.addEventListener('pointerleave', () => this.showTip());
       }
     }
+  }
+
+  // A popup with the details of a position (the tip of its setHeat entry), next to its cell.
+  showTip(s, f, rect) {
+    const text = rect && this.tips?.get(s + ':' + f);
+    if (!text) return this.tip?.classList.add('hidden');
+    if (!this.tip) document.body.append((this.tip = Object.assign(document.createElement('div'), { className: 'fb-tip' })));
+    this.tip.textContent = text;
+    this.tip.classList.remove('hidden');
+    const r = rect.getBoundingClientRect();
+    const w = this.tip.offsetWidth;
+    this.tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    const above = r.top - this.tip.offsetHeight - 8;
+    this.tip.style.top = (above > 8 ? above : r.bottom + 8) + 'px';
   }
 
   setZone(cells) {
@@ -298,10 +314,13 @@ export class Fretboard {
   //   | { cloud: { w, h }, fill, opacity, label }: a soft round cloud w × half the fret width
   //     wide and h × half the string spacing high, fading out gradually towards its edge
   //   | { stroke, dash, label, faint }: a ring with a (pale) name
-  //   | { rings: { known, fast, auto }, label, missed }: three progress rings with the name in front
+  //   | { bars: { known, fast, auto }, label, missed }: the name and three progress bars
+  // Any entry may carry tip, the text of a popup shown when the position is hovered.
   setHeat(fn) {
     const h = this.layers.heat;
     h.innerHTML = '';
+    this.tips = new Map();
+    this.showTip();
     const defs = el('defs', {}, h);
     // all clouds in one blurred group (one filter pass per repaint instead of one per cloud), their
     // names in a group above; gradients shared between clouds of the same colour and core
@@ -312,6 +331,7 @@ export class Fretboard {
       for (let f = 0; f <= this.frets; f++) {
         const v = fn(s, f);
         if (!v) continue;
+        if (v.tip) this.tips.set(s + ':' + f, v.tip);
         if (v.fog) {
           el('rect', { ...this.cellRect(s, f), class: 'fb-fog', fill: `url(#${this.id}-hatch)` }, h);
           continue;
@@ -336,14 +356,17 @@ export class Fretboard {
           continue;
         }
         const g = el('g', { transform: `translate(${this.cx(f)},${this.cy(s)})` }, h);
-        if (v.rings) {
-          // a note of the last run: rings known (outer), fast (middle), automatic (inner), name in front
-          for (const [r, k] of [[12.5, 'known'], [9, 'fast'], [5.5, 'auto']]) {
-            const C = 2 * Math.PI * r;
-            el('circle', { r, class: 'fb-ring-bg' }, g);
-            el('circle', { r, class: 'fb-ring nr-' + k, 'stroke-dasharray': `${(v.rings[k] * C).toFixed(1)} ${C.toFixed(1)}`, transform: 'rotate(-90)' }, g);
-          }
-          el('text', { y: 3.5, class: 'fb-ring-lbl' + (v.missed ? ' missed' : '') }, g).textContent = v.label;
+        if (v.bars) {
+          // a note of a run: its name on the left, three bars on the right (known, fast, automatic)
+          const w = this.cw(f);
+          el('rect', { x: -w / 2 + 2, y: -12, width: w - 4, height: 24, rx: 5, class: 'fb-bars-bg' }, g);
+          el('text', { x: -w / 2 + 5, y: 5, class: 'fb-bars-lbl' + (v.missed ? ' missed' : '') }, g).textContent = v.label;
+          const bx = -w / 2 + Math.max(19, w * 0.42);
+          const bw = w / 2 - 4 - bx;
+          ['known', 'fast', 'auto'].forEach((k, i) => {
+            el('rect', { x: bx, y: -8 + i * 6, width: bw, height: 4, rx: 2, class: 'fb-bar-track' }, g);
+            el('rect', { x: bx, y: -8 + i * 6, width: Math.max(0, bw * v.bars[k]), height: 4, rx: 2, class: 'fb-bar nb-' + k }, g);
+          });
           continue;
         }
         el('circle', { r: 11, class: 'fb-heat', fill: v.fill || 'none', stroke: v.stroke || 'none', 'stroke-width': v.fill && v.stroke ? 2.5 : 1.5, 'stroke-dasharray': v.dash || 'none' }, g);

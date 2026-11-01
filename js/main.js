@@ -892,7 +892,7 @@ async function init() {
       area: $('promptArea'), note: $('promptNote'), sub: $('promptSub'), timer: $('promptTimer'),
       zone: $('zoneLabel'), progress: $('progressLabel'), fill: $('progressFill'),
       feedback: $('feedback'), summary: $('summary'), queue: $('promptQueue'), startBtn: $('startBtn'), showMe: $('showMeBtn'), names: $('nameButtons'),
-      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'), neckLegend: $('runNeckLegend'), mapLegend: $('mapLegend'),
+      ring: $('accRing'), menu: $('guitarMenu'), tf: $('tfButtons'), neckLegend: $('runNeckLegend'), mapLegend: $('mapLegend'), boardView: $('boardView'),
     },
     getSettings: () => app.settings,
     getScheduler: () => app.scheduler,

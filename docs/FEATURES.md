@@ -57,13 +57,14 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 - After a miss with the play-along setting on, the run moves on by itself after 6 s if you do not play the note.
 - Green on a right answer, red at the played position on a wrong one, with the kind of mistake (octave, one or two frets off). **Answer animation:** green confetti thrown out of the asked note on a right answer, red fireworks on a wrong one.
 - **During a run the board zooms in on the zone** (up to 2×), and the circles and note names on it are a little bigger. The view is at most six strings high, so on a 7–9-string guitar it frames the strings around the zone.
-- **On phones, during a run** the header, banners and run settings slide away, leaving Stop, the score ring and the progress; held sideways, the text and timer sit beside the note, Show me under it and the answer buttons next to Show me, so the board fits on screen (checked for every run type with 6 and 9 strings).
+- **During a run** the run settings (Note position / Interval, run type, Prompts / Sprint, length) step aside: they are the menu before a run; only Stop, the score ring and the progress stay. The prompt is two fixed, invisible boxes: the note with Show me under it on the left (aligned right), the short texts, timer and answer buttons on the right (aligned left), so a long hint never moves the note. Run types are grouped as *With an instrument* and *No instrument on hand*.
+- **On phones, during a run** the header and banners slide away too, so the board fits on screen (checked for every run type with 6 and 9 strings).
 - The board never moves during a run: "Show me" keeps its place when hidden, and the text under the note has room for two lines.
 - **After a miss:** the answer is revealed with a structural hint (nearest landmark, octave shape, B-string shift), optionally played once ungraded, then re-tested 3–8 prompts later.
 - **Answer shown automatically** after about 2.5× your expected time for that note (4–8 s, capped by the "Longest wait" setting). **Show me** (or H) shows it at any time. Both count as a miss.
 - **Check-up prompts:** every 10th prompt is a random position of the zone, with no names shown, as an honest measure.
 - **Before a run:** welcome back after a break, number of fading notes, and your practice plan if you wrote one.
-- **After a run**, in this order: **Done**, the open-string **menu**, the **neck with the run's notes** (each position asked shows three progress rings — known, fast, automatic — with its name in front, in red if it was missed in this run), then the details: right first time, median vs usual time, check-ups, cued prompts, notes due tomorrow, a dot plot of answer times, faster-than-usual and needs-work lists, a near-miss line and the tempo change in beat mode.
+- **After a run**, in this order: **Done**, the open-string **menu**, the **neck with the run's notes** (each position asked shows its name on the left, in red if it was missed in this run, and three small bars on the right: known in green, fast in yellow, automatic in ink; a legend sits under the board; hovering a position opens a popup with what happened in the run; a switch shows **This run** or **All runs · this tuning**, the knowledge map of every run on this instrument and tuning), then the details: right first time, median vs usual time, check-ups, cued prompts, notes due tomorrow, a dot plot of answer times, faster-than-usual and needs-work lists, a near-miss line and the tempo change in beat mode.
 - Keyboard and click fallback for playing without a guitar.
 
 ## Intervals
@@ -126,6 +127,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — After a run: each note as its name plus three bars (known, fast, automatic; green, yellow, ink instead of green and blue rings), a legend, popups with details on hover (this run after a run, all runs on the Stats map and the practice board), and a This run / All runs · this tuning switch. During a run the prompt keeps the note in place whatever the text length, the texts are shorter, and the run settings stay in the menu before the run. *With an instrument* / *No instrument on hand* instead of Guitar / No guitar.
 
 - **2026-11-01** — Colour-blind friendly shapes: a wrong note on the board is struck through with a cross, missed answers on the run time plot are crosses (right ones stay discs), and the fog over locked positions has a fine cross-hatch.
 - **2026-11-01** — A new player's starting area is one run of frets from the nut on each string (marker frets beyond it no longer start unlocked on their own); a legend under the practice board between runs.
