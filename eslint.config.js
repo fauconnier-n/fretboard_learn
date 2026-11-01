@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['vendor/', 'node_modules/', 'graphify-out/', '.workspace/', 'data/', '.claude/'] },
+  { ignores: ['node_modules/', 'graphify-out/', '.workspace/', 'data/', '.claude/'] },
   js.configs.recommended,
   {
     files: ['js/**/*.js'],
