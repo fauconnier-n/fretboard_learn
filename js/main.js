@@ -2,6 +2,7 @@ import { midiLabel, midiToFreq } from './music.js';
 import { INSTRUMENTS, LEGACY, mapAttempt, parseTuning, resolveTuning, shiftText, stringKeys, tunedStrings, tuningText } from './instruments.js';
 import { generateZones, selfTest } from './zones.js';
 import * as storage from './storage.js';
+import { VERSION } from './version.js';
 import * as backup from './backup.js';
 import { AudioInput } from './audio.js';
 import { createDetector, NoteTracker } from './pitch.js';
@@ -708,7 +709,7 @@ function renderDbStatus() {
     ? `Could not open ${db.file} (${db.error}). Progress is kept in memory only — is the app open in another tab?`
     : onDisk ? `DuckDB ${db.version} · ${db.file} · copy in ${copyPlace(db)}` : `DuckDB ${db.version} · ${db.file} · no copy outside this browser: ${noCopyReason(db)}`;
   const waiting = d.waiting ? ` (${d.waiting} writes on their way)` : ' (up to date)';
-  $('dbInfo').textContent = `Profile "${db.user}" · DuckDB ${db.version} · ${db.persistent ? db.file + ' + safety copy in IndexedDB' : 'in memory only: ' + db.error}` +
+  $('dbInfo').textContent = `Fretboard Trainer ${VERSION} · profile "${db.user}" · DuckDB ${db.version} · ${db.persistent ? db.file + ' + safety copy in IndexedDB' : 'in memory only: ' + db.error}` +
     (!db.persistent ? '' : onDisk ? ` · copy in ${copyPlace(db)}${waiting}` : ` · NO copy outside this browser right now: ${noCopyReason(db)}`) +
     (db.mirrorError ? ` · safety copy error: ${db.mirrorError}` : '') +
     (db.persisted ? ' · storage marked persistent' : ' · storage NOT marked persistent: the browser may clear it when disk space is low');
@@ -862,6 +863,7 @@ async function init() {
   }
   performance.mark('app:db');
   $('loading').remove();
+  document.querySelector('.brand').title = `Fretboard Trainer ${VERSION}`;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }

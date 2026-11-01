@@ -1,10 +1,12 @@
 # Fretboard Trainer
 
+[![Live on GitHub Pages](https://img.shields.io/github/v/release/fauconnier-n/fretboard_learn?label=live%20on%20GitHub%20Pages)](https://github.com/fauconnier-n/fretboard_learn/releases/latest)
+
 Learn the guitar fretboard by playing. The app listens to your guitar (DI through an audio interface, or a mic), asks for notes inside a zone of the neck, and uses spaced repetition to focus on what you find hard: the note, its exact position, the shape of the zone, and how fast you answered.
 
 ## Run it
 
-The app is at <https://fauconnier-n.github.io/fretboard_learn/> (Chrome or Edge recommended; it installs as an app). On the first start it asks for a name and where to keep your data: a folder you pick (one inside OneDrive or Dropbox follows you to another computer), or just the browser. See [Profiles and storage](#profiles-and-storage).
+The app is at <https://fauconnier-n.github.io/fretboard_learn/> (Chrome or Edge recommended; it installs as an app). It always runs the [latest release](https://github.com/fauconnier-n/fretboard_learn/releases/latest), whose number is in the badge above and in the app under Settings → Data. On the first start it asks for a name and where to keep your data: a folder you pick (one inside OneDrive or Dropbox follows you to another computer), or just the browser. See [Profiles and storage](#profiles-and-storage).
 
 To run it on your own computer instead, double-click `start.bat`. It starts a tiny PowerShell server on <http://localhost:8137> and opens your browser (Chrome or Edge recommended). If the server is already running, it just opens the browser. Keep the server window open while you practise: it also saves the disk copy of your data (see below). Then:
 
@@ -78,4 +80,4 @@ Colours and design rules: [docs/design.md](docs/design.md).
 
 ## Hosting
 
-The site at <https://fauconnier-n.github.io/fretboard_learn/> is GitHub Pages: every push to `main` runs the checks and publishes the app's files (`.github/workflows/pages.yml`). It is a static site with no build step, so any HTTPS static host would do; the microphone needs HTTPS or localhost. It's an installable PWA. For app stores, wrap it with Capacitor. A static host has no `/api/`, so there the disk copy is the folder the user picks (Chrome and Edge on a computer) or nothing (the badge says *saved in browser only*).
+The site at <https://fauconnier-n.github.io/fretboard_learn/> is GitHub Pages. Publishing a [release](https://github.com/fauconnier-n/fretboard_learn/releases) (`vX.Y.Z`, semantic versions) runs the checks and deploys that tag, with the version written into `js/version.js`; pushes and pull requests to `main` only run the checks (`.github/workflows/pages.yml`). So the current release is always what the site runs. Work happens on the `dev` branch; `main` only moves at a release. It is a static site with no build step, so any HTTPS static host would do; the microphone needs HTTPS or localhost. It's an installable PWA. For app stores, wrap it with Capacitor. A static host has no `/api/`, so there the disk copy is the folder the user picks (Chrome and Edge on a computer) or nothing (the badge says *saved in browser only*).

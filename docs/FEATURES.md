@@ -4,7 +4,7 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Running the app
 - Static PWA with no build step, ES modules only. It installs from Chrome or Edge and works offline (service worker: the app's files network first with the cache as fallback; the vendored DuckDB files cache first, since they are version pinned and 34 MB; it clears only its own caches, since every site on `user.github.io` shares the origin).
-- Hosted at <https://fauconnier-n.github.io/fretboard_learn/> by GitHub Pages: a push to `main` runs `npm test`, `npm run lint` and `npm run typecheck` and publishes the app's files; pull requests run the same checks (`.github/workflows/pages.yml`).
+- Hosted at <https://fauconnier-n.github.io/fretboard_learn/> by GitHub Pages: publishing a release `vX.Y.Z` runs `npm test`, `npm run lint` and `npm run typecheck` and deploys that tag, stamped into `js/version.js` (shown in Settings → Data and on the title's tooltip); pushes and pull requests to `main` run the checks only (`.github/workflows/pages.yml`). The site always runs the latest release.
 - `start.bat` starts `serve.ps1`, a small PowerShell server on <http://localhost:8137>, and opens the browser. If the server is already running, it just opens the browser.
 - The server keeps running through browser-cancelled requests and restarts its listener after any error.
 - At any other local address (another port), a banner links back to the usual one, since each address has its own, separate storage.
@@ -126,6 +126,8 @@ Everything the app does today, grouped by area. Keep this file up to date: add a
 
 ## Changes
 Newest first. Earlier work had no dated log; everything up to 2026-10-29 is folded into the sections above.
+
+- **2026-11-01** — Releases: the site deploys from a published release (`v1.0.0` first), whose version shows in Settings → Data and on the title; `main` only moves at a release, work goes through `dev`.
 
 - **2026-11-01** — Hosted on GitHub Pages, with the checks run by GitHub on every pull request. Profiles: a welcome screen on the first start (name, where the data lives, instrument step), a picker when there are several, *+ New profile…* in the header. The disk copy can live in a folder the user picks (File System Access API), with one small file per run (`attempts/`, `runs/`) in both the folder and the server's `data` folder; Settings → Data creates, moves, connects or disconnects the folder. *Bring / sync* adds another profile's answers and runs, tagged with the new `origin` column and removable again. The service worker clears only its own caches.
 
