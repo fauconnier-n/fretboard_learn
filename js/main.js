@@ -710,17 +710,13 @@ function bindUsers(db) {
 }
 
 // Where the copy is, for the badge and the Data page
-const copyPlace = (db) => {
-  if (db.disk.mode === 'folder') return `folder "${db.disk.name}"`;
-  const dir = db.disk.name || 'the data folder';
-  return `${dir}${dir.includes('\\') ? '\\' : '/'}${db.user} (local server)`; // the separator the server's path uses
-};
+const copyPlace = (db) => (db.disk.mode === 'folder' ? `folder "${db.disk.name}"` : `${db.disk.name || 'the data folder'}\\${db.user} (local server)`);
 // why there is none right now
 function noCopyReason(db) {
   const d = db.disk;
   if (d.needsPermission) return 'the data folder needs your permission again (Settings → Data → Reconnect)';
   if (d.error) return d.error;
-  if (d.mode === 'server') return 'the local server is not reachable; writes are sent once it is back';
+  if (d.mode === 'server') return 'the local server (start.bat) is not reachable; writes are sent once it is back';
   return d.supported ? 'no folder chosen (Settings → Data)' : 'this browser cannot write to a folder; export a JSON backup now and then';
 }
 

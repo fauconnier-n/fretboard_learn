@@ -5,20 +5,15 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// Edge or Chrome where each OS installs them; FT_BROWSER names another executable.
-const BROWSERS = {
-  win32: ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'],
-  darwin: ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
-  linux: ['/usr/bin/microsoft-edge', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'],
-}[process.platform] || [];
-export const browserExe = () => process.env.FT_BROWSER || BROWSERS.find(existsSync);
+const BROWSERS = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe'];
+export const browserExe = () => BROWSERS.find(existsSync);
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Starts the browser and connects to its page. The profile folder (in the temp folder, named
 // after the port) is kept between runs unless `fresh`; `flags` are extra command-line switches.
 export async function launch({ port = 9333, profileName = `fretboard-browser-check-${port}`, fresh = false, flags = [] } = {}) {
   const exe = browserExe();
-  if (!exe) throw new Error('No Edge or Chrome found (set FT_BROWSER to a browser executable).');
+  if (!exe) throw new Error('No Edge or Chrome found.');
   const profile = join(tmpdir(), profileName);
   if (fresh) rmSync(profile, { recursive: true, force: true });
   const proc = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--mute-audio',

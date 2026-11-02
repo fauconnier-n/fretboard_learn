@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/', 'graphify-out/', '.workspace/', 'data/', '.claude/', 'dist/'] },
+  { ignores: ['node_modules/', 'graphify-out/', '.workspace/', 'data/', '.claude/'] },
   js.configs.recommended,
   {
     files: ['js/**/*.js'],
@@ -13,7 +13,7 @@ export default [
     languageOptions: { sourceType: 'script', globals: globals.serviceworker },
   },
   {
-    files: ['tests/**/*.js', 'tools/**/*.mjs', 'serve.mjs', 'eslint.config.js'],
+    files: ['tests/**/*.js', 'tools/**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
   {

@@ -1,4 +1,4 @@
-// Performance measurements of the app in headless Edge or Chrome, as user "test" (the server must be running).
+// Performance measurements of the app in headless Edge, as user "test" (the server must be running).
 //   node tools/perf.mjs [--out <file.json>] [--compare <baseline.json>] [--seed <k>] [--origin http://localhost:8137] [--port 9444]
 // Scenarios, in order: a cold start (fresh browser profile: no caches, the database restored from
 // the disk copy), two warm starts, a run of keyboard answers, 2 s of a running quiz with nothing

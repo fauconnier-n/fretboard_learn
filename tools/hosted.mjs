@@ -1,6 +1,6 @@
 // The app on a plain static host (no local server), as on GitHub Pages, for tools/browser-check.mjs.
-// Serve it on another port and let the browser take a made-up host name for this machine:
-//   node serve.mjs --port 8150 --no-open
+// Serve it with the plain static server and let the browser take a made-up host name for this machine:
+//   node tools/static.mjs --port 8150
 //   node tools/browser-check.mjs tools/hosted.mjs --fresh --no-seed --origin http://fretboard.test:8150 --host fretboard.test --secure --out screenshots/hosted
 // Without --secure the origin is not a secure context, like a browser without the folder feature.
 import { dataPage, ready, runGif, wait, welcome } from './tour.mjs';
