@@ -36,6 +36,8 @@ export function median(xs) {
 }
 
 export const taskOf = (a) => a.task ?? 'play';
+// a note-position prompt (play, name, truefalse), not the Intervals tab nor the Chord page
+export const isNoteTask = (a) => !/^(interval|chord)/.test(taskOf(a));
 
 /**
  * Open strings an answer or run was on ('40,45,…'), also for rows from before instruments.

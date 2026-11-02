@@ -8,7 +8,7 @@ export const welcome = `${until} await until(() => !document.getElementById('wel
 // Settings → Data (needs `wait`, e.g. from `ready`)
 export const dataPage = `document.querySelector('.tabs button[data-tab=settings]').click(); await wait(300); document.querySelector('[data-open=data]').click(); await wait(800);`;
 // top tabs; practice and intervals also pick the page inside Practice (the Practice tab alone reopens the last one)
-export const tab = (name) => `document.querySelector('.tabs button[data-tab=${name === 'intervals' ? 'practice' : name}]').click(); document.querySelector('#practiceNav button[data-tab=${name}]')?.click(); await new Promise((r) => setTimeout(r, 700));`;
+export const tab = (name) => `document.querySelector('.tabs button[data-tab=${name === 'intervals' || name === 'chords' ? 'practice' : name}]').click(); document.querySelector('#practiceNav button[data-tab=${name}]')?.click(); await new Promise((r) => setTimeout(r, 700));`;
 // a settings page (home, audio, instrument, custom, board, practice, data, tables)
 const spage = (name) => `document.querySelector('[data-open=${name}]').click(); await new Promise((r) => setTimeout(r, 500));`;
 export const key = 'const key = (k, shift) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true }));';

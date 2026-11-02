@@ -54,7 +54,7 @@ const STARTER_DIFF = 0.2;
 // open strings, the octave and the dot-marker frets are easier to find
 const markerBonus = (f) => (f === 0 || f === 12 || f === 24 ? 0.1 : MARKERS.includes(f) ? 0.06 : 0);
 const TWIN_LINK = 0.85; // an unseen spelling starts from what is known of its twin, slightly discounted
-const DUE_R = 0.85; // below this recall probability an item is "fading, due for review"
+export const DUE_R = 0.85; // below this recall probability an item is "fading, due for review"
 const BACKLOG_GATE = 8; // with this many due items, no zone with unseen positions is picked
 const TARGET_MIN = 0.75; // band for the target success rate
 const TARGET_MAX = 0.85;
@@ -132,6 +132,13 @@ function nextS(c, G, R, elapsedDays) {
   if (G === 1) return Math.min(W[11] * c.D ** -W[12] * ((c.S + 1) ** W[13] - 1) * Math.exp(W[14] * (1 - R)), c.S);
   const bonus = G === 2 ? W[15] : G === 4 ? W[16] : 1;
   return Math.min(36500, c.S * (1 + Math.exp(W[8]) * (11 - c.D) * c.S ** -W[9] * (Math.exp(W[10] * (1 - R)) - 1) * bonus));
+}
+
+// One FSRS step for grade G at time now: a new {S, D, last} (a first answer when there is no card).
+export function fsrsStep(card, G, now) {
+  if (!card) return { S: initS(G), D: initD(G), last: now };
+  const elapsed = Math.max(0, now - card.last) / DAY;
+  return { S: nextS(card, G, retrievability(card, now), elapsed), D: nextD(card.D, G), last: now };
 }
 
 // probability of a right answer: memory only
@@ -764,8 +771,8 @@ export class Scheduler {
     if (c && c.inSession !== meta.session) c.mark = this.noteRings(key, now);
     if (!c) {
       c = cards[key] = {
-        S: initS(G), D: initD(G),
-        last: now, reps: 1, seen: 1,
+        ...fsrsStep(null, G, now),
+        reps: 1, seen: 1,
         lapses: correct ? 0 : 1,
         correct: ok,
         acc: correct ? 0.75 : 0.25,
@@ -773,16 +780,12 @@ export class Scheduler {
         sessions: [],
       };
     } else {
-      const elapsed = Math.max(0, now - c.last) / DAY;
-      const R = retrievability(c, now);
-      c.S = nextS(c, G, R, elapsed);
-      c.D = nextD(c.D, G);
+      Object.assign(c, fsrsStep(c, G, now));
       if (correct) c.correct++;
       else c.lapses++;
       c.acc = 0.7 * c.acc + 0.3 * ok;
       c.seen++;
       c.reps++;
-      c.last = now;
     }
     if (G >= 3) {
       c.sessions ||= [];
