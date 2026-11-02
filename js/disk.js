@@ -1,7 +1,7 @@
 // @ts-check
 // The disk copy of a profile's data, laid out as in js/disklayout.js and kept by one of two
 // transports: a folder the user picked (js/diskFolder.js) or, on localhost, the local server's
-// data/<name>/ (serve.mjs). storage.js writes through here after every change and merges from
+// data/<name>/ (serve.ps1). storage.js writes through here after every change and merges from
 // here on start, so a wiped browser refills itself. With neither (a static host such as GitHub
 // Pages and no folder chosen) configured() is false and everything stays in the browser.
 import { fold, groupByRun, profileFolder, toJsonl } from './disklayout.js';
@@ -9,7 +9,7 @@ import * as folder from './diskFolder.js';
 
 const LOCAL = typeof location !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 const KEEPALIVE_MAX = 60000; // fetch keepalive (used while the page closes) is limited to 64 KB
-const DOWN = 'local server not reachable (start Fretboard Trainer again)';
+const DOWN = 'local server not reachable (run start.bat)';
 
 let transport = null;
 let handle = null; // the folder, when mode is 'folder'

@@ -1,8 +1,7 @@
-# Checks on every pull request to main and on main itself, where the release binaries are also built
-# and smoke-tested on a runner of every platform. A published release (vX.Y.Z) does all that, deploys
-# the tag to GitHub Pages (https://fauconnier-n.github.io/fretboard_learn/), so the site always runs
-# the latest release, and attaches the binaries to the release. Only the app's files are published:
-# no docs, tools or tests.
+# Checks on every pull request to main and on main itself. A published release (vX.Y.Z) runs the
+# checks and then deploys that tag to GitHub Pages (https://fauconnier-n.github.io/fretboard_learn/),
+# so the site always runs the latest release. Only the app's files are published: no docs, tools,
+# tests or server script.
 name: Check and deploy
 run-name: ${{ github.event_name == 'release' && format('Deploy {0}', github.event.release.tag_name) || format('Check {0}', github.ref_name) }}
 on:
@@ -18,9 +17,6 @@ permissions:
 concurrency:
   group: pages-${{ github.event_name == 'release' && 'deploy' || github.ref }}
   cancel-in-progress: false
-env:
-  # what js/version.js says and what the archives are named after
-  VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -34,84 +30,6 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
-  # serve.mjs compiled with Bun for every platform, the app's files next to it: one archive per platform
-  binaries:
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - name: Build fretboard-trainer for the six platforms
-        run: |
-          node tools/stage.mjs dist/app "$VERSION"
-          for t in windows-x64 windows-arm64 darwin-x64 darwin-arm64 linux-x64 linux-arm64; do
-            mkdir -p "dist/$t"
-            bun build --compile --target="bun-$t" serve.mjs --outfile "dist/$t/fretboard-trainer"
-            cp -r dist/app/. "dist/$t/"
-            case $t in
-              windows-*) (cd "dist/$t" && zip -qr "../fretboard-trainer-$VERSION-$t.zip" .) ;;
-              *) chmod +x "dist/$t/fretboard-trainer" && tar czf "dist/fretboard-trainer-$VERSION-$t.tar.gz" -C "dist/$t" . ;;
-            esac
-          done
-          ls -l dist/fretboard-trainer-*
-      - uses: actions/upload-artifact@v4
-        with:
-          name: binaries
-          path: dist/fretboard-trainer-*
-          if-no-files-found: error
-  # each archive started on its own platform, serving the app and writing the disk copy
-  smoke:
-    needs: binaries
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, target: linux-x64 }
-          - { os: ubuntu-24.04-arm, target: linux-arm64 }
-          - { os: windows-latest, target: windows-x64 }
-          - { os: windows-11-arm, target: windows-arm64 }
-          - { os: macos-latest, target: darwin-arm64 }
-          - { os: macos-15-intel, target: darwin-x64 }
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: binaries
-      - name: Unpack, start, use the disk API
-        shell: bash
-        run: |
-          mkdir app
-          if [ "$RUNNER_OS" = Windows ]; then unzip -q fretboard-trainer-*-${{ matrix.target }}.zip -d app; exe=.exe
-          else tar xzf fretboard-trainer-*-${{ matrix.target }}.tar.gz -C app; fi
-          cd app
-          "./fretboard-trainer$exe" --no-open --port 8137 > server.log 2>&1 &
-          for i in $(seq 1 50); do curl -fsS -o /dev/null http://localhost:8137/api/disk && break; sleep 0.2; done
-          curl -fsS http://localhost:8137/api/disk; echo
-          curl -fsS http://localhost:8137/ | grep -q '<title>'
-          curl -fsS -X PUT --data '{"a":1}' http://localhost:8137/api/data/test/kv.json
-          curl -fsS -X PUT --data '{"a":2}' http://localhost:8137/api/data/test/kv.json
-          test "$(curl -fsS http://localhost:8137/api/data/test/kv.json)" = '{"a":2}'
-          test "$(cat data/test/kv.json.bak)" = '{"a":1}'
-          curl -fsS -X POST --data '{"n":1}' http://localhost:8137/api/data/test/attempts/20260101-120000-abc.jsonl
-          test "$(curl -fsS http://localhost:8137/api/data/test/attempts)" = '{"n":1}'
-          curl -fsS -X DELETE http://localhost:8137/api/data/test/attempts
-          ls data/test | grep -q '^attempts\.bak-'
-          kill %1; cat server.log
-  publish:
-    if: github.event_name == 'release'
-    needs: smoke
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: binaries
-      - run: gh release upload "$VERSION" fretboard-trainer-* --clobber --repo "$GITHUB_REPOSITORY"
-        env:
-          GH_TOKEN: ${{ github.token }}
   deploy:
     if: github.event_name == 'release'
     needs: check
@@ -125,7 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Stage the app files only, stamped with the release tag
-        run: node tools/stage.mjs _site "$VERSION"
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js css js icons _site/
+          sed -i "s/export const VERSION = 'dev';/export const VERSION = '${{ github.event.release.tag_name }}';/" _site/js/version.js
+          grep -q "${{ github.event.release.tag_name }}" _site/js/version.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

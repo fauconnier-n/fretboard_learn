@@ -1,8 +1,8 @@
 // Profiles, the welcome screen and the Data page, for tools/browser-check.mjs. Run from an
 // empty browser profile without the usual seeding, so the welcome shows:
 //   node tools/browser-check.mjs tools/profiles.mjs --fresh --no-seed --out screenshots/profiles
-// Against a hosted-like origin (node serve.mjs --port 8150 --no-open), add --host fretboard.test --secure
-// --origin http://fretboard.test:8150 (and without --secure for a browser that cannot save to a folder).
+// Against a hosted-like origin (serve.ps1 -Port 8140 -NoApi), add --host fretboard.test --secure
+// --origin http://fretboard.test:8140 (and without --secure for a browser that cannot save to a folder).
 // A step that reloads the page ends there (the call dies with the page); the next step waits.
 import { answer, dataPage, key, ready, runGif, until, wait, welcome } from './tour.mjs';
 
