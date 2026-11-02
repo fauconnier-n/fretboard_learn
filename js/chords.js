@@ -231,13 +231,15 @@ export const available = (item, frets) => Math.max(...played(SHAPE[item.shapeId]
 /**
  * The cells of a grip on these strings (the top six; s counts from the lowest string),
  * low to high, with degree and spelled note name; root cell, bass midi, chord tones spelled.
+ * rootPc and label are those that sound: on a shifted tuning (Eb standard) the C open grip is a B.
  * @param {Item} item @param {number[]} strings
- * @returns {{ cells: Cell[], root: Cell, bass: number, names: string[] }}
+ * @returns {{ cells: Cell[], root: Cell, bass: number, names: string[], rootPc: number, label: string }}
  */
 export function grip(item, strings) {
   const sh = SHAPE[item.shapeId];
   const off = strings.length - 6;
-  const rootName = ROOT_NAMES[item.rootPc];
+  const rootPc = pcOf(strings[off + sh.root] + item.base + sh.f[sh.root]);
+  const rootName = ROOT_NAMES[rootPc];
   const name = (d) => spellAbove(rootName, DEGREES[d][1], DEGREES[d][0]);
   /** @type {Cell[]} */
   const cells = [];
@@ -251,6 +253,8 @@ export function grip(item, strings) {
     root: cells.find((c) => c.s === off + sh.root),
     bass: cells[0].midi,
     names: QUALITY[item.q].degs.filter((d) => sh.deg.includes(d)).map(name),
+    rootPc,
+    label: rootName + QUALITY[item.q].sym,
   };
 }
 
@@ -490,13 +494,22 @@ export function hear(cur, midi) {
 
 /**
  * Name the chord: root and quality right. dim7 and aug are symmetric, so any of their
- * 4 (3) roots is right with the same quality.
+ * 4 (3) roots is right with the same quality. A grip that leaves notes out (shells, C7 with
+ * no 5th) can be more than one chord: another quality is right too when it holds every note
+ * of the grip and adds no more notes than the asked quality does (an m7b5 shell is also an
+ * m7 shell; open C7 is not a C).
  * @param {Item} item @param {number} pc root picked @param {string} q quality id picked
+ * @param {number} [rootPc] the root that sounds (grip().rootPc: differs on shifted tunings)
  */
-export function isRightName(item, pc, q) {
-  if (q !== item.q) return false;
-  const d = pcOf(pc - item.rootPc);
-  return d === 0 || (q === 'dim7' && d % 3 === 0) || (q === 'aug' && d % 4 === 0);
+export function isRightName(item, pc, q, rootPc = item.rootPc) {
+  const d = pcOf(pc - rootPc);
+  if (!(d === 0 || (q === 'dim7' && d % 3 === 0) || (q === 'aug' && d % 4 === 0))) return false;
+  if (q === item.q) return true;
+  // semitones above the sounding root: those the grip holds, and those of the answer
+  const held = new Set(SHAPE[item.shapeId].deg.filter(Boolean).map((x) => DEGREES[x][0]));
+  const ans = new Set(QUALITY[q].semis.map((x) => pcOf(x + d)));
+  const extra = (semis) => semis.filter((x) => !held.has(x)).length;
+  return [...held].every((x) => ans.has(x)) && extra([...ans]) <= extra(QUALITY[item.q].semis);
 }
 
 /** Time allowed for a Play prompt. @param {any[]|number} cells the grip's cells or their count */

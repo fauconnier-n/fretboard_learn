@@ -148,6 +148,30 @@ test('isRightName: root and quality, symmetric chords, power chords', () => {
   assert.ok(isRightName(ITEM['G5:E5:3'], 7, '5'));
 });
 
+test('isRightName: voicings that leave notes out can be named either way', () => {
+  const shell = ITEMS.find((it) => it.shapeId === 'shell-A-m7b5');
+  assert.ok(isRightName(shell, shell.rootPc, 'm7b5'));
+  assert.ok(isRightName(shell, shell.rootPc, 'm7')); // R b3 b7: the m7 shell's notes
+  assert.ok(!isRightName(shell, shell.rootPc, 'mmaj7'));
+  const dim7 = ITEMS.find((it) => it.shapeId === 'shell-A-dim7');
+  assert.ok(isRightName(dim7, dim7.rootPc, 'm6'));
+  assert.ok(isRightName(dim7, (dim7.rootPc + 3) % 12, 'dim7'));
+  assert.ok(!isRightName(ITEM['C7:open'], 0, 'maj')); // the Bb is not in C
+  assert.ok(isRightName(ITEM['C7:open'], 0, '7b5')); // no 5th: C E Bb fits C7b5 too
+  assert.ok(!isRightName(ITEM['C7:open'], 0, 'maj7'));
+});
+
+test('grip on a shifted tuning: the label and names of what sounds', () => {
+  const eb = std.map((m) => m - 1);
+  const g = grip(ITEM['C:open'], eb);
+  assert.equal(g.rootPc, 11);
+  assert.equal(g.label, 'B');
+  assert.deepEqual(g.names, ['B', 'D#', 'F#']);
+  assert.deepEqual([grip(ITEM['C:open'], std).rootPc, grip(ITEM['C:open'], std).label], [0, 'C']);
+  assert.ok(isRightName(ITEM['C:open'], 11, 'maj', g.rootPc));
+  assert.ok(!isRightName(ITEM['C:open'], 0, 'maj', g.rootPc));
+});
+
 test('promptTimeout and retestAt', () => {
   assert.equal(promptTimeout(grip(ITEM['E:open'], std).cells), 13000);
   assert.equal(promptTimeout(3), 8500);
