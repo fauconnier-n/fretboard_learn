@@ -15,7 +15,7 @@ import { Tuner } from './tuner.js';
 import { renderStats } from './stats.js';
 import { renderProgress } from './progress.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
-import { firstRightPerDay, logStrings, perDay, practisedDays, predictionRows, rate, taskOf } from './logQueries.js';
+import { firstRightPerDay, logStrings, perDay, practisedDays, predictionRows, rate, taskOf, isNoteTask } from './logQueries.js';
 
 // timing marks for tools/perf.mjs (performance.getEntriesByType('mark'|'measure') in the console)
 performance.mark('app:modules');
@@ -133,7 +133,7 @@ function sound(kind) {
 // Every answer of the log replayed on this instrument: answers on a string with the same key
 // (instruments.js) count, others are left out. The Intervals tab has its own stats.
 const tuningAttempts = () =>
-  storage.allAttempts().filter((a) => a.task !== 'interval')
+  storage.allAttempts().filter(isNoteTask)
     .map((a) => mapAttempt(a, app.keys)).filter(Boolean)
     .sort((a, b) => a.t - b.t);
 
@@ -397,10 +397,10 @@ async function showStats() {
     attemptCount,
   });
   // progress over runs and days, on these strings, note-position quizzes only
-  const notInterval = (a) => taskOf(a) !== 'interval' && sameStrings(a);
-  const here = log.filter(notInterval);
+  const noteHere = (a) => isNoteTask(a) && sameStrings(a);
+  const here = log.filter(noteHere);
   renderProgress($('progressCharts'), {
-    runs: storage.allRuns().filter((r) => r.prompts > 0 && notInterval(r))
+    runs: storage.allRuns().filter((r) => r.prompts > 0 && noteHere(r))
       .map((r) => ({ t: r.started_at, prompts: r.prompts, correct: r.correct, median_ms: r.median_ms })),
     days: perDay(here),
     known: firstRightPerDay(here),

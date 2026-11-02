@@ -15,7 +15,7 @@ const TRIAD_TIMEOUT_MS = 12000; // three notes to find
 const NEXT_DELAY = 700;
 const REVEAL_DELAY = 2200;
 const MUTE_MS = 250; // the same pluck can be detected twice
-const NO_ZONE = { type: null, sk: null, cs: null, cf: null, span: null, fretMin: null, fretMax: null };
+export const NO_ZONE = { type: null, sk: null, cs: null, cf: null, span: null, fretMin: null, fretMax: null };
 const KEY_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 const fmt = (ms) => (ms == null ? '—' : (ms / 1000).toFixed(1) + ' s');
