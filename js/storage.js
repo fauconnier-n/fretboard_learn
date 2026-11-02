@@ -151,7 +151,7 @@ export const TABLES = {
       ['pred_s', 'DOUBLE', 'Memory stability S in days just before this answer (time for R to fall to 90%).'],
       ['pred_d', 'DOUBLE', 'Memory difficulty D (1 easy – 10 hard) just before this answer.'],
       ['interval', 'VARCHAR', "In 'interval' prompts (Intervals tab): the item asked, e.g. 'oct2_up' (octave 2 strings up), 'P5_up' (perfect 5th above), 'triad_maj', 'deg5' (5th of the scale). string_idx/fret are then the marked root and target the first expected note."],
-      ['chord', 'VARCHAR', "In chord prompts (Chord page): the grip asked, e.g. 'C:open', 'F:E-maj:1' (E shape at fret 1), 'G:tri-GBe-maj-1:8'. string_idx/fret are the root's position, target the bass note."],
+      ['chord', 'VARCHAR', "In chord prompts (Chord page): the grip asked, e.g. 'C:open', 'F:E:1' (E shape at fret 1), 'G:tri-GBe-maj-1:8'. string_idx/fret are the root's position, target the bass note."],
       ['chord_cue', 'INTEGER', 'Chord prompts: degree-label level shown, 0 every degree … 4 none.'],
       ['task', 'VARCHAR', "What was asked: 'play' (note name shown, you play it), 'name' (position shown, you name it), 'truefalse' (a position is shown with a name, right or wrong; you answer yes or no), 'interval' (Intervals tab, see the interval column), 'chord' (Chord page: a chord shown, you play its grip) or 'chord-name' (a grip shown, you name the chord; see the chord column)."],
       ['answer_name', 'VARCHAR', "In 'name' prompts: the note name you gave, e.g. 'Bb'."],

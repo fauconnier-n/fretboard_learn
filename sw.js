@@ -1,10 +1,10 @@
 // Offline support: app files network first (so edits show up straight away), cache as fallback.
 // Bump CACHE when the list of files changes.
-const CACHE = 'fretboard-trainer-v35';
+const CACHE = 'fretboard-trainer-v36';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
   'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',
-  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/idb.js', 'js/logQueries.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js', 'js/burst.js', 'js/disklayout.js', 'js/diskFolder.js', 'js/version.js',
+  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/idb.js', 'js/logQueries.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/chords.js', 'js/chordsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js', 'js/burst.js', 'js/disklayout.js', 'js/diskFolder.js', 'js/version.js',
 ];
 
 self.addEventListener('install', (e) => {
