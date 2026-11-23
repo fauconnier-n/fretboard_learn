@@ -188,15 +188,31 @@ export function renderCueReliance(rows) {
   return `<table class="check-table"><tr><th>Names on the board</th><th>Answers</th><th>Right</th><th>Memory model expected</th><th>Median time (right)</th></tr>${table}</table>${text}`;
 }
 
+// The log loss of the memory model under each candidate decay: one replay of the whole log each.
+export const scoreDecays = (attempts, strings, frets) => DECAYS.map((d) => {
+  const rows = Scheduler.replayRecall(attempts, strings, frets, d);
+  return { d, n: rows.length, ll: rows.length ? logLoss(rows) : null };
+});
+
+// The replays in a worker (decayWorker.js), so the page stays responsive; here when there is none.
+function replayScores(attempts, strings, frets) {
+  let w;
+  try {
+    w = new Worker(new URL('./decayWorker.js', import.meta.url), { type: 'module' });
+  } catch {
+    return Promise.resolve(scoreDecays(attempts, strings, frets));
+  }
+  return new Promise((resolve, reject) => {
+    w.onmessage = (e) => resolve(e.data);
+    w.onerror = (e) => reject(e);
+    w.postMessage({ attempts, strings, frets });
+  }).catch(() => scoreDecays(attempts, strings, frets)).finally(() => w.terminate());
+}
+
 // Fit the FSRS-6 decay by replaying the answer log under each candidate value and scoring
 // the memory model's prediction on answers given more than an hour after the previous one.
 export async function fitDecay(attempts, strings, frets, current) {
-  const results = [];
-  for (const d of DECAYS) {
-    const rows = Scheduler.replayRecall(attempts, strings, frets, d);
-    results.push({ d, n: rows.length, ll: rows.length ? logLoss(rows) : null });
-    await new Promise((r) => setTimeout(r)); // seven replays of the whole log: let the page breathe between them
-  }
+  const results = await replayScores(attempts, strings, frets);
   const n = results[0]?.n || 0;
   if (n < MIN_FIT) {
     return { best: null, html: `<p class="muted small">Needs at least ${MIN_FIT} answers given more than an hour after the previous answer on the same item (you have ${n}). Until then the FSRS-6 default (${DEFAULT_DECAY}) is used.</p>` };
