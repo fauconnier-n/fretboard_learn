@@ -16,6 +16,7 @@
 import { pcOf, SHARPS, isAccidental, spellingsOf, spellName } from './music.js';
 import { describe } from './zones.js';
 import { SESSION_GAP } from './logQueries.js';
+import { VERSION } from './version.js';
 
 const SLOW_MS = 10000;
 const PRIOR_MS = 3000;
@@ -46,6 +47,8 @@ export const itemKey = (cellKey, sp) => (sp === 'n' ? cellKey : cellKey + ':' + 
 const twin = (sp) => (sp === 's' ? 'f' : 's');
 const isReverse = (key) => key.endsWith(':r');
 
+// Bump it when what a replay computes changes: the replay saved at the last start is then
+// dropped (each release drops it too, replayId).
 const MODEL_VERSION = 6;
 const DAY = 86400000;
 const CTX_MAX = 24;
@@ -174,6 +177,20 @@ export function errorType(target, played) {
   if (Math.abs(d) === 1) return d > 0 ? 'semitone_sharp' : 'semitone_flat';
   if (Math.abs(d) === 2) return d > 0 ? 'tone_sharp' : 'tone_flat';
   return 'other';
+}
+
+// The fields of `meta` that rebuild recomputes from the answers (a replayState carries them).
+const REPLAYED_META = ['time', 'recentLog', 'floor', 'fx', 'session', 'lastAnswer'];
+
+// A fingerprint of the first n answers of a log (FNV-1a over what identifies each one): a saved
+// replay is resumed only while the answers it covered are still there, in the same order.
+export function logPrint(attempts, n = attempts.length) {
+  let h = 2166136261;
+  for (let i = 0; i < n; i++) {
+    const a = attempts[i];
+    for (const x of [a.t % 4294967296, a.s, a.f, a.target, a.correct ? 1 : 0, Math.round(a.ms || 0)]) h = Math.imul(h ^ x, 16777619);
+  }
+  return h >>> 0;
 }
 
 // Elo-style uncertainty: big steps while a factor has few answers, smaller later.
@@ -847,24 +864,43 @@ export class Scheduler {
   // Replay the attempt log into fresh cards. Of `meta` it keeps target, speedPush, recent, last,
   // best and decay (changed by endRun, nearMiss and useDecay) and recomputes the rest: those
   // are the only fields worth storing (main.js persistedModel); everything else comes from here.
-  rebuild(attempts) {
-    const fresh = newModel();
-    for (const k of ['cards', 'notes', 'ctx', 'conf']) this.model[k] = fresh[k];
-    for (const k of ['time', 'recentLog', 'floor', 'fx', 'session', 'lastAnswer']) this.model.meta[k] = fresh.meta[k];
+  // from: a replayState saved earlier; when it still fits (same strings, decay, and its answers
+  // still the first ones of the log, unchanged), only the answers after it are replayed. It is
+  // taken over, not copied. Returns how many answers were replayed.
+  rebuild(attempts, from = null) {
+    const start = from && from.id === this.replayId() && from.n <= attempts.length && from.print === logPrint(attempts, from.n) ? from : newModel();
+    for (const k of ['cards', 'notes', 'ctx', 'conf']) this.model[k] = start[k];
+    for (const k of REPLAYED_META) this.model.meta[k] = start.meta[k];
     this.model.version = MODEL_VERSION;
     delete this.model.stale;
     this.needsRebuild = false;
-    const runs = new Set();
-    for (const a of attempts) {
+    const first = start === from ? from.n : 0;
+    for (let i = first; i < attempts.length; i++) {
+      const a = attempts[i];
       const pc = pcOf(a.target);
       const cell = { s: a.s, f: a.f, midi: a.target, pc, key: a.s + ':' + a.f };
       // answers logged before spellings existed were all shown as sharps
       const sp = a.task === 'name' || a.task === 'truefalse' ? 'r' : a.spelling || (isAccidental(pc) ? 's' : 'n');
       this.record(a.desc, cell, sp, a.correct, a.ms, a.t, cueOpts(a));
       if (!a.correct && sp !== 'r') this.recordConfusion(cell, sp, a.played);
-      runs.add(a.runId);
     }
-    this.model.meta.runsDone = runs.size;
+    this.model.meta.runsDone = new Set(attempts.map((a) => a.runId)).size;
+    return attempts.length - first;
+  }
+
+  // What a replay depends on besides the answers: a saved replayState is used only under the same.
+  replayId() {
+    return [VERSION, MODEL_VERSION, this.keys.join(','), this.strings.join(','), this.model.meta.decay || DEFAULT_DECAY].join('|');
+  }
+
+  // A copy of the replayed part of the model, right after rebuild(attempts), to start the next
+  // replay from (main.js keeps it in this browser only).
+  replayState(attempts) {
+    const { cards, notes, ctx, conf, meta } = this.model;
+    return structuredClone({
+      id: this.replayId(), n: attempts.length, print: logPrint(attempts),
+      cards, notes, ctx, conf, meta: Object.fromEntries(REPLAYED_META.map((k) => [k, meta[k]])),
+    });
   }
 
   // Replay for the model check: the chance of a right answer the memory model alone gives

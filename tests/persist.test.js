@@ -68,6 +68,32 @@ test('a graded answer changes nothing of the stored part except the replayed tim
   assert.equal(sch.model.version, newModel().version);
 });
 
+test('a replay resumed from a saved state gives the same model as a full replay', () => {
+  const log = syntheticLog();
+  const full = fromLog(newModel(), log);
+  const part = new Scheduler(newModel(), strings, 15);
+  assert.equal(part.rebuild(log.slice(0, 40)), 40);
+  const saved = part.replayState(log.slice(0, 40));
+  const resumed = new Scheduler(newModel(), strings, 15);
+  assert.equal(resumed.rebuild(log, structuredClone(saved)), log.length - 40); // only the newer answers
+  for (const k of ['cards', 'notes', 'ctx', 'conf', 'meta']) assert.deepEqual(resumed.model[k], full.model[k]);
+});
+
+test('a saved replay is dropped when its answers changed, or under another decay', () => {
+  const log = syntheticLog();
+  const part = new Scheduler(newModel(), strings, 15);
+  part.rebuild(log.slice(0, 40));
+  const saved = part.replayState(log.slice(0, 40));
+  const fresh = () => new Scheduler(newModel(), strings, 15);
+  // an older answer brought in from elsewhere lands before the saved ones
+  const merged = [{ ...log[0], t: log[0].t - 1000, correct: !log[0].correct }, ...log];
+  assert.equal(fresh().rebuild(merged, structuredClone(saved)), merged.length);
+  assert.equal(fresh().rebuild(log.slice(0, 30), structuredClone(saved)), 30); // answers removed
+  const other = fresh();
+  other.useDecay(0.3);
+  assert.equal(other.rebuild(log, structuredClone(saved)), log.length);
+});
+
 test('an old full model stored before this change still loads and rebuilds', () => {
   const log = syntheticLog();
   const full = JSON.parse(JSON.stringify(fromLog(newModel(), log).model));
