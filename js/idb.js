@@ -76,6 +76,31 @@ export async function load(user) {
   return { kv, attempts: rows.map((r) => r.a), runs };
 }
 
+// What can be recomputed from the data (the replayed models), in a database of its own: never
+// copied to the disk or exported, and no version upgrade of the main one, which an older tab
+// still open would block.
+let cachep = null;
+function cacheDb() {
+  cachep ??= new Promise((resolve, reject) => {
+    const req = indexedDB.open('fretboard-cache', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('cache', { keyPath: ['user', 'key'] });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return cachep;
+}
+
+export async function getCache(user, key) {
+  const tx = (await cacheDb()).transaction('cache');
+  return (await result(tx.objectStore('cache').get([user, key])))?.value;
+}
+
+export async function putCache(user, key, value) {
+  const tx = (await cacheDb()).transaction('cache', 'readwrite');
+  tx.objectStore('cache').put({ user, key, value });
+  await done(tx);
+}
+
 // Replace everything stored for one user. kvText values are JSON text, runs is {run_id: row}.
 export async function replace(user, kvText, attempts, runs = {}) {
   const tx = (await idb()).transaction(['kv', 'attempts', 'runs'], 'readwrite', TX);

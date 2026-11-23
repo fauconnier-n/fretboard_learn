@@ -135,10 +135,27 @@ function sound(kind) {
 
 // Every answer of the log replayed on this instrument: answers on a string with the same key
 // (instruments.js) count, others are left out. The Intervals tab has its own stats.
-const tuningAttempts = () =>
-  storage.allAttempts().filter(isNoteTask)
-    .map((a) => mapAttempt(a, app.keys)).filter(Boolean)
-    .sort((a, b) => a.t - b.t);
+// Kept until the log or the strings change; shared, not to be changed.
+let tuningMemo = { rev: -1, keys: '', list: [] };
+function tuningAttempts() {
+  const rev = storage.logRevision();
+  const keys = app.keys.join(',');
+  if (tuningMemo.rev !== rev || tuningMemo.keys !== keys) {
+    tuningMemo = { rev, keys, list: storage.allAttempts().filter(isNoteTask).map((a) => mapAttempt(a, app.keys)).filter(Boolean).sort((a, b) => a.t - b.t) };
+  }
+  return tuningMemo.list;
+}
+
+// Replay the log into the model, from where the replay saved at the last start ended when the
+// answers it covered are unchanged; the new end is saved for the next start (this browser only).
+async function replayLog() {
+  const t = performance.now();
+  const attempts = tuningAttempts();
+  const key = 'replay:' + app.keys.join(',');
+  const n = app.scheduler.rebuild(attempts, await storage.getCache(key));
+  performance.measure('app:replay', { start: t, detail: n });
+  if (n) storage.setCache(key, app.scheduler.replayState(attempts));
+}
 // Chord answers for the Chord page's replay (stats, cards, label levels), on any tuning: grips are relative.
 const chordRows = () => storage.allAttempts().filter((a) => /^chord/.test(a.task || '') && a.chord)
   .map((a) => ({ chord: a.chord, task: a.task, correct: a.correct, ms: a.ms, t: a.t, chordCue: a.chordCue, runId: a.runId, probe: a.probe, retest: a.retest, special: a.special }));
@@ -223,7 +240,7 @@ async function applyBoardSettings() {
   app.scheduler = new Scheduler(app.model, tuning.strings, s.frets, app.keys);
   if (app.scheduler.needsRebuild) {
     // replay the answer log, which keeps every answer and its time
-    app.scheduler.rebuild(await tuningAttempts());
+    await replayLog();
     await saveModelNow();
   }
   const cfg = { strings: app.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats, lowAtBottom: s.lowAtBottom };
@@ -524,8 +541,9 @@ function bindData() {
     }
   };
   $('rebuildBtn').onclick = async () => {
-    const attempts = await tuningAttempts();
-    app.scheduler.rebuild(attempts);
+    const attempts = tuningAttempts();
+    app.scheduler.rebuild(attempts); // all of it, without the saved replay: this is the repair button
+    storage.setCache('replay:' + app.keys.join(','), app.scheduler.replayState(attempts));
     await saveModelNow();
     $('dataOut').textContent = `Rebuilt from ${attempts.length} logged answers.`;
   };
@@ -637,7 +655,7 @@ async function checkModel() {
   out.innerHTML = renderCheck(rows, fit.html + useBtn + resetBtn) + `<h4>Reliance on note names</h4>${renderCueReliance(cueRows)}`;
   const apply = async (d) => {
     app.scheduler.useDecay(d);
-    app.scheduler.rebuild(await tuningAttempts());
+    await replayLog(); // another decay: replayed from the start
     await saveModelNow();
     checkModel();
   };

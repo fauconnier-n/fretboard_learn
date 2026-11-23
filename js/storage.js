@@ -299,7 +299,12 @@ const stored = (write) => {
   });
 };
 
+// goes up whenever the answer log changes, so a list derived from it can be kept until then
+let logRev = 0;
+export const logRevision = () => logRev;
+
 function addToLog(list) {
+  logRev++;
   const last = mem.attempts.at(-1);
   mem.attempts.push(...list);
   if (list.length > 1 || (last && list[0]?.t < last.t)) mem.attempts.sort(byT);
@@ -630,6 +635,26 @@ async function replaceAll(kvText, attempts, runs) {
   const next = { kv: { ...kvText }, attempts: attempts.map(toAttemptCopy).sort(byT), runs: Object.fromEntries(Object.values(runs).map((r) => [r.run_id, toRun(r)])) };
   if (info.persistent) await idb.replace(info.user, next.kv, next.attempts, next.runs);
   mem = next;
+  logRev++;
+}
+
+// Recomputable data kept in this browser only (idb.getCache); a failure only means recomputing.
+export async function getCache(key) {
+  if (!info.persistent) return undefined;
+  try {
+    return await idb.getCache(info.user, key);
+  } catch (e) {
+    console.warn('Cache read failed', e);
+    return undefined;
+  }
+}
+export async function setCache(key, value) {
+  if (!info.persistent) return;
+  try {
+    await idb.putCache(info.user, key, value);
+  } catch (e) {
+    console.warn('Cache write failed', e);
+  }
 }
 
 const sameKv = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((k) => a[k] === b[k]);
