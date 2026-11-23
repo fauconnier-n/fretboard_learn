@@ -48,6 +48,8 @@ jobs:
           cp -r index.html manifest.webmanifest sw.js css js icons _site/
           sed -i "s/export const VERSION = 'dev';/export const VERSION = '${{ github.event.release.tag_name }}';/" _site/js/version.js
           grep -q "${{ github.event.release.tag_name }}" _site/js/version.js
+          node tools/sw-assets.mjs _site "${{ github.event.release.tag_name }}"
+          grep -q "fretboard-trainer-${{ github.event.release.tag_name }}" _site/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
