@@ -110,7 +110,8 @@ try {
     })()`);
     console.log(`seeded the test user with ${n} answers (x${seed})`);
     browser.close();
-    page = browser = await launch({ port, profileName: `fretboard-perf-${port}`, fresh: true });
+    // another profile folder: on Windows the closing browser still holds the first one for a while
+    page = browser = await launch({ port, profileName: `fretboard-perf-${port}-seeded`, fresh: true });
     await page.size(1200, 900);
     await page.send('Network.enable', { maxPostDataSize: 4 << 20 });
   }

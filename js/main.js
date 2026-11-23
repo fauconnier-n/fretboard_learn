@@ -11,11 +11,13 @@ import { Scheduler, newModel } from './srs.js';
 import { Fretboard, closeTips } from './fretboard.js';
 import { Quiz } from './quiz.js';
 import { IntervalsView } from './intervalsView.js';
+import { ChordsView } from './chordsView.js';
+import { buildState as chordState, summary as chordSummary } from './chords.js';
 import { Tuner } from './tuner.js';
 import { renderStats } from './stats.js';
 import { renderProgress } from './progress.js';
 import { fitDecay, renderCheck, renderCueReliance } from './modelcheck.js';
-import { firstRightPerDay, logStrings, perDay, practisedDays, predictionRows, rate, taskOf } from './logQueries.js';
+import { firstRightPerDay, logStrings, perDay, practisedDays, predictionRows, rate, taskOf, isNoteTask } from './logQueries.js';
 
 // timing marks for tools/perf.mjs (performance.getEntriesByType('mark'|'measure') in the console)
 performance.mark('app:modules');
@@ -47,6 +49,7 @@ const DEFAULTS = {
   cueMode: 'fade',
   nameAccidentals: 'sharps',
   runTask: 'play',
+  chordTask: 'play', // Chord page: 'play', 'name' or 'change'
   plan: '',
   sound: true,
 };
@@ -132,10 +135,30 @@ function sound(kind) {
 
 // Every answer of the log replayed on this instrument: answers on a string with the same key
 // (instruments.js) count, others are left out. The Intervals tab has its own stats.
-const tuningAttempts = () =>
-  storage.allAttempts().filter((a) => a.task !== 'interval')
-    .map((a) => mapAttempt(a, app.keys)).filter(Boolean)
-    .sort((a, b) => a.t - b.t);
+// Kept until the log or the strings change; shared, not to be changed.
+let tuningMemo = { rev: -1, keys: '', list: [] };
+function tuningAttempts() {
+  const rev = storage.logRevision();
+  const keys = app.keys.join(',');
+  if (tuningMemo.rev !== rev || tuningMemo.keys !== keys) {
+    tuningMemo = { rev, keys, list: storage.allAttempts().filter(isNoteTask).map((a) => mapAttempt(a, app.keys)).filter(Boolean).sort((a, b) => a.t - b.t) };
+  }
+  return tuningMemo.list;
+}
+
+// Replay the log into the model, from where the replay saved at the last start ended when the
+// answers it covered are unchanged; the new end is saved for the next start (this browser only).
+async function replayLog() {
+  const t = performance.now();
+  const attempts = tuningAttempts();
+  const key = 'replay:' + app.keys.join(',');
+  const n = app.scheduler.rebuild(attempts, await storage.getCache(key));
+  performance.measure('app:replay', { start: t, detail: n });
+  if (n) storage.setCache(key, app.scheduler.replayState(attempts));
+}
+// Chord answers for the Chord page's replay (stats, cards, label levels), on any tuning: grips are relative.
+const chordRows = () => storage.allAttempts().filter((a) => /^chord/.test(a.task || '') && a.chord)
+  .map((a) => ({ chord: a.chord, task: a.task, correct: a.correct, ms: a.ms, t: a.t, chordCue: a.chordCue, runId: a.runId, probe: a.probe, retest: a.retest, special: a.special }));
 
 // an answer or run given on the open strings in use (rows from before instruments too)
 const sameStrings = (a) => logStrings(a, LEGACY) === app.strings.join(',');
@@ -217,15 +240,19 @@ async function applyBoardSettings() {
   app.scheduler = new Scheduler(app.model, tuning.strings, s.frets, app.keys);
   if (app.scheduler.needsRebuild) {
     // replay the answer log, which keeps every answer and its time
-    app.scheduler.rebuild(await tuningAttempts());
+    await replayLog();
     await saveModelNow();
   }
   const cfg = { strings: app.strings, frets: s.frets, leftHanded: s.leftHanded, flats: s.flats, lowAtBottom: s.lowAtBottom };
   app.board.configure(cfg);
   app.heat.configure(cfg);
   app.ivBoard.configure(cfg);
+  app.chBoard.configure(cfg);
   app.intervals.leave();
   app.intervals.reset();
+  app.chords.leave();
+  app.chords.reset();
+  if (app.view === 'chords') app.chords.open();
   app.quiz.reset();
   app.tuner.setStrings(app.strings, s.flats);
   // detector range: a tone below the lowest string up to the top fret
@@ -283,14 +310,16 @@ function processFrame() {
   if (app.strum.feed(now, rms, !!res && res.clarity >= s.clarity, s.gate)) onStrum(now);
   const ev = app.tracker.feed(now, res, rms, s);
   if (ev) app.quiz.onNote(ev);
-  if (ev && app.view === 'intervals') app.intervals.onNote(ev);
+  const page = { intervals: app.intervals, chords: app.chords }[app.view];
+  if (ev && page) page.onNote(ev);
 }
 
 // A muted strum. Strums less than DOUBLE_MS apart in the same state (all in a run, or all
 // outside) make a series: n is its length so far. Two go back to the previous menu, three stop
 // a run.
 function onStrum(now) {
-  const running = app.view === 'intervals' ? app.intervals.running : app.quiz.running;
+  const page = { intervals: app.intervals, chords: app.chords }[app.view];
+  const running = (page || app.quiz).running;
   const last = app.lastStrum;
   const n = last.running === running && now - last.t < DOUBLE_MS ? last.n + 1 : 1;
   app.lastStrum = { t: now, running, n };
@@ -298,9 +327,9 @@ function onStrum(now) {
   if (app.view === 'practice') {
     app.board.strum();
     app.quiz.onStrum(n);
-  } else if (app.view === 'intervals') {
-    app.ivBoard.strum();
-    app.intervals.onStrum(n);
+  } else if (page) {
+    page.board.strum();
+    page.onStrum(n);
   }
 }
 
@@ -352,7 +381,7 @@ function refreshChannels() {
 function showView(name) {
   app.view = name;
   closeTips();
-  const practice = name === 'practice' || name === 'intervals';
+  const practice = name === 'practice' || name === 'intervals' || name === 'chords';
   if (practice) app.practicePage = name;
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === (practice ? 'practice' : name)));
   document.querySelectorAll('#practiceNav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
@@ -367,6 +396,8 @@ function showView(name) {
   if (name !== 'practice') app.quiz.leave();
   if (name === 'intervals') app.intervals.open();
   else app.intervals.leave();
+  if (name === 'chords') app.chords.open();
+  else app.chords.leave();
 }
 
 async function showStats() {
@@ -382,8 +413,10 @@ async function showStats() {
   const probe = rate(month.filter((a) => a.probe));
   const named = rate(month.filter((a) => a.task === 'name'));
   const pct = (x) => Math.round(x * 100) + '%';
+  const ch = chordSummary(chordState(chordRows()), Date.now());
   renderStats({
     extraCards: [
+      [`Chord grips known (${ch.learning} learning, ${ch.due} due)`, ch.known + ch.learning ? String(ch.known) : '—'],
       ['Practised (last 7 days)', `${days} of 7 days`],
       ['Check-up accuracy (30 days)', probe.n ? `${pct(probe.acc)} of ${probe.n}` : '—'],
       ['Name the note (30 days)', named.n ? `${pct(named.acc)} of ${named.n}` : '—'],
@@ -397,10 +430,10 @@ async function showStats() {
     attemptCount,
   });
   // progress over runs and days, on these strings, note-position quizzes only
-  const notInterval = (a) => taskOf(a) !== 'interval' && sameStrings(a);
-  const here = log.filter(notInterval);
+  const noteHere = (a) => isNoteTask(a) && sameStrings(a);
+  const here = log.filter(noteHere);
   renderProgress($('progressCharts'), {
-    runs: storage.allRuns().filter((r) => r.prompts > 0 && notInterval(r))
+    runs: storage.allRuns().filter((r) => r.prompts > 0 && noteHere(r))
       .map((r) => ({ t: r.started_at, prompts: r.prompts, correct: r.correct, median_ms: r.median_ms })),
     days: perDay(here),
     known: firstRightPerDay(here),
@@ -508,8 +541,9 @@ function bindData() {
     }
   };
   $('rebuildBtn').onclick = async () => {
-    const attempts = await tuningAttempts();
-    app.scheduler.rebuild(attempts);
+    const attempts = tuningAttempts();
+    app.scheduler.rebuild(attempts); // all of it, without the saved replay: this is the repair button
+    storage.setCache('replay:' + app.keys.join(','), app.scheduler.replayState(attempts));
     await saveModelNow();
     $('dataOut').textContent = `Rebuilt from ${attempts.length} logged answers.`;
   };
@@ -621,7 +655,7 @@ async function checkModel() {
   out.innerHTML = renderCheck(rows, fit.html + useBtn + resetBtn) + `<h4>Reliance on note names</h4>${renderCueReliance(cueRows)}`;
   const apply = async (d) => {
     app.scheduler.useDecay(d);
-    app.scheduler.rebuild(await tuningAttempts());
+    await replayLog(); // another decay: replayed from the start
     await saveModelNow();
     checkModel();
   };
@@ -949,6 +983,7 @@ async function init() {
       setLength: (mode, n) => { app.settings.runMode = mode; app.settings[mode === 'count' ? 'runCount' : 'sprintSec'] = n; saveSettings(); updateModeUI(); },
       toggleBeat: () => { app.settings.beat = !app.settings.beat; saveSettings(); updateModeUI(); },
       goIntervals: () => showView('intervals'),
+      goChords: () => showView('chords'),
     },
     sound,
   });
@@ -972,8 +1007,32 @@ async function init() {
     ensureAudio: () => { if (!app.audio.running) connectAudio(); },
     sound,
   });
+  app.chBoard = new Fretboard($('chBoard'));
+  app.chords = new ChordsView({
+    board: app.chBoard,
+    els: {
+      area: $('chArea'), title: $('chTitle'), sub: $('chSub'), steps: $('chSteps'), prog: $('chProg'), timer: $('chTimer'),
+      progress: $('chProgress'), fill: $('chFill'), feedback: $('chFeedback'), items: $('chItems'), counts: $('chCounts'),
+      startBtn: $('chStartBtn'), menu: $('chMenu'), names: $('chNames'), quality: $('chQuality'),
+    },
+    goPractice: () => showView('practice'),
+    getSettings: () => app.settings,
+    getStrings: () => app.strings,
+    isActive: () => app.view === 'chords',
+    loadRows: () => chordRows(),
+    onAttempt: (a) => storage.addAttempt(a),
+    onRun: async (row) => {
+      await storage.saveRun(row);
+      if (row.ended_at) await storage.flush();
+    },
+    ensureAudio: () => { if (!app.audio.running) connectAudio(); },
+    setTask: (t) => { app.settings.chordTask = t; saveSettings(); },
+    toggleBeat: () => { app.settings.beat = !app.settings.beat; saveSettings(); updateModeUI(); },
+    sound,
+  });
+  window.ft.chords = app.chords;
   // closing or reloading the page ends a run like a tab switch: the answer on screen and the run row are saved
-  window.addEventListener('pagehide', () => { app.quiz.leave(); app.intervals.leave(); });
+  window.addEventListener('pagehide', () => { app.quiz.leave(); app.intervals.leave(); app.chords.leave(); });
 
   document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => {
     if (b.dataset.tab === 'settings' && app.view === 'settings') return openSettings('home'); // second click: back to the cards

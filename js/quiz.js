@@ -64,6 +64,17 @@ export const RUN_TYPES = [
 ];
 const write = (el, text) => { if (el.textContent !== text) el.textContent = text; };
 
+// The 12 name buttons (.btn.small[data-pc]), laid out like a piano: naturals along the bottom,
+// each sharp or flat above, centred between its two neighbours (a grid of half-button columns).
+export function namesHtml(flats) {
+  return NAME_LABELS.map((label, pc) => {
+    const [sharp, flat = sharp] = label.split('/');
+    const i = NATURALS.indexOf(pc);
+    const at = i >= 0 ? `2 / ${2 * i + 1}` : `1 / ${2 * NATURALS.indexOf(pc - 1) + 2}`;
+    return `<button class="btn small" data-pc="${pc}" style="grid-area: ${at} / span 1 / span 2">${flats ? flat : sharp}</button>`;
+  }).join('');
+}
+
 export class Quiz {
   // o: { board, els, getSettings, getScheduler, getZones, getStrings, isActive, onAttempt, onRun, onSave, onRunEnd, sound }
   constructor(o) {
@@ -124,14 +135,8 @@ export class Quiz {
     return this.s.nameAccidentals === 'flats' ? flat : sharp;
   }
 
-  // the name buttons, laid out like a piano: naturals along the bottom, each sharp or flat
-  // above, centred between its two neighbours (a grid of half-button columns)
   renderNames() {
-    this.els.names.innerHTML = NAME_LABELS.map((_, pc) => {
-      const i = NATURALS.indexOf(pc);
-      const at = i >= 0 ? `2 / ${2 * i + 1}` : `1 / ${2 * NATURALS.indexOf(pc - 1) + 2}`;
-      return `<button class="btn small" data-pc="${pc}" style="grid-area: ${at} / span 1 / span 2">${this.nameOf(pc)}</button>`;
-    }).join('');
+    this.els.names.innerHTML = namesHtml(this.s.nameAccidentals === 'flats');
   }
 
   updateButton() {
@@ -653,6 +658,7 @@ export class Quiz {
       { label: `Length: ${s.runMode === 'count' ? `${s.runCount} prompts` : `${s.sprintSec} s sprint`} …`, act: () => this.showMenu('length') },
       { label: `Beat mode: ${s.beat ? 'on' : 'off'}`, act: () => { a.toggleBeat(); this.showMenu(); } },
       { label: 'Interval practice', act: () => a.goIntervals() },
+      { label: 'Chord practice', act: () => a.goChords() },
     ]);
   }
 

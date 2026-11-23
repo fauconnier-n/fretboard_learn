@@ -1,10 +1,44 @@
 // Offline support: app files network first (so edits show up straight away), cache as fallback.
-// Bump CACHE when the list of files changes.
-const CACHE = 'fretboard-trainer-v35';
+// ASSETS is written by tools/sw-assets.mjs (npm test checks it); the deploy names CACHE after
+// the release, so each release fills a fresh cache.
+const CACHE = 'fretboard-trainer-dev';
 const ASSETS = [
-  './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
-  'js/main.js', 'js/music.js', 'js/zones.js', 'js/srs.js', 'js/audio.js', 'js/pitch.js',
-  'js/fretboard.js', 'js/quiz.js', 'js/tuner.js', 'js/stats.js', 'js/storage.js', 'js/backup.js', 'js/idb.js', 'js/logQueries.js', 'js/modelcheck.js', 'js/disk.js', 'js/cues.js', 'js/intervals.js', 'js/intervalsView.js', 'js/strum.js', 'js/guitarMenu.js', 'js/palette.js', 'js/instruments.js', 'js/progress.js', 'js/burst.js', 'js/disklayout.js', 'js/diskFolder.js', 'js/version.js',
+  './',
+  'index.html',
+  'manifest.webmanifest',
+  'css/app.css',
+  'icons/icon.svg',
+  'js/audio.js',
+  'js/backup.js',
+  'js/burst.js',
+  'js/chords.js',
+  'js/chordsView.js',
+  'js/cues.js',
+  'js/decayWorker.js',
+  'js/disk.js',
+  'js/diskFolder.js',
+  'js/disklayout.js',
+  'js/fretboard.js',
+  'js/guitarMenu.js',
+  'js/idb.js',
+  'js/instruments.js',
+  'js/intervals.js',
+  'js/intervalsView.js',
+  'js/logQueries.js',
+  'js/main.js',
+  'js/modelcheck.js',
+  'js/music.js',
+  'js/palette.js',
+  'js/pitch.js',
+  'js/progress.js',
+  'js/quiz.js',
+  'js/srs.js',
+  'js/stats.js',
+  'js/storage.js',
+  'js/strum.js',
+  'js/tuner.js',
+  'js/version.js',
+  'js/zones.js',
 ];
 
 self.addEventListener('install', (e) => {

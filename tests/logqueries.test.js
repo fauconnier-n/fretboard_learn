@@ -1,7 +1,7 @@
 // The stats over the answer log give what the SQL queries gave before: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayOf, median, logStrings, practisedDays, rate, perDay, firstRightPerDay, predictionRows, sessionDays } from '../js/logQueries.js';
+import { dayOf, median, logStrings, practisedDays, rate, perDay, firstRightPerDay, predictionRows, sessionDays, isNoteTask } from '../js/logQueries.js';
 
 const D = new Date(2026, 9, 1, 12).getTime(); // local time: days are local
 const H = 3600000;
@@ -61,4 +61,13 @@ test('prediction rows: lag to the same prompt, given-away answers left out', () 
     { p: 0.8, y: 1, lag: null },
     { p: 0.6, y: 1, lag: 2 * H },
   ]);
+});
+
+test('isNoteTask: note-position prompts only, not intervals or chords', () => {
+  assert.equal(isNoteTask({ task: 'play' }), true);
+  assert.equal(isNoteTask({}), true); // rows from before the task column were play
+  assert.equal(isNoteTask({ task: 'name' }), true);
+  assert.equal(isNoteTask({ task: 'interval' }), false);
+  assert.equal(isNoteTask({ task: 'chord' }), false);
+  assert.equal(isNoteTask({ task: 'chord-name' }), false);
 });

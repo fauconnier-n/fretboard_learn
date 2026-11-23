@@ -77,10 +77,11 @@
       <span></span>
       <a class="btn small primary" href="http://localhost:8137/">Open the usual address</a>
     </div>
-    <!-- Practice holds two kinds of quiz: note positions and intervals -->
+    <!-- Practice holds three kinds of quiz: note positions, intervals and chords -->
     <nav class="seg practice-nav" id="practiceNav" aria-label="Practice">
       <button data-tab="practice" class="active">Note position</button>
       <button data-tab="intervals">Interval</button>
+      <button data-tab="chords">Chord</button>
     </nav>
     <section id="view-practice" class="view active">
       <div class="practice-bar">
@@ -162,6 +163,34 @@
         <ul class="chg iv-items" id="ivItems"></ul>
       </div>
       <p class="hint muted">No instrument on hand? Click a position on the board, or type a note letter (Shift = sharp). Playing the marked root itself is not graded. Enter: start. Esc stops.</p>
+    </section>
+
+    <section id="view-chords" class="view">
+      <div class="practice-bar">
+        <button id="chStartBtn" class="btn primary">Start ⏎</button>
+        <div class="run-info"><span>Chords</span><span id="chProgress" class="muted"></span></div>
+      </div>
+      <div class="progress"><div id="chFill" class="progress-fill"></div></div>
+
+      <div class="prompt-area ch-area" id="chArea">
+        <div class="prompt-note iv-title" id="chTitle">Chords</div>
+        <div class="prompt-sub" id="chSub"></div>
+        <div class="ch-prog" id="chProg"></div>
+        <div class="iv-steps" id="chSteps"></div>
+        <div class="prompt-timer" id="chTimer"></div>
+        <div class="name-buttons hidden" id="chNames"></div>
+        <div class="seg ch-quality hidden" id="chQuality"></div>
+        <div class="guitar-menu hidden" id="chMenu" aria-label="Choices on the open strings"></div>
+      </div>
+
+      <div class="board-wrap"><svg id="chBoard" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
+      <div class="feedback" id="chFeedback" aria-live="polite"></div>
+      <div class="panel iv-panel">
+        <h3>Chords <span class="muted small">· a group opens when the one before it is known (80% of recent answers, at least 5); point at a chip to see its grip</span></h3>
+        <p class="muted small" id="chCounts"></p>
+        <div id="chItems"></div>
+      </div>
+      <p class="hint muted">No instrument on hand? Click the strings of the grip on the board, or type a note letter (Shift = sharp). Name the chord: a letter picks the root. Enter: start. Esc stops.</p>
     </section>
 
     <section id="view-tuner" class="view">
