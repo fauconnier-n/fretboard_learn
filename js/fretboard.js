@@ -68,7 +68,7 @@ export class Fretboard {
     boards.add(this);
   }
 
-  // lowAtBottom: low E drawn at the bottom, as in tab; by default it is on top, as in Rocksmith
+  // lowAtBottom: low E drawn at the bottom, as in tab (the default); off, it is on top, as in Rocksmith
   configure({ strings, frets, leftHanded, flats, lowAtBottom }) {
     Object.assign(this, { strings, frets, left: !!leftHanded, flats: !!flats, lowAtBottom: !!lowAtBottom });
     this.layout();

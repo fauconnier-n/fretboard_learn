@@ -30,7 +30,7 @@ const zones = generateZones(strings, 15, 'both');
 
 function makeQuiz(over = {}) {
   const settings = {
-    runTask: 'play', runMode: 'count', runCount: 10, sprintSec: 60, cueMode: 'off', beat: false, retry: false, timeoutSec: 10,
+    runTask: 'play', runMode: 'count', runCount: 10, sprintSec: 60, cueMode: 'off', beat: false, retry: false,
     latencyMs: 0, flats: false, showQueue: false, frets: 15, nameAccidentals: 'sharps', tuningLabel: 'standard', instrument: 'guitar6', ...over,
   };
   const sch = new Scheduler(newModel(), strings, 15);
@@ -38,7 +38,7 @@ function makeQuiz(over = {}) {
   const runs = [];
   const els = new Proxy({}, { get: (o, k) => (o[k] ||= fake()) });
   const quiz = new Quiz({
-    board: fake({ layers: undefined }), els, getSettings: () => settings, getScheduler: () => sch, getZones: () => zones, getStrings: () => strings,
+    board: fake({ layers: undefined, svg: fake({ getBoundingClientRect: () => ({ height: 0 }) }) }), els, getSettings: () => settings, getScheduler: () => sch, getZones: () => zones, getStrings: () => strings,
     isActive: () => true, onAttempt: (a) => attempts.push(a), onRun: (r) => runs.push(r), onSave() {}, onRunEnd() {}, actions: {},
   });
   quiz.prepare();
