@@ -149,7 +149,8 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
   text-align: center; padding: 14px 10px 10px; border-radius: var(--radius); margin-bottom: 10px;
   background: radial-gradient(ellipse at center, var(--panel2) 0%, transparent 70%);
 }
-.prompt-note { font-size: 84px; line-height: 1; font-weight: 900; letter-spacing: -2px; color: var(--ink); }
+/* relative + z-index: big over the board while it enters (quiz.js introNote) */
+.prompt-note { font-size: 84px; line-height: 1; font-weight: 900; letter-spacing: -2px; color: var(--ink); position: relative; z-index: 5; pointer-events: none; }
 .prompt-note.pop { animation: notePop .25s ease-out; }
 /* room for two lines (a hint after a miss), so the board below does not move */
 .prompt-sub { color: var(--muted); margin-top: 6px; min-height: 2.9em; }
@@ -430,7 +431,6 @@ body.in-run .ring-txt { font-size: 11.6px; }
 
 /* special prompts */
 .prompt-note.golden { color: var(--yellow); text-shadow: 0 2px 0 var(--ink); }
-.prompt-note.boss { color: var(--red); text-shadow: 0 2px 0 var(--ink); }
 .fb-mark.golden .dot { fill: var(--yellow); stroke: #fff; filter: drop-shadow(0 0 10px var(--yellow)); }
 .fb-mark.golden .ripple { stroke: var(--yellow); }
 .near-miss { font-weight: 800; color: var(--green-ink); }

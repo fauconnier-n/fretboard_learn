@@ -49,7 +49,7 @@ const isReverse = (key) => key.endsWith(':r');
 
 // Bump it when what a replay computes changes: the replay saved at the last start is then
 // dropped (each release drops it too, replayId).
-const MODEL_VERSION = 6;
+const MODEL_VERSION = 7;
 const DAY = 86400000;
 const CTX_MAX = 24;
 const UNLOCK_FRACTION = 0.5;
@@ -76,7 +76,7 @@ export const LANDMARKS = [0, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 // A true-or-false answer is recognition, not recall: a right one counts at most as Hard and
 // its time (a yes/no click) is not used for speed.
 export const cueOpts = (a) => (a.task === 'truefalse' ? { speed: false, maxG: 2 }
-  : { speed: !a.queueShown && !a.cueTarget, maxG: a.cueTarget ? 2 : a.cueN > 0 ? 3 : 4 });
+  : { speed: !a.cueTarget, maxG: a.cueTarget ? 2 : a.cueN > 0 ? 3 : 4 });
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const gauss = (x, mu, sd) => Math.exp(-0.5 * ((x - mu) / sd) ** 2);
@@ -177,6 +177,21 @@ export function errorType(target, played) {
   if (Math.abs(d) === 1) return d > 0 ? 'semitone_sharp' : 'semitone_flat';
   if (Math.abs(d) === 2) return d > 0 ? 'tone_sharp' : 'tone_flat';
   return 'other';
+}
+
+// The known bar (what is shown, never what is picked): full only after fast right answers on
+// KNOWN_DAYS separate days, so a night's sleep comes between them; one session reaches at most
+// 0.4, one day 0.5. Fast = within FAST_MAX_MS (math-fact automaticity: recall "within a second or
+// two"), or 2x your own quickest times when they are lower. It also needs a high running accuracy
+// (about 4 right in a row) and a fresh memory. Sources: learning-algorithm.md, "The known bar".
+const FAST_MAX_MS = 2000;
+const KNOWN_DAYS = 4;
+// local calendar day, rolling over at 4 a.m. so a session after midnight stays on its day
+const dayNo = (t) => Math.floor((t - new Date(t).getTimezoneOffset() * 60000 - 4 * 3600000) / DAY);
+export function knownBar(c, now) {
+  const d = Math.min(c.days || 0, KNOWN_DAYS);
+  const cap = Math.min(1, 0.2 + 0.2 * d + ((c.fastSessions || 0) > d ? 0.1 : 0));
+  return cap * Math.min(1, (retrievability(c, now) * c.acc) / 0.9);
 }
 
 // The fields of `meta` that rebuild recomputes from the answers (a replayState carries them).
@@ -661,13 +676,15 @@ export class Scheduler {
   noteRings(key, now = Date.now()) {
     const c = this.model.cards[key];
     if (!c) return { known: 0, fast: 0, auto: 0 };
-    if (!c.correct) return { known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6), fast: 0, auto: 0 };
+    const known = knownBar(c, now);
+    if (!c.correct) return { known, fast: 0, auto: 0 };
     return {
-      known: Math.min(1, (retrievability(c, now) * c.acc) / 0.6),
+      known,
       // your time from right answers only (the prior would fill the bar before any)
       fast: c.time?.n ? Math.min(1, Math.exp(this.recentMu()) / this.expectedMs(key, now)) : 0,
-      // empty until right and fast in two sessions; then towards mastered, full only once it is
-      auto: (c.sessions?.length || 0) < 2 ? 0 : this.isMastered(key, now) ? 1 : Math.min(0.95, this.itemMastery(key, now) / 0.7),
+      // empty until right and fast in two sessions; then towards mastered, full only once it is,
+      // and never ahead of known
+      auto: Math.min(known, (c.sessions?.length || 0) < 2 ? 0 : this.isMastered(key, now) ? 1 : Math.min(0.95, this.itemMastery(key, now) / 0.7)),
     };
   }
 
@@ -776,6 +793,7 @@ export class Scheduler {
     const key = itemKey(cell.key, sp);
     const { cards, notes, ctx, meta } = this.model;
     const useSpeed = opts.speed !== false;
+    const fastMs = Math.min(FAST_MAX_MS, 2 * this.floorMs()); // the floor before this answer moves it
     let G = useSpeed ? this.timeGrade(key, correct, ms, now) : correct ? 3 : 1;
     if (correct) G = Math.min(G, opts.maxG ?? 4);
     this.updateFactors(key, correct, correct && useSpeed ? ms : null);
@@ -809,6 +827,12 @@ export class Scheduler {
       if (!c.sessions.includes(meta.session)) c.sessions = [...c.sessions, meta.session].slice(-5);
     }
     c.inSession = meta.session;
+    // the days and sessions with a fast right answer, for the known bar
+    if (correct && useSpeed && ms <= fastMs) {
+      const d = dayNo(now);
+      if (c.day !== d) Object.assign(c, { day: d, days: (c.days || 0) + 1 });
+      if (c.fastIn !== meta.session) Object.assign(c, { fastIn: meta.session, fastSessions: (c.fastSessions || 0) + 1 });
+    }
     // the last 15 answers, [right 0/1, ms], for the position's popup
     c.hist = [...(c.hist || []), [ok, ms]].slice(-15);
 

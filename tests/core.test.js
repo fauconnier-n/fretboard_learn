@@ -50,13 +50,13 @@ test('every zone holds the 12 pitch classes and the zones cover the neck', () =>
   }
 });
 
-test('boxes go from 2 to 6 strings; only 2-string ones stretch past 6 frets', () => {
-  const boxes = generateZones([40, 45, 50, 55, 59, 64], 15, 'box');
-  const counts = new Set(boxes.map((z) => z.strings.length));
-  assert.deepEqual([...counts].sort(), [2, 3, 4, 5, 6]);
-  for (const z of boxes) assert.ok(z.span <= (z.strings.length === 2 ? 7 : 5), z.id);
-  // a 4-string bass: at most 4
-  assert.equal(Math.max(...generateZones([28, 33, 38, 43], 20, 'box').map((z) => z.strings.length)), 4);
+test('boxes are on 3 adjacent strings and span at most 5 frets', () => {
+  for (const strs of [[40, 45, 50, 55, 59, 64], [28, 33, 38, 43]]) {
+    for (const z of generateZones(strs, 15, 'box')) {
+      assert.equal(z.strings.length, 3, z.id);
+      assert.ok(z.span <= 5 && z.strings[2] - z.strings[0] === 2, z.id);
+    }
+  }
 });
 
 test('FSRS forgetting curve is 90% at t = S', () => {

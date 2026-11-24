@@ -30,15 +30,12 @@ const NATURALS = [0, 2, 4, 5, 7, 9, 11];
 const NEXT_DELAY = 550;
 const NEXT_DELAY_AFTER_MISS = 900;
 const REVEAL_DELAY = 1500;
-// The answer is shown after REVEAL_FACTOR × the expected time for that note, kept
-// within REVEAL_MIN..REVEAL_MAX ms (and never after the time-out setting).
-const REVEAL_FACTOR = 2.5;
-const REVEAL_MIN = 4000;
-const REVEAL_MAX = 8000;
 const QUEUE_AHEAD = 4; // upcoming prompts picked in advance (shown only if the setting is on)
 const RETEST_MIN = 3; // a missed note comes back after 3–8 other prompts
 const RETEST_MAX = 8;
-const PLAYALONG_MS = 6000; // after a miss, the ungraded play-along is skipped after this long
+// the asked note's entrance: big over the board for 0.6 s, then 0.4 s into its place
+const NOTE_INTRO_MS = 1000;
+const NOTE_BIG = 3.2;
 const SPECIAL_MIN_RUN = 6; // prompts runs at least this long get a boss and a closing note
 const GOLDEN_RATE = 0.07; // chance that an ordinary prompt becomes a golden one
 // beat mode: a prompt lasts BEATS beats; the tempo rises after a right answer, falls after a miss
@@ -315,7 +312,7 @@ export class Quiz {
       zone_type: run.desc.type, zone_strings: run.desc.sk, zone_cs: run.desc.cs, zone_cf: run.desc.cf,
       zone_span: run.desc.span, zone_fret_min: run.desc.fretMin, zone_fret_max: run.desc.fretMax, zone_label: run.label,
       review: !!run.review, predicted: run.predicted, target: sch.model.meta.target,
-      retry: !!s.retry, timeout_sec: s.timeoutSec, task: run.task, due_at_start: run.due ?? null,
+      retry: true, timeout_sec: null, task: run.task, due_at_start: run.due ?? null,
       focus: run.focus, bpm_start: run.beat ? run.bpm : null,
     };
     this.onRun?.(run.row);
@@ -436,8 +433,6 @@ export class Quiz {
     const naming = task === 'name';
     const tf = task === 'truefalse';
     const expected = this.getScheduler().expectedMs(itemKey(cell.key, sp));
-    const reveal = run.beat ? (BEATS * 60000) / run.bpm : Math.min(REVEAL_MAX, Math.max(REVEAL_MIN, REVEAL_FACTOR * expected));
-    const giveUpAfter = Math.min(s.timeoutSec * 1000, reveal);
     this.cur = {
       cell, sp, task, special: special || null, retest: !!retest, probe: !!probe, queueShown: !!s.showQueue && run.task === 'play', shownAt: performance.now(),
       expected, bpm: run.beat ? run.bpm : null,
@@ -451,8 +446,7 @@ export class Quiz {
     const e = this.els;
     e.note.textContent = naming ? '?' : tf ? this.cur.shown.name + '?' : spellName(cell.midi, sp);
     e.note.className = 'prompt-note' + (special ? ' ' + special : '');
-    void e.note.offsetWidth;
-    e.note.classList.add('pop');
+    this.introNote();
     if (noGuitar(task)) this.board.mark(cell.s, cell.f, 'ask', tf ? this.cur.shown.name : '?');
     if (naming) this.renderNames();
     e.names.classList.toggle('hidden', !naming);
@@ -465,7 +459,27 @@ export class Quiz {
       `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
     e.showMe.classList.remove('invisible');
     if (Number.isFinite(run.total)) e.progress.textContent = `${run.results.length + 1} / ${run.total}`;
-    this.later(() => this.giveUp('time'), giveUpAfter);
+    // no time limit: the answer shows only on "Show me", except that the beat moves on after BEATS beats
+    if (run.beat) this.later(() => this.giveUp('time'), (BEATS * 60000) / run.bpm);
+  }
+
+  // The asked note shows big over the board, holds, then glides into its place above it. It can
+  // be answered from the first frame, and clicks go through it to the board.
+  introNote() {
+    const note = this.els.note;
+    note.getAnimations().forEach((a) => a.cancel());
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const r = note.getBoundingClientRect();
+    const b = this.board.svg.getBoundingClientRect();
+    if (!r.height || !b.height) return;
+    const big = Math.min(NOTE_BIG, (0.8 * b.height) / r.height); // never taller than the board
+    const at = `translate(${b.left + b.width / 2 - (r.left + r.width / 2)}px, ${b.top + b.height / 2 - (r.top + r.height / 2)}px) scale(${big})`;
+    note.animate([
+      { transform: at, opacity: 0 },
+      { transform: at, opacity: 0.9, offset: 0.1 },
+      { transform: at, opacity: 0.9, offset: 0.6, easing: 'cubic-bezier(.65, 0, .35, 1)' },
+      { transform: 'none', opacity: 1 },
+    ], { duration: NOTE_INTRO_MS });
   }
 
   // Put the name labels on the board for this prompt and remember what was shown. Check-ups
@@ -483,34 +497,36 @@ export class Quiz {
     this.cueMarks.get(cell.key)?.remove();
   }
 
-  // No right answer in time, or "Show me": a miss. Show where the note is.
+  // "Show me", or the beat moved on: a miss (unless already graded wrong). Show where the note is.
   giveUp(kind) {
     const cur = this.cur;
-    if (!cur || this.state !== 'await' || cur.graded) return;
-    const ms = Math.max(0, performance.now() - cur.shownAt);
-    this.grade(false, ms, null, { showMe: kind === 'show' });
+    if (!cur || this.state !== 'await' || cur.revealed) return;
+    if (!cur.graded) {
+      this.grade(false, Math.max(0, performance.now() - cur.shownAt), null, { showMe: kind === 'show' });
+      this.scheduleRetest(cur);
+    }
     this.feedback('bad', kind === 'show' ? 'Here it is' : '⏱ Here it is');
-    this.missed();
+    this.showAnswer();
   }
 
-  // After the first miss of a prompt: show the answer with a structural hint, queue a
-  // re-test a few prompts later, then either wait for one ungraded play-along or move on.
+  // After the first miss of a prompt (graded wrong already): queue a re-test a few prompts later.
+  // Play and Name prompts stay up without the answer: find it (not graded again), or skip with a
+  // muted strum, or ask with "Show me". True or false, beat mode and "Show me" show where it is.
   missed() {
     const cur = this.cur;
-    const naming = cur.task === 'name';
+    this.scheduleRetest(cur);
+    if (this.run.beat || cur.task === 'truefalse') return this.showAnswer();
+    this.els.sub.textContent = cur.task === 'name' ? 'Not that one: try again.' : 'Not that one: try again, or a muted strum to skip.';
+  }
+
+  // Where the note is, with a way to work it out, then the next prompt.
+  showAnswer() {
+    const cur = this.cur;
     this.els.showMe.classList.add('invisible');
     this.reveal();
-    this.scheduleRetest(cur);
     const hint = this.getScheduler().positionMastered(cur.cell) ? '' : this.structuralHint(cur.cell);
-    // beat mode keeps the beat going: no waiting for a play-along
-    if (this.s.retry && !this.run.beat && cur.task !== 'truefalse') {
-      this.els.sub.textContent = (hint ? hint + ' ' : '') + (naming ? 'Name it once (not graded).' : 'Play it once (not graded).');
-      this.clearTimers();
-      this.later(() => this.cur === cur && this.state === 'await' && this.advance(0), PLAYALONG_MS);
-    } else {
-      if (hint) this.els.sub.textContent = hint;
-      this.advance(REVEAL_DELAY);
-    }
+    if (hint) this.els.sub.textContent = hint;
+    this.advance(REVEAL_DELAY);
   }
 
   // A way to work the note out from the neck's structure: a nearby landmark fret on the

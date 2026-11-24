@@ -122,14 +122,14 @@
       </div>
       <div class="board-wrap"><svg id="board" class="fretboard" role="img" aria-label="Fretboard"></svg></div>
       <div class="legend hidden" id="runNeckLegend">
-        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid)</span>
+        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid: found within 2 s on 4 different days)</span>
         <span><i class="bar-fast"></i><b>speed vs avg</b> (middle): your answer time here compared with your last 10 right answers on any note</span>
         <span><i class="bar-auto"></i><b>automatic</b> (bottom): right and fast in separate sessions (2 h apart), so it sticks</span>
         <span><b class="missed-name">C</b> red name: missed in this run</span>
         <span>hover or click a note for more details</span>
       </div>
       <div class="legend hidden" id="mapLegend">
-        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid)</span>
+        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid: found within 2 s on 4 different days)</span>
         <span><i class="bar-fast"></i><b>speed vs avg</b> (middle): your answer time here compared with your last 10 right answers on any note</span>
         <span><i class="bar-auto"></i><b>automatic</b> (bottom): right and fast in separate sessions (2 h apart), so it sticks</span>
         <span><i class="dashed"></i>unlocked, not played yet</span>
@@ -209,7 +209,7 @@
       <h3>Mastery map <span class="muted small">· hover or click a note for more details</span></h3>
       <div class="board-wrap"><svg id="heatBoard" class="fretboard heat" role="img" aria-label="Mastery heatmap"></svg></div>
       <div class="legend">
-        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid)</span>
+        <span><i class="bar-known"></i><b>known</b> (top): how surely you recall it, red (shaky) → green (solid: found within 2 s on 4 different days)</span>
         <span><i class="bar-fast"></i><b>speed vs avg</b> (middle): your answer time here compared with your last 10 right answers on any note</span>
         <span><i class="bar-auto"></i><b>automatic</b> (bottom): right and fast in separate sessions (2 h apart), so it sticks</span>
         <span><i class="dashed"></i>unlocked, not played yet</span>
@@ -317,9 +317,8 @@
               <option value="string">Single strings only</option>
             </select>
           </label>
-          <label>Longest wait before the answer is shown (s) <input type="number" min="3" max="30" step="1" data-setting="timeoutSec" data-type="int"></label>
-          <p class="muted small">The answer is shown after about 2.5× your usual time for that note (4–8 s), or after this limit if it is shorter. Showing it counts as a miss.</p>
-          <label class="check"><input type="checkbox" data-setting="retry"> After a miss, play the note once where it is shown (not graded). It is asked again a few prompts later either way.</label>
+          <p class="muted small">No time limit: after a wrong note the prompt stays until you play the right one (that answer still counts as a miss), or skip it with a muted strum. "Show me" shows where it is. A missed note is asked again a few prompts later.</p>
+          <label class="check"><input type="checkbox" data-setting="retry"> Chord runs: after a miss, play the grip once where it is shown (not graded).</label>
           <label>My practice plan <input type="text" maxlength="120" data-setting="plan" placeholder="e.g. After dinner, two short runs"></label>
           <p class="muted small">Optional. A concrete "when, where, what" plan is shown before each run; plans like this make people more likely to follow through.</p>
           <label>Note names on the board during a run
@@ -338,7 +337,7 @@
               <option value="flats">Flats (Db Eb Gb Ab Bb)</option>
             </select>
           </label>
-          <label class="check"><input type="checkbox" data-setting="showQueue"> Show the next notes in advance (makes recall easier, so those answer times are not used for speed)</label>
+          <label class="check"><input type="checkbox" data-setting="showQueue"> Show the next notes in advance</label>
           <label class="check"><input type="checkbox" data-setting="sound"> Sound effects</label>
           </div>
         </section>
