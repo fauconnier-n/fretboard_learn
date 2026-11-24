@@ -23,3 +23,20 @@ test('fsrsStep: a same-day Good never lowers S, and a 60-day gap makes it due', 
   assert.notEqual(again, c);
   assert.ok(retrievability(again, again.last + 60 * DAY) < DUE_R);
 });
+
+test('the known bar: one day of cramming stays at half, fast answers on 4 days fill it', async () => {
+  const { Scheduler, newModel } = await import('../js/srs.js');
+  const sch = new Scheduler(newModel(), [40, 45, 50, 55, 59, 64], 15);
+  const cell = { s: 0, f: 5, midi: 45, pc: 9, key: '0:5' };
+  const desc = { type: 'string', sk: '0', cs: 0, cf: 5.5, span: 11 };
+  const day0 = new Date(2026, 10, 2, 10).getTime();
+  const answer = (t, ms = 1000) => sch.record(desc, cell, 'n', true, ms, t);
+  // four sessions on one day, ten fast right answers each
+  for (let s = 0; s < 4; s++) for (let i = 0; i < 10; i++) answer(day0 + s * 3 * 3600000 + i * 5000);
+  assert.ok(sch.noteRings('0:5', day0 + 10 * 3600000).known <= 0.5);
+  // slow right answers on later days do not count
+  for (let d = 1; d <= 3; d++) for (let i = 0; i < 5; i++) answer(day0 + d * DAY + i * 5000, 4000);
+  assert.ok(sch.noteRings('0:5', day0 + 3 * DAY + 60000).known <= 0.5);
+  for (let d = 4; d <= 6; d++) for (let i = 0; i < 5; i++) answer(day0 + d * DAY + i * 5000);
+  assert.ok(sch.noteRings('0:5', day0 + 6 * DAY + 60000).known > 0.95);
+});
