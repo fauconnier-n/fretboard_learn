@@ -32,7 +32,7 @@ export default [
   { name: '1-practice-idle', js: `${tab('practice')} document.querySelector('[data-task=play]').click(); document.querySelector('[data-mode=count]').click();` },
   { name: '2-practice-preview', js: `${wait} ${key} key('Enter'); await wait(600);` },
   { name: '3-practice-prompt', js: `${wait} ${key} ${answer} key('Enter'); await wait(500); for (let i = 0; i < 3; i++) { play(document.getElementById('promptNote').textContent); await wait(1300); } key('C'); await wait(400);` },
-  { name: '4-practice-summary', full: true, js: `${wait} ${key} ${answer} for (let i = 0; i < 40 && document.getElementById('startBtn').textContent.includes('Stop'); i++) { const t = document.getElementById('promptNote').textContent; if (/Again|Play it/.test(document.getElementById('promptSub').textContent)) play(t); await wait(1300); } await wait(800);` },
+  { name: '4-practice-summary', full: true, js: `${wait} ${key} ${answer} for (let i = 0; i < 40 && document.getElementById('startBtn').textContent.includes('Stop'); i++) { const t = document.getElementById('promptNote').textContent; play(t); await wait(1300); } await wait(800);` },
   { name: '5-true-or-false', js: `${wait} ${key} document.querySelector('[data-task=truefalse]').click(); key('Enter'); await wait(500); key('Enter'); await wait(800);` },
   { name: '6-intervals', js: `${wait} ${key} key('Escape'); await wait(300); document.querySelector('[data-task=play]').click(); ${tab('intervals')} key('Enter'); await wait(800);` },
   { name: '6b-practice-tab-returns', shot: false, js: `${wait} ${key} key('Escape'); await wait(300); ${tab('tuner')} document.querySelector('.tabs button[data-tab=practice]').click(); await wait(500); return document.querySelector('#practiceNav .active').textContent;` },
@@ -49,7 +49,7 @@ export default [
   { name: 'm2-phone-preview', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} key('Enter'); await wait(600);` },
   // a right answer: the string vibrates from the fret to the bridge (caught mid-wave)
   { name: 'm3-phone-run-vibrating', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} ${answer} key('Enter'); await wait(500); play(document.getElementById('promptNote').textContent);` },
-  { name: 'm4-phone-summary', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} ${answer} for (let i = 0; i < 40 && document.getElementById('startBtn').textContent.includes('Stop'); i++) { const t = document.getElementById('promptNote').textContent; if (/Again|Play it/.test(document.getElementById('promptSub').textContent)) play(t); await wait(1300); } await wait(800);` },
+  { name: 'm4-phone-summary', width: 844, height: 390, mobile: true, full: true, js: `${wait} ${key} ${answer} for (let i = 0; i < 40 && document.getElementById('startBtn').textContent.includes('Stop'); i++) { const t = document.getElementById('promptNote').textContent; play(t); await wait(1300); } await wait(800);` },
   { name: 'm5-phone-intervals', width: 844, height: 390, mobile: true, full: true, js: `${tab('practice')} ${tab('intervals')}` },
   { name: 'm8-phone-settings-home', width: 844, height: 390, mobile: true, full: true, js: `${tab('settings')} ${spage('home')}` },
   { name: 'm9-phone-settings-instrument', width: 844, height: 390, mobile: true, full: true, js: `${spage('instrument')}` },
