@@ -36,14 +36,13 @@ const DEFAULTS = {
   customTuning: '', // custom tuning, lowest string first, e.g. "D2 A2 D3 G3 B3 E4"
   frets: 15,
   leftHanded: false,
-  lowAtBottom: false, // low E on top by default (like Rocksmith); true draws it at the bottom (like tab)
+  lowAtBottom: true, // low E at the bottom by default (like tab); false draws it on top (like Rocksmith)
   zoneTypes: 'both',
   runMode: 'count',
   runCount: 20,
   sprintSec: 120,
-  timeoutSec: 10,
-  retry: true,
-  showQueue: false,
+  retry: true, // chord runs: after a miss, play the grip once where it is shown
+  showQueue: true,
   beat: false,
   strumLevel: 4, // muted strum: a burst this many times above the noise gate
   cueMode: 'fade',

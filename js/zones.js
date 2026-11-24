@@ -5,11 +5,8 @@
 import { pcOf, stringName } from './music.js';
 
 const MAX_BOX_SPAN = 5; // highest fret - lowest fret inside a box
-// two strings can only hold the 12 notes with 7 frets each, one fret apart (8 across the major
-// third G–B): a stretch, so only 2-string boxes may span this far
-const MAX_SPAN_2 = 7;
 const MIN_RUN = 2;      // at least two cells per string in a box
-const MAX_BOX_STRINGS = 6; // 12 cells, two per string at least
+const BOX_STRINGS = 3; // boxes are on 3 adjacent strings: the classic shapes (others felt contrived)
 
 let lastZones = null; // { key, zones }
 export function generateZones(strings, frets, types = 'both') {
@@ -46,7 +43,7 @@ function boxCandidates(strings, frets) {
         if (count + len > 12) break;
         const nlo = Math.min(lo, a);
         const nhi = Math.max(hi, b);
-        if (nhi - nlo > (runs.length ? MAX_SPAN_2 : MAX_BOX_SPAN)) break;
+        if (nhi - nlo > MAX_BOX_SPAN) break;
         if (prev && b < prev.a - 1) continue;
         let m = mask;
         let clash = false;
@@ -58,8 +55,8 @@ function boxCandidates(strings, frets) {
         if (clash) break; // a longer run on this string would clash too
         runs.push({ s, a, b });
         if (count + len === 12) {
-          if (runs.length >= 2 && (runs.length === 2 || nhi - nlo <= MAX_BOX_SPAN)) out.push(runs.map((r) => ({ ...r })));
-        } else if (runs.length < MAX_BOX_STRINGS && (runs.length < 2 || nhi - nlo <= MAX_BOX_SPAN)) {
+          if (runs.length === BOX_STRINGS) out.push(runs.map((r) => ({ ...r })));
+        } else if (runs.length < BOX_STRINGS) {
           dfs(s + 1, m, count + len, nlo, nhi);
         }
         runs.pop();
@@ -82,7 +79,7 @@ function shapeCost(runs) {
   }
   const lo = Math.min(...runs.map((r) => r.a));
   const hi = Math.max(...runs.map((r) => r.b));
-  return hi - lo + 0.6 * imbalance + 0.15 * misalign + 0.3 * Math.abs(runs.length - 3);
+  return hi - lo + 0.6 * imbalance + 0.15 * misalign;
 }
 
 function curateBoxes(strings, frets) {
@@ -91,10 +88,10 @@ function curateBoxes(strings, frets) {
     cost: shapeCost(runs),
     lo: Math.min(...runs.map((r) => r.a)),
   }));
-  // keep the nicest shape per (first string, string count, lowest fret)
+  // keep the nicest shape per (first string, lowest fret)
   const best = new Map();
   for (const c of cands) {
-    const key = `${c.runs[0].s}|${c.runs.length}|${c.lo}`;
+    const key = `${c.runs[0].s}|${c.lo}`;
     const cur = best.get(key);
     if (!cur || c.cost < cur.cost) best.set(key, c);
   }
