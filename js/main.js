@@ -914,12 +914,16 @@ async function init() {
   const names = storage.listUsers();
   if (!names.length || (names.length > 1 && !sessionStorage.getItem('ft:picked'))) await showWelcome('pick');
   let db;
+  // a slow start says what it is waiting for
+  const slow = setInterval(() => { $('loading').textContent = `Loading database… still ${storage.status().step || 'starting'}`; }, 8000);
   try {
     db = await storage.open();
   } catch (e) {
     $('loading').textContent = 'Could not start the database: ' + (e.message || e);
     console.error(e);
     return;
+  } finally {
+    clearInterval(slow);
   }
   performance.mark('app:db');
   $('loading').remove();
