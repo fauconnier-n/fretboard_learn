@@ -150,7 +150,8 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
   background: radial-gradient(ellipse at center, var(--panel2) 0%, transparent 70%);
 }
 /* relative + z-index: big over the board while it enters (quiz.js introNote) */
-.prompt-note { font-size: 84px; line-height: 1; font-weight: 900; letter-spacing: -2px; color: var(--ink); position: relative; z-index: 5; pointer-events: none; }
+.prompt-area { --note: 84px; } /* the asked note's size; the next notes are sized from it (quiz.js) */
+.prompt-note { font-size: var(--note); line-height: 1; font-weight: 900; letter-spacing: -2px; color: var(--ink); position: relative; z-index: 5; pointer-events: none; }
 .prompt-note.pop { animation: notePop .25s ease-out; }
 /* room for two lines (a hint after a miss), so the board below does not move */
 .prompt-sub { color: var(--muted); margin-top: 6px; min-height: 2.9em; }
@@ -178,7 +179,8 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .fb-strings.thump .fb-string { animation: thump .24s ease-out; }
 @keyframes thump { 0% { transform: translateY(0); } 20% { transform: translateY(2px); stroke: var(--ink); } 45% { transform: translateY(-1px); } 100% { transform: translateY(0); } }
 .fb-strlabel { fill: var(--muted); font-size: 12px; font-weight: 700; text-anchor: middle; }
-.fb-num { fill: var(--steel); font-size: 11px; text-anchor: middle; }
+/* a white outline keeps them readable when a zoom lifts them over the board (fretboard.js placeNums) */
+.fb-num { fill: var(--steel); font-size: 11px; text-anchor: middle; stroke: var(--bg); stroke-width: 3px; paint-order: stroke; pointer-events: none; }
 .fb-num.marked { fill: var(--ink); font-weight: 800; }
 .fb-side-dot { fill: var(--steel); }
 /* outside the zone the board fades into the white page */
@@ -242,7 +244,9 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .chg { list-style: none; padding: 0; margin: 0; font-size: 14px; }
 .chg li { padding: 3px 0; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
 .chg li .muted { font-size: 12px; }
-.prompt-queue { display: flex; justify-content: center; gap: 10px; min-height: 26px; font-size: 18px; font-weight: 800; color: var(--muted); }
+.prompt-queue { display: flex; justify-content: center; align-items: flex-start; gap: 12px; min-height: 26px; padding-top: 8px; line-height: 1; font-weight: 900; letter-spacing: -1px; color: var(--muted); }
+/* the notes' tops in one line: each box starts at the top of its capitals, whatever its size */
+.prompt-queue span { text-box: trim-start cap alphabetic; }
 .prompt-queue:not(:empty)::before { content: 'next'; font-size: 11px; font-weight: 400; align-self: center; text-transform: uppercase; letter-spacing: .08em; }
 .run-len { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .run-len input { width: 76px; }
@@ -373,7 +377,7 @@ input[type="checkbox"] { accent-color: var(--green-ink); width: 16px; height: 16
   .top { padding: 8px 16px; gap: 8px; }
   .audio-status { margin-left: 0; width: 100%; }
   main { padding: 14px 16px 32px; }
-  .prompt-note { font-size: 64px; }
+  .prompt-area { --note: 64px; }
   .run-info { margin-left: 0; text-align: left; }
   .sum-lists { grid-template-columns: 1fr; }
   .fretboard { min-width: 640px; }
@@ -412,7 +416,7 @@ body.in-run .ring-txt { font-size: 11.6px; }
 }
 /* phones held sideways: smaller note and buttons */
 @media (max-height: 500px) {
-  body.in-run .prompt-note { font-size: 56px; }
+  body.in-run .prompt-area { --note: 56px; }
   body.in-run .name-buttons { row-gap: 4px; }
   body.in-run .name-buttons .btn { padding-top: 3px; padding-bottom: 3px; }
   body.in-run .progress { margin: 6px 0; }
@@ -519,14 +523,14 @@ body.in-run .ring-txt { font-size: 11.6px; }
 .fb-bars-lbl.missed { fill: var(--red); }
 .fb-bar-track { fill: var(--panel2); }
 /* known is coloured from red to green by its level (set on the bar) */
-.nb-fast { fill: var(--steel); }
+.nb-asked { fill: var(--steel); }
 .nb-auto { fill: var(--ink); }
 /* the position whose popup is open, and the same card at the top of the popup */
 .sel .fb-bars-bg { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; opacity: 1; }
 .sel .fb-heat { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: none; fill: var(--yellow); }
-.legend i.bar-known, .legend i.bar-fast, .legend i.bar-auto { width: 22px; height: 5px; border-radius: 2px; }
+.legend i.bar-known, .legend i.bar-asked, .legend i.bar-auto { width: 22px; height: 5px; border-radius: 2px; }
 .legend i.bar-known { width: 34px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); }
-.legend i.bar-fast { background: var(--steel); }
+.legend i.bar-asked { background: var(--steel); }
 .legend i.bar-auto { background: var(--ink); }
 .legend .missed-name { color: var(--red); font-weight: 900; }
 .board-view { margin: 0 0 8px; }

@@ -456,7 +456,8 @@ export class Quiz {
         : tf ? `Is it ${this.cur.shown.name}? (Y / N)`
         : 'Play it in the zone');
     e.queue.innerHTML = s.showQueue && run.task === 'play' ? run.queue.slice(0, QUEUE_AHEAD).map((q, i) =>
-      `<span style="opacity:${1 - i * 0.18}">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
+      // each next note 20% smaller than the one before it, the first 20% smaller than the asked note
+      `<span style="font-size:calc(var(--note) * ${(0.8 ** (i + 1)).toFixed(3)})">${spellName(q.cell.midi, q.sp)}</span>`).join('') : '';
     e.showMe.classList.remove('invisible');
     if (Number.isFinite(run.total)) e.progress.textContent = `${run.results.length + 1} / ${run.total}`;
     // no time limit: the answer shows only on "Show me", except that the beat moves on after BEATS beats

@@ -150,12 +150,13 @@ export class Fretboard {
     }
     this.vibeLayer = el('g', { class: 'fb-vibes' }, g);
     this.vibes = new Map();
+    // fret numbers only on the marker frets, in a group kept inside the view when it zooms in
+    this.numG = el('g', {}, svg);
     for (let f = 0; f <= this.frets; f++) {
-      const marked = f === 0 || f === 12 || f === 24 || INLAYS.includes(f);
       // like the side dots of a neck: one above each marker fret, two above the octaves
       const dots = f === 12 || f === 24 ? [-4, 4] : INLAYS.includes(f) ? [0] : [];
       for (const dx of dots) el('circle', { cx: this.cx(f) + dx, cy: this.boardTop - 9, r: 2.4, class: 'fb-side-dot' }, g);
-      el('text', { x: this.cx(f), y: this.boardBot + 16, class: 'fb-num' + (marked ? ' marked' : '') }, g).textContent = f;
+      if (f === 0 || f === 12 || f === 24 || INLAYS.includes(f)) el('text', { x: this.cx(f), y: this.boardBot + 16, class: 'fb-num marked' }, this.numG).textContent = f;
     }
 
     this.layers = {
@@ -167,6 +168,7 @@ export class Fretboard {
       marks: el('g', { class: 'fb-marks' }, svg),
       hits: el('g', {}, svg),
     };
+    svg.insertBefore(this.numG, this.layers.hits); // above the dimmed board, under the click targets
     for (let s = 0; s < n; s++) {
       for (let f = 0; f <= this.frets; f++) {
         const r = el('rect', { ...this.cellRect(s, f), class: 'fb-hit' }, this.layers.hits);
@@ -268,9 +270,17 @@ export class Fretboard {
       const k = 1 - (1 - t) ** 3; // ease out
       this.view = from.map((v, i) => v + (to[i] - v) * k);
       this.svg.setAttribute('viewBox', this.view.map((v) => v.toFixed(1)).join(' '));
+      this.placeNums();
       if (t < 1) this.zoomRaf = requestAnimationFrame(frame);
     };
     this.zoomRaf = requestAnimationFrame(frame);
+  }
+
+  // The fret numbers sit under the board, or at the bottom of the view when a zoom cuts it off
+  // (a zone on the upper strings): never cut, never gone.
+  placeNums() {
+    const lift = Math.min(0, this.view[1] + this.view[3] - 6 - (this.boardBot + 16));
+    this.numG?.setAttribute('transform', `translate(0 ${lift.toFixed(1)})`);
   }
 
   clearMarks() {
@@ -379,14 +389,14 @@ export class Fretboard {
 }
 
 // A position as a card: its name on the left (red when missed), three bars on the right: known
-// (red to green by its level), fast (light grey), automatic (ink). w: the card's width; g is
+// (red to green by its level), asked lately (light grey), automatic (ink). w: the card's width; g is
 // centred on the position. Also draws the card at the top of a popup.
 function barsCard(g, v, w) {
   el('rect', { x: -w / 2 + 2, y: -12, width: w - 4, height: 24, rx: 5, class: 'fb-bars-bg' }, g);
   el('text', { x: -w / 2 + 5, y: 5, class: 'fb-bars-lbl' + (v.missed ? ' missed' : '') }, g).textContent = v.label;
   const bx = -w / 2 + Math.max(19, w * 0.42);
   const bw = w / 2 - 4 - bx;
-  ['known', 'fast', 'auto'].forEach((k, i) => {
+  ['known', 'asked', 'auto'].forEach((k, i) => {
     el('rect', { x: bx, y: -8 + i * 6, width: bw, height: 4, rx: 2, class: 'fb-bar-track' }, g);
     el('rect', { x: bx, y: -8 + i * 6, width: Math.max(0, bw * v.bars[k]), height: 4, rx: 2, class: 'fb-bar nb-' + k, ...(k === 'known' ? { fill: masteryColor(v.bars.known) } : {}) }, g);
   });
