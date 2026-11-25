@@ -582,6 +582,7 @@ function bindData() {
   $('folderReconnectBtn').onclick = folderAct(() => storage.reconnectFolder());
   $('dbBadge').onclick = () => { if (storage.status().disk.needsPermission) $('folderReconnectBtn').click(); };
   $('bannerReconnectBtn').onclick = () => $('folderReconnectBtn').click();
+  $('notSavedReload').onclick = () => location.reload();
   $('bannerChooseBtn').onclick = () => $('folderChooseBtn').click();
   $('folderForgetBtn').onclick = folderAct(() => storage.disconnectFolder());
   $('bringBtn').onclick = act(async () => {
@@ -778,6 +779,10 @@ function renderDbStatus() {
   const show = (id, on) => $(id).classList.toggle('hidden', !on);
   show('folderReconnectBtn', !!d.needsPermission);
   show('reconnectBanner', db.persistent && !!d.needsPermission);
+  show('notSavedBanner', !db.persistent);
+  $('notSavedBanner').querySelector('span').textContent = /another tab/.test(db.error || '')
+    ? `NOT SAVED: profile "${db.user}" is open in another tab or window of the app (perhaps one stuck on loading), and only one may save it. Close the others, then reload this one. Practice in this tab is not kept.`
+    : `NOT SAVED: the profile could not be opened (${db.error}). Practice in this tab is not kept. Reload to try again.`;
   $('reconnectBanner').querySelector('span').textContent = `Your data folder${d.name ? ` "${d.name}"` : ''} is not connected: practice is saved in this browser only until you reconnect it. If Reconnect does nothing, choose the same folder again (nothing is lost: both copies are merged).`;
   show('folderCreateBtn', d.supported && db.persistent);
   show('folderChooseBtn', d.supported && db.persistent);
@@ -1110,7 +1115,24 @@ async function init() {
   performance.mark('app:board');
   checkForLostData(db);
   checkAddress();
+  renderDbStatus();
   setInterval(renderDbStatus, 5000);
+  // the audio setup is remembered (this browser): when the microphone is already allowed, connect
+  // on the first click or key (browsers start audio only after one) rather than at New run
+  if (AUDIO_KEYS.some((k) => k in storage.lastSettings())) {
+    navigator.permissions?.query({ name: /** @type {PermissionName} */ ('microphone') }).then((p) => {
+      if (p.state !== 'granted' || app.audio.running) return;
+      document.querySelector('.top-meter-label').textContent = 'Audio ready: starts on first click';
+      const go = () => {
+        removeEventListener('pointerdown', go, true);
+        removeEventListener('keydown', go, true);
+        document.querySelector('.top-meter-label').textContent = 'Set up audio'; // what it says if the input goes away later
+        if (!app.audio.running) connectAudio();
+      };
+      addEventListener('pointerdown', go, true);
+      addEventListener('keydown', go, true);
+    }, () => {});
+  }
   // a profile made on the welcome screen picks its instrument and tuning first
   $('firstRunDone').onclick = () => {
     $('firstRunNote').classList.add('hidden');
