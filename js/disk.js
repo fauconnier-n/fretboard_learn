@@ -64,8 +64,15 @@ export const status = () => ({ ...state, supported: supportsFolder() });
 // a copy is wanted and can be written (the server may still be down: that is retried)
 export const configured = () => state.mode !== 'none' && !state.needsPermission;
 
+// The browser's answers about the folder have been seen to never come (a stale handle): the start
+// waits FOLDER_WAIT_MS at most, then goes on from the browser's copy with the folder to reconnect.
+const FOLDER_WAIT_MS = 5000;
+const within = (p, fallback) => Promise.race([p, new Promise((r) => setTimeout(() => r(fallback), FOLDER_WAIT_MS))]);
+
 async function checkFolder(ask) {
-  state.needsPermission = (await folder.permission(handle, ask)) !== 'granted';
+  // asking shows the browser's prompt: wait for the user's answer
+  const p = folder.permission(handle, ask);
+  state.needsPermission = (await (ask ? p : within(p, 'prompt'))) !== 'granted';
   transport = state.needsPermission ? null : new folder.FolderTransport(handle);
   return !state.needsPermission;
 }
@@ -74,7 +81,7 @@ async function checkFolder(ask) {
 // was made browser-only; else none.
 export async function start(name, store) {
   transport = null;
-  handle = await folder.loadHandle(name).catch(() => null);
+  handle = await within(folder.loadHandle(name).catch(() => null), null);
   Object.assign(state, { mode: 'none', name: '', needsPermission: false });
   if (handle) {
     Object.assign(state, { mode: 'folder', name: handle.name });
@@ -88,7 +95,8 @@ export async function start(name, store) {
 
 // The label of a copy that can be reached right now, or null (storage keeps it as info.disk.dir).
 export async function probe() {
-  if (state.mode === 'folder') return transport || (await checkFolder(false)) ? handle.name : null;
+  // a folder that needs permission waits for Reconnect (a click): no asking again here
+  if (state.mode === 'folder') return transport || (!state.needsPermission && (await checkFolder(false))) ? handle.name : null;
   if (state.mode === 'server') {
     const dir = await serverDir();
     if (dir) state.name = dir;
