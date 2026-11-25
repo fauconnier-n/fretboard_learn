@@ -581,6 +581,8 @@ function bindData() {
   $('folderChooseBtn').onclick = folderAct(() => storage.connectFolder((other) => confirm(`This folder holds the data of "${other}". Use it for "${storage.status().user}" anyway? The answers of both are merged.`)));
   $('folderReconnectBtn').onclick = folderAct(() => storage.reconnectFolder());
   $('dbBadge').onclick = () => { if (storage.status().disk.needsPermission) $('folderReconnectBtn').click(); };
+  $('bannerReconnectBtn').onclick = () => $('folderReconnectBtn').click();
+  $('bannerChooseBtn').onclick = () => $('folderChooseBtn').click();
   $('folderForgetBtn').onclick = folderAct(() => storage.disconnectFolder());
   $('bringBtn').onclick = act(async () => {
     const src = $('bringFrom').value;
@@ -775,6 +777,8 @@ function renderDbStatus() {
   // the Data folder block
   const show = (id, on) => $(id).classList.toggle('hidden', !on);
   show('folderReconnectBtn', !!d.needsPermission);
+  show('reconnectBanner', db.persistent && !!d.needsPermission);
+  $('reconnectBanner').querySelector('span').textContent = `Your data folder${d.name ? ` "${d.name}"` : ''} is not connected: practice is saved in this browser only until you reconnect it. If Reconnect does nothing, choose the same folder again (nothing is lost: both copies are merged).`;
   show('folderCreateBtn', d.supported && db.persistent);
   show('folderChooseBtn', d.supported && db.persistent);
   show('folderForgetBtn', d.mode === 'folder');
