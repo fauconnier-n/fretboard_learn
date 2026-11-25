@@ -76,6 +76,11 @@
       <button class="btn small primary" data-restore="">Restore backup</button>
       <button class="btn small" id="dismissRestore">Dismiss</button>
     </div>
+    <!-- the profile could not be opened for writing (another tab has it, or the browser database failed) -->
+    <div id="notSavedBanner" class="banner hidden">
+      <span></span>
+      <button class="btn small primary" id="notSavedReload">Reload</button>
+    </div>
     <!-- the data folder needs permission again: what Settings → Data offers, on every screen -->
     <div id="reconnectBanner" class="banner hidden">
       <span></span>
