@@ -35,12 +35,22 @@ export const saveHandle = (name, handle) => tx('readwrite', (st) => st.put(handl
 export const forgetHandle = (name) => tx('readwrite', (st) => st.delete(name));
 
 const RW = { mode: 'readwrite' };
-// 'granted' | 'prompt' | 'denied'; asking needs a click
+// 'granted' | 'prompt' | 'denied'; asking needs a click. Asking goes straight to the request (it
+// answers 'granted' without a prompt when allowed already): Chrome's query has been seen to never
+// answer, and waiting for it first left Reconnect doing nothing.
 export async function permission(handle, ask) {
   const h = /** @type {any} */ (handle);
-  let p = await h.queryPermission(RW);
-  if (p === 'prompt' && ask) p = await h.requestPermission(RW);
-  return p;
+  return ask ? h.requestPermission(RW) : h.queryPermission(RW);
+}
+
+// Whether the folder can be read now (reading needs the permission): the answer when the query gives none.
+export async function readable(handle) {
+  try {
+    await readText(handle, 'profile.json');
+    return 'granted';
+  } catch {
+    return 'prompt';
+  }
 }
 
 export const pick = () => /** @type {any} */ (window).showDirectoryPicker({ id: 'fretboard-data', mode: 'readwrite', startIn: 'documents' });

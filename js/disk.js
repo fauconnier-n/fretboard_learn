@@ -71,8 +71,10 @@ const within = (p, fallback) => Promise.race([p, new Promise((r) => setTimeout((
 
 async function checkFolder(ask) {
   // asking shows the browser's prompt: wait for the user's answer
-  const p = folder.permission(handle, ask);
-  state.needsPermission = (await (ask ? p : within(p, 'prompt'))) !== 'granted';
+  let p = ask ? await folder.permission(handle, true) : await within(folder.permission(handle, false), 'timeout');
+  // no answer: try reading the folder, which works only with the permission
+  if (p === 'timeout') p = await within(folder.readable(handle), 'prompt');
+  state.needsPermission = p !== 'granted';
   transport = state.needsPermission ? null : new folder.FolderTransport(handle);
   return !state.needsPermission;
 }
