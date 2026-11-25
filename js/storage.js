@@ -242,15 +242,20 @@ async function load(user) {
 export async function open() {
   info.user = activeUser();
   // ask the browser not to evict this site's storage (profiles and backups) when disk space
-  // runs low; without it all of them can be cleared together
+  // runs low; without it all of them can be cleared together. Some browsers ask the user first:
+  // the start does not wait for that answer.
+  info.step = 'asking the browser to keep the data';
   try {
-    info.persisted = (await navigator.storage?.persisted?.()) || (await navigator.storage?.persist?.()) || false;
+    const keep = (async () => (await navigator.storage?.persisted?.()) || (await navigator.storage?.persist?.()) || false)();
+    info.persisted = await Promise.race([keep, new Promise((r) => setTimeout(() => r(false), 3000))]);
   } catch {
     info.persisted = false;
   }
+  info.step = 'waiting for another tab of this profile to close';
   if (!(await acquireTabLock('fretboard-db-' + info.user, LOCK_WAIT_MS))) info.error = `profile "${info.user}" is open in another tab`;
   else {
     try {
+      info.step = 'reading the browser database';
       mem = await load(info.user);
       info.persistent = true;
     } catch (e) {
@@ -260,9 +265,13 @@ export async function open() {
   }
   performance.mark('db:open');
   if (info.persistent) {
+    info.step = 'closing runs left open';
     await closeOpenRuns();
+    info.step = 'reaching the data folder';
     await disk.start(info.user, profiles()[info.user]?.store);
+    info.step = 'syncing with the data folder';
     await syncDisk();
+    info.step = '';
     performance.mark('db:sync');
     pushDisk(false); // starts the retries if the server was not reachable
   }

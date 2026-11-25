@@ -9,6 +9,13 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    // a start that fails (a script that did not load, an error while starting) says so instead of
+    // "Loading database…" for ever; once started, the loading line is gone and this does nothing
+    const startFailed = (msg) => { const l = document.getElementById('loading'); if (l) l.textContent = `Could not start: ${msg}. Reload the page (Ctrl+Shift+R); if it stays, the browser console (F12) has the details.`; };
+    addEventListener('error', (e) => startFailed(e.message || (e.target && e.target.src) || 'a file did not load'), true);
+    addEventListener('unhandledrejection', (e) => startFailed((e.reason && e.reason.message) || String(e.reason)));
+  </script>
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
