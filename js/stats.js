@@ -45,11 +45,13 @@ export function detailHtml(scheduler, key, { note, title, runMs = [], keys = [ke
   const before = scheduler.model.cards[key]?.mark;
   const row = (k, name) => {
     const v = bars[k];
-    const color = k === 'known' ? masteryColor(v) : k === 'fast' ? PALETTE.steel : PALETTE.ink;
+    const color = k === 'known' ? masteryColor(v) : k === 'asked' ? PALETTE.steel : PALETTE.ink;
     // the top bar's line carries a small label, like a pin on a map
     const pin = k === 'known' ? '<span class="tip-pin">before this session</span>' : '';
-    const mark = before ? `<u style="left:${(100 * before[k]).toFixed(0)}%" title="before this session">${pin}</u>` : '';
-    return `<div class="tip-bar"><span>${name}</span><i><b style="width:${(100 * v).toFixed(0)}%;background:${color}"></b>${mark}</i><em>${pct(v)}</em></div>`;
+    // asked counts answers, so no "before" mark; it shows the count rather than a %
+    const mark = before?.[k] != null && k !== 'asked' ? `<u style="left:${(100 * before[k]).toFixed(0)}%" title="before this session">${pin}</u>` : '';
+    const text = k === 'asked' ? `${keys.reduce((t, x) => t + scheduler.asked(x), 0)}×` : pct(v);
+    return `<div class="tip-bar"><span>${name}</span><i><b style="width:${(100 * v).toFixed(0)}%;background:${color}"></b>${mark}</i><em>${text}</em></div>`;
   };
   const card = scheduler.model.cards[key];
   const hist = (card?.hist || []).map(([ok, ms]) => `<span class="${ok ? 'ok' : 'miss'}" title="${(ms / 1000).toFixed(1)} s"></span>`).join('');
@@ -63,7 +65,7 @@ export function detailHtml(scheduler, key, { note, title, runMs = [], keys = [ke
   const cards = keys.map((k) => scheduler.model.cards[k]).filter(Boolean);
   const seen = cards.reduce((t, c) => t + c.seen, 0);
   const acc = seen ? cards.reduce((t, c) => t + c.acc * c.seen, 0) / seen : 0;
-  return `<div class="tip-title${before ? ' with-pin' : ''}"><span class="tip-note">${note}</span> ${title}</div>${row('known', 'known')}${row('fast', 'speed vs avg')}${row('auto', 'automatic')}` +
+  return `<div class="tip-title${before ? ' with-pin' : ''}"><span class="tip-note">${note}</span> ${title}</div>${row('known', 'known')}${row('asked', 'asked (7 days)')}${row('auto', 'automatic')}` +
     `<div class="tip-hist"><span class="tip-lbl">last ${card?.hist?.length || 0}</span>${hist}</div>` +
     `<div class="tip-lbl">time · <i class="floor"></i> quickest 10%${usual ? ' · <i class="usual"></i> usual' : ''}${runMs.length ? ' · <i class="run"></i> this run' : ''}</div>${line}` +
     `<div class="tip-foot">Asked ${seen}× · ${pct(acc)} right${usual ? ` · usually ${(usual / 1000).toFixed(1)} s` : ''}</div>`;

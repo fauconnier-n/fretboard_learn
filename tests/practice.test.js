@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { INSTRUMENTS } from '../js/instruments.js';
 import { Scheduler, newModel } from '../js/srs.js';
-import { generateZones } from '../js/zones.js';
+import { generateZones, describe as describeZone } from '../js/zones.js';
 
 const strings = INSTRUMENTS.guitar6.strings;
 const zones = generateZones(strings, 15, 'both');
@@ -36,30 +36,35 @@ test('zone offers are distinct and do not look like the pick', () => {
 
 test('note rings: empty for an unseen note, full for a known fast mastered one', () => {
   const sch = new Scheduler(newModel(), strings, 15);
-  assert.deepEqual(sch.noteRings('0:5'), { known: 0, fast: 0, auto: 0 });
+  assert.deepEqual(sch.noteRings('0:5'), { known: 0, asked: 0, auto: 0 });
   const cell = lowE.cells.find((c) => c.f === 5);
   const day = 86400000;
   let t = Date.now() - 3 * day;
   for (let i = 0; i < 12; i++, t += day / 4) sch.record({ type: 'string', sk: '0', cs: 0, cf: 5.5, span: 12 }, cell, 'n', true, 600, t);
   const r = sch.noteRings('0:5');
-  assert.ok(r.known > 0.9 && r.fast > 0.9, JSON.stringify(r));
+  assert.ok(r.known > 0.9 && r.asked === 1, JSON.stringify(r));
   assert.equal(r.auto, 1);
   for (const v of Object.values(r)) assert.ok(v >= 0 && v <= 1);
 });
 
-test('note rings: automatic stays empty within one day; speed is against your last 10 right answers', () => {
+test('note rings: automatic stays empty within one day; asked counts your last 7 practice days', () => {
   const sch = new Scheduler(newModel(), strings, 15);
   const desc = { type: 'string', sk: '0', cs: 0, cf: 5.5, span: 12 };
   const at = (f) => lowE.cells.find((c) => c.f === f);
   const t = Date.now() - 3600000;
   for (let i = 0; i < 10; i++) sch.record(desc, at(5), 'n', true, 700, t + i * 1000);
   assert.equal(sch.noteRings('0:5').auto, 0);
-  // slow answers long ago, then quick ones: the reference is the quick ones
+  // fret 3 asked 40 times on a practice day long ago, fret 7 ten times on each of the last 7
+  // practice days (spread over 3 weeks, a break included): fret 3 has dropped out of the window
   const sch2 = new Scheduler(newModel(), strings, 15);
-  for (let i = 0; i < 40; i++) sch2.record(desc, at(3), 'n', true, 4000, t - 86400000 + i * 1000);
-  for (let i = 0; i < 10; i++) sch2.record(desc, at(7), 'n', true, 800, t + i * 1000);
-  assert.ok(Math.abs(sch2.recentMu() - Math.log(800)) < 1e-9);
-  assert.ok(sch2.noteRings('0:3').fast < 0.4, JSON.stringify(sch2.noteRings('0:3')));
+  const day = 86400000;
+  for (let i = 0; i < 40; i++) sch2.record(desc, at(3), 'n', true, 900, t - 25 * day + i * 1000);
+  for (let d = 7; d >= 1; d--) for (let i = 0; i < 10; i++) sch2.record(desc, at(7), 'n', true, 900, t - 3 * d * day + i * 1000);
+  sch2.record(desc, at(5), 'n', true, 900, t);
+  assert.equal(sch2.asked('0:3'), 0);
+  assert.equal(sch2.asked('0:7'), 60, 'the oldest of its 7 days left the window when fret 5 was played today');
+  assert.equal(sch2.noteRings('0:7').asked, 1);
+  assert.ok(Math.abs(sch2.noteRings('0:5').asked - 1 / 60) < 1e-9);
 });
 
 
@@ -74,7 +79,7 @@ test('knowledge map: note names, bars and a popup with how often it was asked', 
   for (let i = 0; i < 20; i++) sch.record(desc, cell, 'n', true, 900, Date.now());
   const often = mapCell(sch, sch.snapshot(), 0, 5, false);
   assert.equal(once.label, 'A');
-  assert.ok(['known', 'fast', 'auto'].every((k) => often.bars[k] >= 0 && often.bars[k] <= 1));
+  assert.ok(['known', 'asked', 'auto'].every((k) => often.bars[k] >= 0 && often.bars[k] <= 1));
   assert.ok(onceHtml.includes('Asked 1×') && often.tip.html.includes('Asked 21×'));
   assert.equal((often.tip.html.match(/class="ok"/g) || []).length, 15, 'the last 15 answers, all right');
   const unplayed = mapCell(sch, sch.snapshot(), 0, 1, true);
@@ -119,4 +124,20 @@ test('notes by octave: a note name splits into the octaves it was asked in', asy
   const rows = octaveRows(sch, 'A');
   assert.deepEqual(rows.map((r) => r.label), ['A2', 'A3']);
   assert.ok(rows[0].acc > rows[1].acc);
+});
+
+test('boxes spread from the nut: a played string does not unlock the boxes far along it', () => {
+  const sch = new Scheduler(newModel(), strings, 15);
+  const desc = { type: 'string', sk: '0', cs: 0, cf: 6, span: 12 };
+  let t = Date.now() - 3600000;
+  for (let f = 0; f <= 15; f++) for (let i = 0; i < 3; i++) sch.record(desc, { s: 0, f, midi: 40 + f, pc: (40 + f) % 12, key: '0:' + f }, (40 + f) % 12 === 1 || [3, 6, 8, 10].includes((40 + f) % 12) ? 's' : 'n', true, 900, (t += 4000));
+  const boxes = zones.filter((z) => z.type === 'box');
+  const offered = sch.spreadBoxes(zones, boxes);
+  assert.ok(offered.length && offered.every((z) => z.fretMin <= 2), offered.map((z) => z.id).join(' '));
+  // a practised box near the nut (which also fills most of the boxes overlapping it) opens the
+  // next ones up the neck, not the far ones
+  const first = boxes.find((z) => z.strings.join() === '0,1,2' && z.fretMin === 0);
+  for (const c of first.cells) sch.record(describeZone(first), c, c.pc === 1 || [3, 6, 8, 10].includes(c.pc) ? 's' : 'n', true, 900, (t += 4000));
+  const next = sch.spreadBoxes(zones, boxes);
+  assert.ok(next.some((z) => z.fretMin > 2) && next.every((z) => z.fretMin <= 4), next.map((z) => z.id).join(' '));
 });
