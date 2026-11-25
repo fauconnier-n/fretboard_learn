@@ -49,7 +49,7 @@ const isReverse = (key) => key.endsWith(':r');
 
 // Bump it when what a replay computes changes: the replay saved at the last start is then
 // dropped (each release drops it too, replayId).
-const MODEL_VERSION = 7;
+const MODEL_VERSION = 8;
 const DAY = 86400000;
 const CTX_MAX = 24;
 const UNLOCK_FRACTION = 0.5;
@@ -90,6 +90,7 @@ export function newModel() {
     meta: {
       target: 0.8, speedPush: 1, runsDone: 0, recent: [], last: null,
       session: 0, lastAnswer: 0, // sessions counted while answers are replayed (SESSION_GAP apart)
+      activeDays: [], // the last KEEP_DAYS days with answers (dayNo), oldest first
       time: newTime(), recentLog: [], floor: DEFAULT_FLOOR_MS, fx: { time: {}, acc: {}, g: { v: logit(0.7), n: 0 } },
       best: {}, // most right first answers per "zone label|run length", for the near-miss line
     },
@@ -181,10 +182,10 @@ export function errorType(target, played) {
 
 // The known bar (what is shown, never what is picked): full only after fast right answers on
 // KNOWN_DAYS separate days, so a night's sleep comes between them; one session reaches at most
-// 0.4, one day 0.5. Fast = within FAST_MAX_MS (math-fact automaticity: recall "within a second or
-// two"), or 2x your own quickest times when they are lower. It also needs a high running accuracy
+// 0.4, one day 0.5. Fast = within FAST_MAX_MS (math-fact automaticity is recall "within a second or
+// two"; here the stricter end, as asked), or 2x your own quickest times when they are lower. It also needs a high running accuracy
 // (about 4 right in a row) and a fresh memory. Sources: learning-algorithm.md, "The known bar".
-const FAST_MAX_MS = 2000;
+const FAST_MAX_MS = 1000;
 const KNOWN_DAYS = 4;
 // local calendar day, rolling over at 4 a.m. so a session after midnight stays on its day
 const dayNo = (t) => Math.floor((t - new Date(t).getTimezoneOffset() * 60000 - 4 * 3600000) / DAY);
@@ -195,7 +196,16 @@ export function knownBar(c, now) {
 }
 
 // The fields of `meta` that rebuild recomputes from the answers (a replayState carries them).
-const REPLAYED_META = ['time', 'recentLog', 'floor', 'fx', 'session', 'lastAnswer'];
+const REPLAYED_META = ['time', 'recentLog', 'floor', 'fx', 'session', 'lastAnswer', 'activeDays'];
+// the asked bar counts answers over your last ASKED_DAYS practice days (days with answers, so a break
+// does not empty it); per position, answers per day are kept for KEEP_DAYS days
+const ASKED_DAYS = 7;
+const KEEP_DAYS = 30;
+// boxes spread from the nut: a box is offered when it starts within BOX_NUT_FRETS of the nut, or next to
+// a box already practised (BOX_PRACTISED of its cells answered; 2 strings shared, within BOX_STEP frets)
+const BOX_NUT_FRETS = 2;
+const BOX_PRACTISED = 9;
+const BOX_STEP = 3;
 
 // A fingerprint of the first n answers of a log (FNV-1a over what identifies each one): a saved
 // replay is resumed only while the answers it covered are still there, in the same order.
@@ -609,7 +619,7 @@ export class Scheduler {
     const dueIn = (z) => z.cells.filter((c) => due.has(c.key)).length;
     let review = due.size >= BACKLOG_GATE;
 
-    let pool = zones.filter((z) => this.isUnlocked(z, snap));
+    let pool = this.spreadBoxes(zones, zones.filter((z) => this.isUnlocked(z, snap)));
     const cidx = focus === 'confusions' ? this.confusionIndex() : null;
     const mixed = cidx ? pool.filter((z) => this.confusionCells(z, cidx).size >= 2) : [];
     if (mixed.length) {
@@ -644,6 +654,17 @@ export class Scheduler {
     return { ...asPick(pick), alternatives };
   }
 
+  // Boxes spread from the nut outwards: one far up the neck waits until the boxes between have been
+  // practised (a played string alone would otherwise unlock every box along it). Other zones pass.
+  spreadBoxes(zones, pool) {
+    const practised = zones.filter((z) => z.type === 'box' && z.cells.filter((c) => this.hasCard(c)).length >= BOX_PRACTISED);
+    const shared = (a, b) => a.strings.filter((s) => b.strings.includes(s)).length;
+    const near = (z) => z.type !== 'box' || z.fretMin <= BOX_NUT_FRETS || practised.includes(z)
+      || practised.some((y) => shared(y, z) >= 2 && Math.abs(y.fretMin - z.fretMin) <= BOX_STEP);
+    const out = pool.filter(near);
+    return out.length ? out : pool;
+  }
+
   // Cells of a zone involved in a mix-up: notes you played wrong there, and the notes you
   // played instead of them (or instead of which they were played).
   confusionCells(zone, idx = this.confusionIndex()) {
@@ -675,17 +696,32 @@ export class Scheduler {
   // Fast and automatic come only from right answers: none yet, both empty.
   noteRings(key, now = Date.now()) {
     const c = this.model.cards[key];
-    if (!c) return { known: 0, fast: 0, auto: 0 };
+    if (!c) return { known: 0, asked: 0, auto: 0 };
     const known = knownBar(c, now);
-    if (!c.correct) return { known, fast: 0, auto: 0 };
+    const max = this.askedMax();
+    const asked = max ? this.asked(key) / max : 0;
+    if (!c.correct) return { known, asked, auto: 0 };
     return {
       known,
-      // your time from right answers only (the prior would fill the bar before any)
-      fast: c.time?.n ? Math.min(1, Math.exp(this.recentMu()) / this.expectedMs(key, now)) : 0,
+      asked,
       // empty until right and fast in two sessions; then towards mastered, full only once it is,
       // and never ahead of known
       auto: Math.min(known, (c.sessions?.length || 0) < 2 ? 0 : this.isMastered(key, now) ? 1 : Math.min(0.95, this.itemMastery(key, now) / 0.7)),
     };
+  }
+
+  // Times an item was answered over your last ASKED_DAYS practice days.
+  asked(key) {
+    const per = this.model.cards[key]?.perDay;
+    if (!per) return 0;
+    return (this.model.meta.activeDays || []).slice(-ASKED_DAYS).reduce((t, d) => t + (per[d] || 0), 0);
+  }
+
+  // The most any item was asked over those days: a full asked bar. Kept until the next answer.
+  askedMax() {
+    const stamp = this.model.meta.lastAnswer + ':' + Object.keys(this.model.cards).length;
+    if (this.askedMemo?.stamp !== stamp) this.askedMemo = { stamp, max: Math.max(0, ...Object.keys(this.model.cards).map((k) => this.asked(k))) };
+    return this.askedMemo.max;
   }
 
   // ---------- choosing a prompt ----------
@@ -827,6 +863,14 @@ export class Scheduler {
       if (!c.sessions.includes(meta.session)) c.sessions = [...c.sessions, meta.session].slice(-5);
     }
     c.inSession = meta.session;
+    const today = dayNo(now);
+    c.perDay ||= {};
+    c.perDay[today] = (c.perDay[today] || 0) + 1;
+    const old = Object.keys(c.perDay).filter((d) => +d <= today - KEEP_DAYS);
+    for (const d of old) delete c.perDay[d];
+    meta.activeDays ||= [];
+    if (meta.activeDays.at(-1) !== today) meta.activeDays = [...meta.activeDays, today].slice(-KEEP_DAYS);
+    this.askedMemo = null;
     // the days and sessions with a fast right answer, for the known bar
     if (correct && useSpeed && ms <= fastMs) {
       const d = dayNo(now);
