@@ -244,7 +244,9 @@ body.welcome main > :not(#welcome), body.welcome .tabs, body.welcome .user-switc
 .chg { list-style: none; padding: 0; margin: 0; font-size: 14px; }
 .chg li { padding: 3px 0; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
 .chg li .muted { font-size: 12px; }
-.prompt-queue { display: flex; justify-content: center; align-items: baseline; gap: 12px; min-height: 26px; line-height: 1; font-weight: 900; letter-spacing: -1px; color: var(--muted); }
+.prompt-queue { display: flex; justify-content: center; align-items: flex-start; gap: 12px; min-height: 26px; padding-top: 8px; line-height: 1; font-weight: 900; letter-spacing: -1px; color: var(--muted); }
+/* the notes' tops in one line: each box starts at the top of its capitals, whatever its size */
+.prompt-queue span { text-box: trim-start cap alphabetic; }
 .prompt-queue:not(:empty)::before { content: 'next'; font-size: 11px; font-weight: 400; align-self: center; text-transform: uppercase; letter-spacing: .08em; }
 .run-len { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .run-len input { width: 76px; }
