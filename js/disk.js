@@ -81,9 +81,12 @@ async function checkFolder(ask) {
 // was made browser-only; else none.
 export async function start(name, store) {
   transport = null;
-  handle = await within(folder.loadHandle(name).catch(() => null), null);
+  const h = await within(folder.loadHandle(name).catch(() => null), 'timeout');
+  handle = h === 'timeout' ? null : h;
   Object.assign(state, { mode: 'none', name: '', needsPermission: false });
-  if (handle) {
+  // no answer about the stored folder: to reconnect, by choosing it again (no handle to ask with)
+  if (h === 'timeout') Object.assign(state, { mode: 'folder', needsPermission: true });
+  else if (handle) {
     Object.assign(state, { mode: 'folder', name: handle.name });
     await checkFolder(false);
   } else if (LOCAL && store !== 'browser') {

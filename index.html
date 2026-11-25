@@ -76,6 +76,12 @@
       <button class="btn small primary" data-restore="">Restore backup</button>
       <button class="btn small" id="dismissRestore">Dismiss</button>
     </div>
+    <!-- the data folder needs permission again: what Settings → Data offers, on every screen -->
+    <div id="reconnectBanner" class="banner hidden">
+      <span></span>
+      <button class="btn small primary" id="bannerReconnectBtn">Reconnect</button>
+      <button class="btn small" id="bannerChooseBtn">Choose the folder again…</button>
+    </div>
     <div id="firstRunTip" class="banner hidden">
       <span><b>Ready for your first run?</b> 20 notes, a few minutes: the app picks a zone near the nut and asks for its notes one by one. Play each note (or click it), and don't worry about misses: they show the app what to bring back.</span>
       <button class="btn small primary" id="firstRunGo">Start my first run</button>
