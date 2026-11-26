@@ -392,7 +392,8 @@ export class Quiz {
         continue;
       } else if (n % PROBE_EVERY === 0) {
         // check-up: any position of the zone, so its success rate is not shaped by the model
-        const cell = run.zone.cells[Math.floor(Math.random() * run.zone.cells.length)];
+        const others = run.zone.cells.filter((c) => c.key !== run.asked.at(-1));
+        const cell = others[Math.floor(Math.random() * others.length)];
         p = { cell, sp: spellFor(cell, task), probe: true };
       } else {
         // golden: now and then, a note you have been missing, with a special effect when right
@@ -420,6 +421,13 @@ export class Quiz {
     if (run.results.length >= run.total) return this.end('completed');
     if (run.endsAt && performance.now() >= run.endsAt) return this.end('time_up');
     this.fillQueue();
+    // never the note just asked again when another can come first (a check-up, a re-test or the
+    // closing notes could land there): swapped with the next different one
+    const last = run.prev?.cell.key;
+    if (run.queue[0]?.cell.key === last) {
+      const j = run.queue.findIndex((x) => x.cell.key !== last);
+      if (j > 0) [run.queue[0], run.queue[j]] = [run.queue[j], run.queue[0]];
+    }
     let { cell, sp, retest, probe, task, special } = run.queue.shift();
     if (special === 'finale' && run.failed.has(cell.key)) {
       // missed during this run: close on the best-known note you have not missed instead
@@ -664,7 +672,7 @@ export class Quiz {
     }
     if (sub === 'length') {
       return this.menu.show('Length', [
-        ...[10, 20, 30, 50].map((n) => ({ label: `${n} prompts`, active: s.runMode === 'count' && s.runCount === n, act: () => { a.setLength('count', n); this.showMenu(); } })),
+        ...[10, 25, 30, 50].map((n) => ({ label: `${n} prompts`, active: s.runMode === 'count' && s.runCount === n, act: () => { a.setLength('count', n); this.showMenu(); } })),
         ...[60, 120, 180].map((n) => ({ label: `${n} s sprint`, active: s.runMode === 'sprint' && s.sprintSec === n, act: () => { a.setLength('sprint', n); this.showMenu(); } })),
       ], { back: () => this.showMenu(), hint: 'new run' });
     }
