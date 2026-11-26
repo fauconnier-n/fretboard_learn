@@ -39,7 +39,7 @@ const DEFAULTS = {
   lowAtBottom: true, // low E at the bottom by default (like tab); false draws it on top (like Rocksmith)
   zoneTypes: 'both',
   runMode: 'count',
-  runCount: 20,
+  runCount: 25,
   sprintSec: 120,
   retry: true, // chord runs: after a miss, play the grip once where it is shown
   showQueue: true,
