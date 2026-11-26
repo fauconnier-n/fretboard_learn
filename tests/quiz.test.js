@@ -87,3 +87,18 @@ test('a resumed sprint keeps its full length on the time bar', () => {
   assert.ok(Math.abs(quiz.run.endsAt - quiz.run.startedAt - 60000) < 1);
   quiz.leave();
 });
+
+test('a run never asks the same position twice in a row when another is queued', () => {
+  for (let k = 0; k < 20; k++) {
+    const { quiz } = makeQuiz({ runCount: 30 });
+    let prev = null;
+    for (let i = 0; i < 29 && quiz.cur; i++) {
+      assert.notEqual(quiz.cur.cell.key, prev, `prompt ${i + 1}`);
+      prev = quiz.cur.cell.key;
+      // a miss now and then queues a re-test, which must not land right after itself
+      quiz.onNote({ midi: i % 4 ? quiz.cur.cell.midi : quiz.cur.cell.midi + 1, t: performance.now() + 1 });
+      if (quiz.cur && !quiz.cur.solvedMs && quiz.cur.graded) quiz.onNote({ midi: quiz.cur.cell.midi, t: performance.now() + 2 });
+      quiz.next();
+    }
+  }
+});

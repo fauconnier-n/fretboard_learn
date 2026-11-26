@@ -9,9 +9,12 @@ import { LANDMARKS } from './srs.js';
 import { isAccidental, spellName } from './music.js';
 
 // "fade": a position gets its label while the chance of recalling it is below FULL_BELOW;
-// between FULL_BELOW and PART_BELOW only naturals and landmark frets keep theirs.
-const FULL_BELOW = 0.55;
-const PART_BELOW = 0.7;
+// between FULL_BELOW and PART_BELOW only naturals and landmark frets keep theirs. At most
+// FADE_MAX labels to start with, on the least known positions: a few landmarks to work from, not a
+// cheat sheet (a miss still brings that note's label back during the run).
+const FULL_BELOW = 0.4;
+const PART_BELOW = 0.55;
+const FADE_MAX = 3;
 
 // Distance between two positions on the board, in fret widths. A step along a string
 // (the horizontal direction) counts 1; a step to the next string counts STRING_WEIGHT, so
@@ -26,6 +29,7 @@ export function initialCues(mode, zone, sch, desc, now = Date.now()) {
   const out = new Set();
   if (mode === 'off') return out;
   const snap = mode === 'fade' ? sch.snapshot(now) : null;
+  const fade = [];
   for (const c of zone.cells) {
     const natural = !isAccidental(c.pc);
     const landmark = LANDMARKS.includes(c.f);
@@ -35,10 +39,12 @@ export function initialCues(mode, zone, sch, desc, now = Date.now()) {
     else if (mode === 'landmarks') show = landmark;
     else {
       const p = sch.pCell(c, desc, snap, now);
-      show = p < FULL_BELOW || (p < PART_BELOW && (natural || landmark));
+      if (p < FULL_BELOW || (p < PART_BELOW && (natural || landmark))) fade.push({ key: c.key, p });
+      continue;
     }
     if (show) out.add(c.key);
   }
+  for (const x of fade.sort((a, b) => a.p - b.p).slice(0, FADE_MAX)) out.add(x.key);
   return out;
 }
 
