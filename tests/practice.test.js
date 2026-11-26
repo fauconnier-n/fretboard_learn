@@ -133,11 +133,22 @@ test('boxes spread from the nut: a played string does not unlock the boxes far a
   for (let f = 0; f <= 15; f++) for (let i = 0; i < 3; i++) sch.record(desc, { s: 0, f, midi: 40 + f, pc: (40 + f) % 12, key: '0:' + f }, (40 + f) % 12 === 1 || [3, 6, 8, 10].includes((40 + f) % 12) ? 's' : 'n', true, 900, (t += 4000));
   const boxes = zones.filter((z) => z.type === 'box');
   const offered = sch.spreadBoxes(zones, boxes);
-  assert.ok(offered.length && offered.every((z) => z.fretMin <= 2), offered.map((z) => z.id).join(' '));
+  const key = sch.keyBox(zones);
+  assert.equal(key.id, 'box:1.3-6/2.2-6/3.2-4', 'the C box: A string from fret 3 (C), D and G strings');
+  // at first: the boxes at the nut on low E, and the C box
+  assert.ok(offered.includes(key) && offered.every((z) => z === key || (z.fretMin === 0 && z.strings[0] === 0)), offered.map((z) => z.id).join(' '));
   // a practised box near the nut (which also fills most of the boxes overlapping it) opens the
   // next ones up the neck, not the far ones
   const first = boxes.find((z) => z.strings.join() === '0,1,2' && z.fretMin === 0);
   for (const c of first.cells) sch.record(describeZone(first), c, c.pc === 1 || [3, 6, 8, 10].includes(c.pc) ? 's' : 'n', true, 900, (t += 4000));
   const next = sch.spreadBoxes(zones, boxes);
-  assert.ok(next.some((z) => z.fretMin > 2) && next.every((z) => z.fretMin <= 4), next.map((z) => z.id).join(' '));
+  assert.ok(next.some((z) => z.fretMin > 0) && next.every((z) => z === key || z.fretMin <= 3), next.map((z) => z.id).join(' '));
+});
+
+test('fade cues: at most 3 labels to start with, on the least known positions', async () => {
+  const { initialCues } = await import('../js/cues.js');
+  const sch = new Scheduler(newModel(), strings, 15);
+  const box = zones.find((z) => z.type === 'box' && z.fretMin >= 7);
+  assert.ok(initialCues('fade', box, sch, describeZone(box)).size <= 3);
+  assert.equal(initialCues('all', box, sch, describeZone(box)).size, 12);
 });

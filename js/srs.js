@@ -201,11 +201,13 @@ const REPLAYED_META = ['time', 'recentLog', 'floor', 'fx', 'session', 'lastAnswe
 // does not empty it); per position, answers per day are kept for KEEP_DAYS days
 const ASKED_DAYS = 7;
 const KEEP_DAYS = 30;
-// boxes spread from the nut: a box is offered when it starts within BOX_NUT_FRETS of the nut, or next to
-// a box already practised (BOX_PRACTISED of its cells answered; 2 strings shared, within BOX_STEP frets)
-const BOX_NUT_FRETS = 2;
+// boxes spread from the nut on the lowest string: at first only the boxes there (fret 0) and the C box;
+// any other once a box next to it is practised (BOX_PRACTISED of its cells answered; 2 strings shared,
+// starting within BOX_STEP frets). The C box (second string, from its first C: A string fret 3 in
+// standard tuning) gets KEY_BOX_BONUS in the pick until practised: the box every guitarist learns first.
 const BOX_PRACTISED = 9;
-const BOX_STEP = 3;
+const BOX_STEP = 2;
+const KEY_BOX_BONUS = 3;
 
 // A fingerprint of the first n answers of a log (FNV-1a over what identifies each one): a saved
 // replay is resumed only while the answers it covered are still there, in the same order.
@@ -620,6 +622,10 @@ export class Scheduler {
     let review = due.size >= BACKLOG_GATE;
 
     let pool = this.spreadBoxes(zones, zones.filter((z) => this.isUnlocked(z, snap)));
+    const key = this.keyBox(zones);
+    const keyNew = key && !this.boxPractised(key);
+    // the C box is offered until practised, even before enough of it is reachable
+    if (keyNew && !pool.includes(key)) pool.push(key);
     const cidx = focus === 'confusions' ? this.confusionIndex() : null;
     const mixed = cidx ? pool.filter((z) => this.confusionCells(z, cidx).size >= 2) : [];
     if (mixed.length) {
@@ -639,6 +645,7 @@ export class Scheduler {
           ? 0.6 * dueIn(z) - 0.5 * ((P - meta.target) / 0.12) ** 2
           : -0.5 * ((P - meta.target) / 0.06) ** 2 - 1.5 * this.zoneDifficulty(z) + 0.15 * dueIn(z);
       if (meta.last && similarity(describe(z), meta.last) > 0.8) lg -= 2.5;
+      if (keyNew && z === key && !review) lg += KEY_BOX_BONUS;
       lg += Math.log(0.75 + 0.5 * Math.random());
       return { z, P, lg };
     });
@@ -654,12 +661,28 @@ export class Scheduler {
     return { ...asPick(pick), alternatives };
   }
 
-  // Boxes spread from the nut outwards: one far up the neck waits until the boxes between have been
-  // practised (a played string alone would otherwise unlock every box along it). Other zones pass.
+  // Practised in this box itself: BOX_PRACTISED of its positions answered while it was the zone (each
+  // answer keeps its zone's shape in ctx). Answers in other zones, a whole string say, don't count.
+  boxPractised(z) {
+    const d = describe(z);
+    const inBox = (key) => (this.model.ctx[key] || []).some((e) => e.type === 'box' && e.sk === d.sk && Math.abs(e.cs - d.cs) < 0.01 && Math.abs(e.cf - d.cf) < 0.01);
+    return z.cells.filter((c) => spellingsOf(c.pc).some((sp) => inBox(itemKey(c.key, sp)))).length >= BOX_PRACTISED;
+  }
+
+  // The C box: on the second lowest string, from its first C (A string fret 3 in standard tuning).
+  keyBox(zones) {
+    const f = [...Array(12).keys()].find((x) => pcOf(this.strings[1] + x) === 0);
+    return zones.find((z) => z.type === 'box' && z.runs[0].s === 1 && z.runs[0].a === f) || null;
+  }
+
+  // Boxes spread from the nut on the lowest string outwards: one further away waits until a box next
+  // to it has been practised (a played string alone would otherwise unlock every box along it).
+  // Other zones pass.
   spreadBoxes(zones, pool) {
-    const practised = zones.filter((z) => z.type === 'box' && z.cells.filter((c) => this.hasCard(c)).length >= BOX_PRACTISED);
+    const practised = zones.filter((z) => z.type === 'box' && this.boxPractised(z));
     const shared = (a, b) => a.strings.filter((s) => b.strings.includes(s)).length;
-    const near = (z) => z.type !== 'box' || z.fretMin <= BOX_NUT_FRETS || practised.includes(z)
+    const key = this.keyBox(zones);
+    const near = (z) => z.type !== 'box' || (z.fretMin === 0 && z.strings[0] === 0) || z === key || practised.includes(z)
       || practised.some((y) => shared(y, z) >= 2 && Math.abs(y.fretMin - z.fretMin) <= BOX_STEP);
     const out = pool.filter(near);
     return out.length ? out : pool;
